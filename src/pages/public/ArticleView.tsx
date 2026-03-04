@@ -95,8 +95,8 @@ export default function ArticleView() {
           <div className="flex flex-wrap gap-3 mb-5">
             {authors.map((author, i) => (
               <span key={i} className="inline-flex items-center gap-2 text-sm font-medium">
-                <span className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                  {author.charAt(0)}
+                <span className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[0.6rem] font-bold">
+                  {author.split(/\s+/).map(w => w.charAt(0).toUpperCase()).join('')}
                 </span>
                 {author}
               </span>
