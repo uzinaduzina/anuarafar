@@ -4,7 +4,7 @@ import { useJournalData } from '@/data/JournalDataProvider';
 import { SERIES_CONFIG, SeriesId } from '@/data/types';
 import { IssueCard } from '@/components/IssueCard';
 
-const SERIES_ORDER: SeriesId[] = ['seria-3', 'seria-1', 'seria-2'];
+const SERIES_ORDER: SeriesId[] = ['seria-3', 'seria-2', 'seria-1'];
 
 export default function ArchivePage() {
   const { issues, loading } = useJournalData();
