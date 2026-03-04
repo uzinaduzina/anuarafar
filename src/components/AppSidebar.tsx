@@ -9,7 +9,8 @@ import {
   LogOut,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
   SidebarContent,
@@ -41,6 +42,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -119,7 +121,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <button onClick={() => navigate('/login')} className="hover:bg-sidebar-accent/50 w-full">
+              <button onClick={() => { logout(); navigate('/login'); }} className="hover:bg-sidebar-accent/50 w-full">
                 <LogOut className="mr-2 h-4 w-4" />
                 {!collapsed && <span>Deconectare</span>}
               </button>

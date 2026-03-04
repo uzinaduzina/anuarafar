@@ -5,24 +5,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const DEMO_USERS = [
-  { username: 'admin', password: 'admin2026!', name: 'Administrator', role: 'Admin' },
-  { username: 'editor', password: 'editor2026!', name: 'Editor Principal', role: 'Editor' },
-  { username: 'reviewer', password: 'reviewer2026!', name: 'Reviewer Demo', role: 'Reviewer' },
-  { username: 'author', password: 'author2026!', name: 'Autor Demo', role: 'Author' },
+  { username: 'admin', password: 'admin2026!', name: 'Administrator', role: 'admin' as const },
+  { username: 'editor', password: 'editor2026!', name: 'Editor Principal', role: 'editor' as const },
+  { username: 'reviewer', password: 'reviewer2026!', name: 'Reviewer Demo', role: 'reviewer' as const },
+  { username: 'author', password: 'author2026!', name: 'Autor Demo', role: 'author' as const },
 ];
+
+const ROLE_LABELS: Record<string, string> = { admin: 'Admin', editor: 'Editor', reviewer: 'Reviewer', author: 'Author' };
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const user = DEMO_USERS.find(u => u.username === username && u.password === password);
     if (user) {
+      login({ username: user.username, name: user.name, role: user.role });
       toast({ title: `Bun venit, ${user.name}!` });
       navigate('/dashboard');
     } else {
@@ -63,7 +68,6 @@ export default function Login() {
               </Button>
             </form>
 
-            {/* Demo credentials */}
             <div className="mt-6 pt-4 border-t">
               <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-3">Conturi demo</div>
               <div className="rounded-md border overflow-hidden">
@@ -79,7 +83,7 @@ export default function Login() {
                   <tbody className="divide-y">
                     {DEMO_USERS.map(u => (
                       <tr key={u.username} className="hover:bg-accent/50">
-                        <td className="px-3 py-2 font-medium">{u.role}</td>
+                        <td className="px-3 py-2 font-medium">{ROLE_LABELS[u.role]}</td>
                         <td className="px-3 py-2 text-muted-foreground">{u.username}</td>
                         <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{u.password}</td>
                         <td className="px-3 py-2">
