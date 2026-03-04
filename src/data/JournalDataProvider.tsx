@@ -103,6 +103,7 @@ interface JournalData {
   updateArticle: (id: string, changes: Partial<Article>) => void;
   updateIssue: (id: string, changes: Partial<Issue>) => void;
   addIssue: (seed?: Partial<Issue>) => Issue;
+  importIssuesCsv: (csvText: string) => number;
   hasEdits: boolean;
   hasIssueCsvOverride: boolean;
   exportAsJson: () => string;
@@ -135,6 +136,7 @@ const JournalDataContext = createContext<JournalData>({
     issue_pdf_path: '',
     cover_hint_path: '',
   }),
+  importIssuesCsv: () => 0,
   hasEdits: false,
   hasIssueCsvOverride: false,
   exportAsJson: () => '{}',
@@ -243,6 +245,40 @@ function issuesFromCsv(csvText: string): Issue[] {
   return objects.map(issueFromCsvRow);
 }
 
+function parseIssuesCsvText(csvText: string): Issue[] {
+  const rows = parseCsv(csvText);
+  if (rows.length === 0) {
+    throw new Error('Fisierul CSV este gol.');
+  }
+
+  const header = rows[0].map((cell) => cell.trim());
+  const missingColumns = ISSUE_CSV_COLUMNS.filter((column) => !header.includes(column));
+  if (missingColumns.length > 0) {
+    throw new Error(`CSV invalid: lipsesc coloanele ${missingColumns.join(', ')}.`);
+  }
+
+  const parsed = issuesFromCsv(csvText).filter((issue) => Boolean(issue.id));
+  if (parsed.length === 0) {
+    throw new Error('CSV-ul nu contine randuri de numere.');
+  }
+
+  const seen = new Set<string>();
+  const duplicateIds = new Set<string>();
+  parsed.forEach((issue) => {
+    if (seen.has(issue.id)) {
+      duplicateIds.add(issue.id);
+      return;
+    }
+    seen.add(issue.id);
+  });
+
+  if (duplicateIds.size > 0) {
+    throw new Error(`CSV invalid: ID-uri duplicate (${Array.from(duplicateIds).join(', ')}).`);
+  }
+
+  return parsed;
+}
+
 function issueToCsvRow(issue: Issue): Record<(typeof ISSUE_CSV_COLUMNS)[number], string | number> {
   return {
     id: issue.id,
@@ -327,6 +363,19 @@ function applyArticleOverrides(baseArticles: Article[]): Article[] {
   });
 }
 
+function alignArticleSeriesWithIssues(baseArticles: Article[], nextIssues: Issue[]): Article[] {
+  const issueSeriesById: Record<string, SeriesId> = {};
+  nextIssues.forEach((issue) => {
+    issueSeriesById[issue.id] = issue.series;
+  });
+
+  return baseArticles.map((article) => {
+    const nextSeries = issueSeriesById[article.issue_id];
+    if (!nextSeries) return article;
+    return { ...article, series: nextSeries };
+  });
+}
+
 export function JournalDataProvider({ children }: { children: ReactNode }) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -371,13 +420,18 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
         let resolvedIssues = mappedIssuesFromManifest;
 
         if (localCsv) {
-          const parsedLocalIssues = issuesFromCsv(localCsv);
-          if (parsedLocalIssues.length > 0) {
-            resolvedIssues = parsedLocalIssues;
+          try {
+            const parsedLocalIssues = parseIssuesCsvText(localCsv);
+            if (parsedLocalIssues.length > 0) {
+              resolvedIssues = parsedLocalIssues;
+            }
+          } catch {
+            localStorage.removeItem(ISSUES_CSV_STORAGE_KEY);
+            setHasIssueCsvOverride(false);
           }
         } else if (csvResponse.ok) {
           const csvText = await csvResponse.text();
-          const parsedCsvIssues = issuesFromCsv(csvText);
+          const parsedCsvIssues = parseIssuesCsvText(csvText);
           if (parsedCsvIssues.length > 0) {
             resolvedIssues = parsedCsvIssues;
           }
@@ -385,7 +439,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
 
         if (!cancelled) {
           setIssues(resolvedIssues);
-          setArticles(mappedArticles);
+          setArticles(alignArticleSeriesWithIssues(mappedArticles, resolvedIssues));
           setLoading(false);
         }
       } catch (err) {
@@ -463,6 +517,15 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     return draftIssue;
   }, [issues, persistIssuesCsv]);
 
+  const importIssuesCsv = useCallback((csvText: string) => {
+    const parsedIssues = parseIssuesCsvText(csvText);
+    setIssues(parsedIssues);
+    setArticles((prev) => alignArticleSeriesWithIssues(prev, parsedIssues));
+    persistIssuesCsv(parsedIssues);
+    setEditCount((count) => count + 1);
+    return parsedIssues.length;
+  }, [persistIssuesCsv]);
+
   const exportAsJson = useCallback(() => {
     const data = { issues, articles };
     return JSON.stringify(data, null, 2);
@@ -480,12 +543,13 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     if (!res.ok) throw new Error(`Failed to fetch CSV: ${res.status}`);
 
     const csvText = await res.text();
-    const parsed = issuesFromCsv(csvText);
+    const parsed = parseIssuesCsvText(csvText);
     if (parsed.length === 0) throw new Error('CSV does not contain issue rows.');
 
     localStorage.removeItem(ISSUES_CSV_STORAGE_KEY);
     setHasIssueCsvOverride(false);
     setIssues(parsed);
+    setArticles((prev) => alignArticleSeriesWithIssues(prev, parsed));
   }, []);
 
   const contextValue = useMemo(() => ({
@@ -496,6 +560,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     updateArticle,
     updateIssue,
     addIssue,
+    importIssuesCsv,
     hasEdits: editCount > 0,
     hasIssueCsvOverride,
     exportAsJson,
@@ -510,6 +575,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     updateArticle,
     updateIssue,
     addIssue,
+    importIssuesCsv,
     editCount,
     hasIssueCsvOverride,
     exportAsJson,

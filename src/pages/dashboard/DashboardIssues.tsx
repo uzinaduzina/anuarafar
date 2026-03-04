@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Download, Loader2, Plus, RotateCcw } from 'lucide-react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { Download, Loader2, Plus, RotateCcw, Upload } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ export default function DashboardIssues() {
     loading,
     updateIssue,
     addIssue,
+    importIssuesCsv,
     exportIssuesCsv,
     exportArticlesCsvBySeries,
     resetIssuesToFile,
@@ -29,6 +30,8 @@ export default function DashboardIssues() {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const [resetting, setResetting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const sortedIssues = useMemo(
     () => [...issues].sort((a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0)),
@@ -56,6 +59,34 @@ export default function DashboardIssues() {
     const csv = exportArticlesCsvBySeries(series);
     const fileName = `articles-${series}.csv`;
     downloadText(fileName, csv, 'text/csv;charset=utf-8');
+  };
+
+  const onTriggerImport = () => {
+    csvInputRef.current?.click();
+  };
+
+  const onImportCsvFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setImporting(true);
+      const csvText = await file.text();
+      const importedCount = importIssuesCsv(csvText);
+      toast({
+        title: 'CSV importat',
+        description: `${importedCount} numere au fost incarcate din ${file.name}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Import esuat',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
   };
 
   const onResetToFile = async () => {
@@ -111,6 +142,16 @@ export default function DashboardIssues() {
           </Button>
           {isAdmin && (
             <>
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={onImportCsvFile}
+              />
+              <Button variant="outline" onClick={onTriggerImport} disabled={importing}>
+                <Upload className="mr-2 h-4 w-4" /> {importing ? 'Import...' : 'Import CSV'}
+              </Button>
               <Button variant="outline" onClick={onResetToFile} disabled={resetting}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Reset din fisier
               </Button>
