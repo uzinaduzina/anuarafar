@@ -15,7 +15,7 @@ export default function PdfViewer({ pdfPath, title }: PdfViewerProps) {
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [pageNum, setPageNum] = useState(1);
   const [numPages, setNumPages] = useState(0);
-  const [scale, setScale] = useState(1.5);
+  const [scale, setScale] = useState(1.0); // 1.0 = fit to width
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const renderTaskRef = useRef<any>(null);
@@ -59,24 +59,35 @@ export default function PdfViewer({ pdfPath, title }: PdfViewerProps) {
     return () => { cancelled = true; };
   }, [pdfUrl]);
 
-  // Render current page
+  // Render current page — fit to container width, preserve aspect ratio
   const renderPage = useCallback(async (num: number) => {
-    if (!pdfDoc || !canvasRef.current) return;
+    if (!pdfDoc || !canvasRef.current || !containerRef.current) return;
 
-    // Cancel any ongoing render
     if (renderTaskRef.current) {
       try { renderTaskRef.current.cancel(); } catch {}
     }
 
     try {
       const page = await pdfDoc.getPage(num);
-      const viewport = page.getViewport({ scale });
+      const containerWidth = containerRef.current.clientWidth - 32; // minus padding
+
+      // Get the page's natural viewport to compute aspect ratio
+      const naturalViewport = page.getViewport({ scale: 1 });
+      const fitScale = containerWidth / naturalViewport.width;
+      const effectiveScale = fitScale * scale;
+
+      const viewport = page.getViewport({ scale: effectiveScale });
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+      // Use devicePixelRatio for crisp rendering
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(viewport.width * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      ctx.scale(dpr, dpr);
 
       const renderTask = page.render({ canvasContext: ctx, viewport });
       renderTaskRef.current = renderTask;
@@ -174,9 +185,9 @@ export default function PdfViewer({ pdfPath, title }: PdfViewerProps) {
       <div
         ref={containerRef}
         className="overflow-auto bg-muted/30 flex justify-center p-4"
-        style={{ maxHeight: '80vh' }}
+        style={{ maxHeight: '85vh' }}
       >
-        <canvas ref={canvasRef} className="shadow-lg" />
+        <canvas ref={canvasRef} className="shadow-lg max-w-full" />
       </div>
     </div>
   );
