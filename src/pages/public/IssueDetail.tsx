@@ -1,10 +1,10 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Download } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
+import { Button } from '@/components/ui/button';
 import { SeriesBadge } from '@/components/SeriesBadge';
 import { JOURNAL } from '@/data/journal';
 import { SeriesId } from '@/data/types';
-import PdfViewer from '@/components/PdfViewer';
 
 const coverGradients: Record<SeriesId, string> = {
   'seria-1': 'from-[hsl(145,30%,35%)] via-[hsl(145,30%,50%)] to-[hsl(145,30%,80%)]',
@@ -138,10 +138,14 @@ export default function IssueDetail() {
         </div>
       </div>
 
-      {/* Issue PDF Viewer */}
+      {/* Issue PDF download */}
       {issue.issue_pdf_path && (
-        <div className="mt-8">
-          <PdfViewer pdfPath={issue.issue_pdf_path} title={`${issue.title} — PDF integral`} />
+        <div className="mt-8 flex justify-center">
+          <Button asChild size="lg">
+            <a href={`https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/${issue.issue_pdf_path}`} target="_blank" rel="noreferrer">
+              <Download className="mr-2 h-4 w-4" /> Descarcă numărul integral (PDF)
+            </a>
+          </Button>
         </div>
       )}
     </div>
