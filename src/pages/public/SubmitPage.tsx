@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Send, CheckCircle, FileText, Type, AlignLeft, Image, BookOpen, Quote, ListOrdered, AlertTriangle, Download } from 'lucide-react';
+import { Send, CheckCircle, FileText, Type, AlignLeft, Image, BookOpen, Quote, ListOrdered, AlertTriangle, Download, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { generateTemplate } from '@/lib/generateTemplate';
 
 function GuidelineSection({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
@@ -25,8 +26,8 @@ function Guidelines() {
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <h2 className="font-serif text-xl font-bold mb-1">Indicații de redactare</h2>
         <p className="text-xs text-muted-foreground mb-2">Anuarul Arhivei de Folclor a Academiei Române</p>
-        <Button variant="outline" size="sm" className="gap-2 mt-2" disabled>
-          <Download className="h-4 w-4" /> Descarcă indicațiile (Word)
+        <Button variant="outline" size="sm" className="gap-2 mt-2" onClick={() => generateTemplate()}>
+          <FileDown className="h-4 w-4" /> Descarcă template (Word)
         </Button>
       </div>
 
