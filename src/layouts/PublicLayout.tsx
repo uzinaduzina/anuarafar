@@ -1,11 +1,12 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 
 const NAV_ITEMS = [
   { label: 'Acasă', path: '/', icon: BookOpen },
   { label: 'Arhivă', path: '/archive', icon: Archive },
+  { label: 'Colegii', path: '/editorial-board', icon: Users },
   { label: 'Despre', path: '/about', icon: Info },
   { label: 'Trimite manuscris', path: '/submit', icon: Send },
 ];

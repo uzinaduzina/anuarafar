@@ -1,5 +1,5 @@
 import { JOURNAL } from '@/data/journal';
-import { BookOpen, Mail, MapPin, Phone, ExternalLink } from 'lucide-react';
+import { BookOpen, Mail, MapPin, Phone, ExternalLink, History, Scale } from 'lucide-react';
 
 export default function About() {
   return (
@@ -14,19 +14,45 @@ export default function About() {
             <BookOpen className="h-5 w-5 text-primary" /> Prezentare
           </h2>
           <p className="text-sm leading-relaxed text-foreground/90 mb-4">
-            <strong>Anuarul Arhivei de Folclor</strong> (ISSN {JOURNAL.issn}) este o publicație științifică 
-            a {JOURNAL.publisher}. Revista publică studii, articole și materiale de cercetare din domeniul 
-            folcloristicii, etnologiei, antropologiei culturale și disciplinelor conexe.
+            <strong>Anuarul Arhivei de Folclor / The Folklore Archive Yearbook</strong> (ISSN {JOURNAL.issn}) este o publicație științifică 
+            a Institutului „Arhiva de Folclor a Academiei Române", Filiala Cluj-Napoca a Academiei Române.
           </p>
           <p className="text-sm leading-relaxed text-foreground/90 mb-4">
-            Publicația are o tradiție lungă, prima serie apărând în 1932, sub conducerea profesorului Ion Mușlea. 
-            După o perioadă de întrerupere, revista a fost reînființată în 1980 (Seria a II-a) și continuă 
-            publicarea din 2002 sub titlul actual (Seria a III-a).
-          </p>
-          <p className="text-sm leading-relaxed text-foreground/90">
+            Revista publică studii, articole și materiale de cercetare din domeniul 
+            folcloristicii, etnologiei, antropologiei culturale și disciplinelor conexe.
             Toate articolele publicate sunt supuse procesului de evaluare colegială (peer review) 
             și sunt disponibile în acces deschis.
           </p>
+        </div>
+
+        {/* Series history */}
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <h2 className="font-serif text-xl font-bold mb-3 flex items-center gap-2">
+            <History className="h-5 w-5 text-primary" /> Istoricul seriilor
+          </h2>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-series-1/30 bg-series-1-bg/20">
+              <span className="w-2 h-full min-h-[2.5rem] rounded-full bg-series-1 flex-shrink-0" />
+              <div>
+                <div className="font-medium text-sm">Seria întâi: nr. I–VII, 1932–1945</div>
+                <div className="text-xs text-muted-foreground">Fondator: Ion Mușlea</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-series-2/30 bg-series-2-bg/20">
+              <span className="w-2 h-full min-h-[2.5rem] rounded-full bg-series-2 flex-shrink-0" />
+              <div>
+                <div className="font-medium text-sm">Seria a doua: nr. I–XVII (VIII–XXIV), 1980–1996</div>
+                <div className="text-xs text-muted-foreground">Redactori: Ion Taloș, Ion Cuceu</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-series-3/30 bg-series-3-bg/20">
+              <span className="w-2 h-full min-h-[2.5rem] rounded-full bg-series-3 flex-shrink-0" />
+              <div>
+                <div className="font-medium text-sm">Seria a treia: nr. XXV–XXIX, 2021–2025</div>
+                <div className="text-xs text-muted-foreground">Redactor-șef: Mihai Bărbulescu</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Editorial policy */}
@@ -45,11 +71,19 @@ export default function About() {
               <strong>Etică:</strong> Revista aderă la standardele COPE (Committee on Publication Ethics) 
               și respectă normele internaționale de etică a publicării.
             </p>
-            <p>
-              <strong>Indexare:</strong> Publicația este indexată în baze de date bibliografice relevante 
-              pentru domeniul științelor umaniste.
-            </p>
           </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <h2 className="font-serif text-xl font-bold mb-3 flex items-center gap-2">
+            <Scale className="h-5 w-5 text-primary" /> Drepturi de autor
+          </h2>
+          <p className="text-sm leading-relaxed text-foreground/90">
+            © 2025 Institutul Arhiva de Folclor a Academiei Române. 
+            Toate drepturile de editare și difuzare rezervate. Orice reproducere totală sau parțială a 
+            textelor, fără acordul autorilor, este interzisă.
+          </p>
         </div>
 
         {/* Contact */}
@@ -58,11 +92,11 @@ export default function About() {
           <div className="space-y-3">
             <div className="flex items-start gap-3 text-sm">
               <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-              <span>str. Republicii nr. 59, 400015 Cluj-Napoca, România</span>
+              <span>Institutul „Arhiva de Folclor a Academiei Române", Filiala Cluj-Napoca a Academiei Române, str. Republicii nr. 59, 400015 Cluj-Napoca</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <Phone className="h-4 w-4 text-primary flex-shrink-0" />
-              <span>+40-264-591864</span>
+              <span>+40-264-591864 (tel. și fax)</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <Mail className="h-4 w-4 text-primary flex-shrink-0" />
@@ -70,7 +104,7 @@ export default function About() {
             </div>
             <div className="flex items-center gap-3 text-sm">
               <ExternalLink className="h-4 w-4 text-primary flex-shrink-0" />
-              <a href={JOURNAL.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">{JOURNAL.url}</a>
+              <a href="https://www.iafar.ro" target="_blank" rel="noreferrer" className="text-primary hover:underline">www.iafar.ro</a>
             </div>
           </div>
         </div>
