@@ -1,18 +1,38 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send, Users } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
+import { useState, useRef, useEffect } from 'react';
 
 const NAV_ITEMS = [
   { label: 'Acasă', path: '/', icon: BookOpen },
   { label: 'Arhivă', path: '/archive', icon: Archive },
-  { label: 'Colegii', path: '/editorial-board', icon: Users },
-  { label: 'Despre', path: '/about', icon: Info },
   { label: 'Trimite manuscris', path: '/submit', icon: Send },
+];
+
+const DESPRE_ITEMS = [
+  { label: 'Despre revistă', path: '/about', icon: Info },
+  { label: 'Colegii', path: '/editorial-board', icon: Users },
 ];
 
 export default function PublicLayout() {
   const location = useLocation();
+  const [despreOpen, setDespreOpen] = useState(false);
+  const despreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (despreRef.current && !despreRef.current.contains(e.target as Node)) {
+        setDespreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const isDespreActive = DESPRE_ITEMS.some(
+    item => location.pathname === item.path || location.pathname.startsWith(item.path + '/')
+  );
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -50,6 +70,42 @@ export default function PublicLayout() {
                 </Link>
               );
             })}
+
+            {/* Despre dropdown */}
+            <div className="relative" ref={despreRef}>
+              <button
+                onClick={() => setDespreOpen(o => !o)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isDespreActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                }`}
+              >
+                <Info className="h-4 w-4" />
+                <span className="hidden md:inline">Despre</span>
+                <ChevronDown className={`h-3 w-3 transition-transform ${despreOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {despreOpen && (
+                <div className="absolute right-0 top-full mt-1 w-48 rounded-md border bg-card shadow-lg py-1 z-50">
+                  {DESPRE_ITEMS.map(item => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setDespreOpen(false)}
+                      className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                        location.pathname === item.path
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }`}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <Link
               to="/login"
               className="ml-2 flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -80,6 +136,11 @@ export default function PublicLayout() {
               <div className="text-xs uppercase tracking-[0.1em] font-semibold text-muted-foreground mb-3">Navigare</div>
               <div className="flex flex-col gap-2">
                 {NAV_ITEMS.map(item => (
+                  <Link key={item.path} to={item.path} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    {item.label}
+                  </Link>
+                ))}
+                {DESPRE_ITEMS.map(item => (
                   <Link key={item.path} to={item.path} className="text-sm text-muted-foreground hover:text-primary transition-colors">
                     {item.label}
                   </Link>
