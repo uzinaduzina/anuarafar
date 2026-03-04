@@ -63,8 +63,11 @@ export interface Submission {
   date_submitted: string;
   status: 'submitted' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
   assigned_reviewer: string;
+  assigned_reviewer_email?: string;
   reviewer_deadline: string;
   recommendation: string;
+  review_notes?: string;
+  reviewed_at?: string;
   decision: string;
 }
 

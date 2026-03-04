@@ -1,27 +1,32 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { JournalDataProvider } from "./data/JournalDataProvider";
-import { AuthProvider } from "./contexts/AuthContext";
-import PublicLayout from "./layouts/PublicLayout";
-import DashboardLayout from "./layouts/DashboardLayout";
-import Home from "./pages/public/Home";
-import ArchivePage from "./pages/public/ArchivePage";
-import IssueDetail from "./pages/public/IssueDetail";
-import ArticleView from "./pages/public/ArticleView";
-import About from "./pages/public/About";
-import EditorialBoard from "./pages/public/EditorialBoard";
-import ScientificBoard from "./pages/public/ScientificBoard";
-import TehnoredactarePage from "./pages/public/TehnoredactarePage";
-import SubmitPage from "./pages/public/SubmitPage";
-import Login from "./pages/Login";
-import DashboardHome from "./pages/dashboard/DashboardHome";
-import DashboardIssues from "./pages/dashboard/DashboardIssues";
-import DashboardSubmissions from "./pages/dashboard/DashboardSubmissions";
-import DashboardPlaceholder from "./pages/dashboard/DashboardPlaceholder";
-import NotFound from "./pages/NotFound";
+import { Toaster } from '@/components/ui/toaster';
+import { Toaster as Sonner } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { JournalDataProvider } from './data/JournalDataProvider';
+import { SubmissionDataProvider } from './data/SubmissionDataProvider';
+import { AuthProvider } from './contexts/AuthContext';
+import { RequireAuth, RequireRole } from './components/auth/ProtectedRoute';
+import PublicLayout from './layouts/PublicLayout';
+import DashboardLayout from './layouts/DashboardLayout';
+import Home from './pages/public/Home';
+import ArchivePage from './pages/public/ArchivePage';
+import IssueDetail from './pages/public/IssueDetail';
+import ArticleView from './pages/public/ArticleView';
+import About from './pages/public/About';
+import EditorialBoard from './pages/public/EditorialBoard';
+import ScientificBoard from './pages/public/ScientificBoard';
+import TehnoredactarePage from './pages/public/TehnoredactarePage';
+import SubmitPage from './pages/public/SubmitPage';
+import Login from './pages/Login';
+import DashboardHome from './pages/dashboard/DashboardHome';
+import DashboardIssues from './pages/dashboard/DashboardIssues';
+import DashboardSubmissions from './pages/dashboard/DashboardSubmissions';
+import DashboardReviewer from './pages/dashboard/DashboardReviewer';
+import DashboardAuthor from './pages/dashboard/DashboardAuthor';
+import DashboardUsers from './pages/dashboard/DashboardUsers';
+import DashboardPlaceholder from './pages/dashboard/DashboardPlaceholder';
+import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
 
@@ -29,41 +34,96 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-      <JournalDataProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public site */}
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/archive" element={<ArchivePage />} />
-              <Route path="/archive/:slug" element={<IssueDetail />} />
-              <Route path="/article/:id" element={<ArticleView />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/scientific-board" element={<ScientificBoard />} />
-              <Route path="/editorial-board" element={<EditorialBoard />} />
-              <Route path="/tehnoredactare" element={<TehnoredactarePage />} />
-              <Route path="/submit" element={<SubmitPage />} />
-            </Route>
+        <JournalDataProvider>
+          <SubmissionDataProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route element={<PublicLayout />}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/archive" element={<ArchivePage />} />
+                  <Route path="/archive/:slug" element={<IssueDetail />} />
+                  <Route path="/article/:id" element={<ArticleView />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/scientific-board" element={<ScientificBoard />} />
+                  <Route path="/editorial-board" element={<EditorialBoard />} />
+                  <Route path="/tehnoredactare" element={<TehnoredactarePage />} />
+                  <Route path="/submit" element={<SubmitPage />} />
+                </Route>
 
-            {/* Auth */}
-            <Route path="/login" element={<Login />} />
+                <Route path="/login" element={<Login />} />
 
-            {/* Dashboard */}
-            <Route path="/dashboard" element={<DashboardLayout />}>
-              <Route index element={<DashboardHome />} />
-              <Route path="issues" element={<DashboardIssues />} />
-              <Route path="submissions" element={<DashboardSubmissions />} />
-              <Route path="ingest" element={<DashboardPlaceholder title="Ingest PDF" description="Modul de ingest PDF cu segmentare AI" />} />
-              <Route path="users" element={<DashboardPlaceholder title="Utilizatori" description="Gestionare utilizatori și roluri" />} />
-              <Route path="settings" element={<DashboardPlaceholder title="Setări" description="Configurare jurnal și platformă" />} />
-            </Route>
+                <Route
+                  path="/dashboard"
+                  element={(
+                    <RequireAuth>
+                      <DashboardLayout />
+                    </RequireAuth>
+                  )}
+                >
+                  <Route index element={<DashboardHome />} />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </JournalDataProvider>
+                  <Route
+                    path="issues"
+                    element={(
+                      <RequireRole roles={['admin', 'editor']}>
+                        <DashboardIssues />
+                      </RequireRole>
+                    )}
+                  />
+
+                  <Route
+                    path="submissions"
+                    element={(
+                      <RequireRole roles={['admin', 'editor']}>
+                        <DashboardSubmissions />
+                      </RequireRole>
+                    )}
+                  />
+
+                  <Route
+                    path="reviewer"
+                    element={(
+                      <RequireRole roles={['reviewer']}>
+                        <DashboardReviewer />
+                      </RequireRole>
+                    )}
+                  />
+
+                  <Route
+                    path="author"
+                    element={(
+                      <RequireRole roles={['author']}>
+                        <DashboardAuthor />
+                      </RequireRole>
+                    )}
+                  />
+
+                  <Route
+                    path="users"
+                    element={(
+                      <RequireRole roles={['admin']}>
+                        <DashboardUsers />
+                      </RequireRole>
+                    )}
+                  />
+
+                  <Route
+                    path="settings"
+                    element={(
+                      <RequireRole roles={['admin']}>
+                        <DashboardPlaceholder title="Setari" description="Configurare jurnal si platforma" />
+                      </RequireRole>
+                    )}
+                  />
+                </Route>
+
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </SubmissionDataProvider>
+        </JournalDataProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

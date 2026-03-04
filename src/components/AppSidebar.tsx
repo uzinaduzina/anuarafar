@@ -1,16 +1,17 @@
 import {
   LayoutDashboard,
   BookOpen,
-  Upload,
   FileText,
   Users,
-  Settings,
   Globe,
   LogOut,
+  ClipboardCheck,
+  FileUp,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { ROLE_LABELS } from '@/data/authUsers';
 import {
   Sidebar,
   SidebarContent,
@@ -26,23 +27,35 @@ import {
 } from '@/components/ui/sidebar';
 import logo from '@/assets/logo_iafar.png';
 
-const editorItems = [
-  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-  { title: 'Numere', url: '/dashboard/issues', icon: BookOpen },
-  { title: 'Ingest PDF', url: '/dashboard/ingest', icon: Upload },
-  { title: 'Submisii', url: '/dashboard/submissions', icon: FileText },
-];
-
-const adminItems = [
-  { title: 'Utilizatori', url: '/dashboard/users', icon: Users },
-  { title: 'Setări', url: '/dashboard/settings', icon: Settings },
-];
+const roleNavigation = {
+  admin: [
+    { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+    { title: 'Numere (CSV)', url: '/dashboard/issues', icon: BookOpen },
+    { title: 'Submisii', url: '/dashboard/submissions', icon: FileText },
+    { title: 'Utilizatori', url: '/dashboard/users', icon: Users },
+  ],
+  editor: [
+    { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+    { title: 'Numere', url: '/dashboard/issues', icon: BookOpen },
+    { title: 'Submisii', url: '/dashboard/submissions', icon: FileText },
+  ],
+  reviewer: [
+    { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+    { title: 'Recenzii', url: '/dashboard/reviewer', icon: ClipboardCheck },
+  ],
+  author: [
+    { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+    { title: 'Manuscrisele mele', url: '/dashboard/author', icon: FileUp },
+  ],
+} as const;
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  const items = user ? roleNavigation[user.role] : [];
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -55,7 +68,7 @@ export function AppSidebar() {
                 Anuarul AAF
               </div>
               <div className="text-[0.6rem] uppercase tracking-[0.1em] text-sidebar-foreground/60">
-                Panou editorial
+                Panou {user ? ROLE_LABELS[user.role].toLowerCase() : 'editorial'}
               </div>
             </div>
           )}
@@ -64,10 +77,10 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Editorial</SidebarGroupLabel>
+          <SidebarGroupLabel>Functionalitati</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {editorItems.map(item => (
+              {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -85,31 +98,16 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Administrare</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminItems.map(item => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
-                    >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="p-3">
+        {!collapsed && user && (
+          <div className="mb-2 rounded-md border border-sidebar-border/40 px-2 py-2 text-[0.68rem] text-sidebar-foreground/70">
+            <div className="font-semibold text-sidebar-foreground">{user.name}</div>
+            <div>{user.email}</div>
+          </div>
+        )}
+
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
