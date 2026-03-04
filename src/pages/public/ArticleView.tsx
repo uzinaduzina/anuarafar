@@ -129,20 +129,34 @@ export default function ArticleView() {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-3">
-        {pdfUrl ? (
-          <Button asChild className="flex-1" size="lg">
-            <a href={pdfUrl} target="_blank" rel="noreferrer">
-              <Download className="mr-2 h-4 w-4" /> Descarcă PDF
-            </a>
-          </Button>
-        ) : (
-          <Button disabled className="flex-1" size="lg">
-            <Download className="mr-2 h-4 w-4" /> PDF indisponibil
-          </Button>
-        )}
-      </div>
+      {/* PDF Viewer */}
+      {pdfUrl && (
+        <div className="rounded-lg border bg-card shadow-sm overflow-hidden mb-6">
+          <div className="flex items-center justify-between p-4 border-b bg-secondary/50">
+            <h2 className="font-serif text-lg font-bold flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" /> Vizualizare PDF
+            </h2>
+            <Button asChild variant="outline" size="sm">
+              <a href={pdfUrl} target="_blank" rel="noreferrer">
+                <Download className="mr-2 h-4 w-4" /> Descarcă
+              </a>
+            </Button>
+          </div>
+          <iframe
+            src={`${pdfUrl}#toolbar=1&navpanes=0`}
+            className="w-full border-0"
+            style={{ height: '80vh', minHeight: '500px' }}
+            title={`PDF: ${article.title}`}
+          />
+        </div>
+      )}
+
+      {!pdfUrl && (
+        <div className="rounded-lg border bg-card p-8 mb-6 shadow-sm text-center">
+          <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">PDF indisponibil pentru acest articol</p>
+        </div>
+      )}
     </div>
   );
 }
