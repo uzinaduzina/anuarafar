@@ -4,9 +4,28 @@ import { ArrowLeft, BookOpen, Loader2, Pencil } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { SeriesBadge } from '@/components/SeriesBadge';
+import { SeriesId, SERIES_CONFIG } from '@/data/types';
 import { Button } from '@/components/ui/button';
 import PdfViewer from '@/components/PdfViewer';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
+
+const seriesBorderLeft: Record<SeriesId, string> = {
+  'seria-1': 'border-l-[4px] border-l-series-1',
+  'seria-2': 'border-l-[4px] border-l-series-2',
+  'seria-3': 'border-l-[4px] border-l-series-3',
+};
+
+const seriesAccentBg: Record<SeriesId, string> = {
+  'seria-1': 'bg-series-1-bg/40',
+  'seria-2': 'bg-series-2-bg/40',
+  'seria-3': 'bg-series-3-bg/40',
+};
+
+const seriesKwBg: Record<SeriesId, string> = {
+  'seria-1': 'bg-series-1-bg border-series-1-border text-series-1-foreground',
+  'seria-2': 'bg-series-2-bg border-series-2-border text-series-2-foreground',
+  'seria-3': 'bg-series-3-bg border-series-3-border text-series-3-foreground',
+};
 
 export default function ArticleView() {
   const { id } = useParams();
@@ -36,6 +55,8 @@ export default function ArticleView() {
   const keywords = (article.keywords_ro || '').split(',').map(k => k.trim()).filter(Boolean);
   const authors = article.authors.split(',').map(a => a.trim()).filter(a => a && a !== 'N/A');
 
+  const series = issue?.series || article.series;
+
   return (
     <div className="container py-8 md:py-12 max-w-4xl">
       {issue && (
@@ -48,7 +69,7 @@ export default function ArticleView() {
       )}
 
       {/* Article hero */}
-      <div className="rounded-lg border bg-card p-6 md:p-8 mb-6 shadow-sm">
+      <div className={`rounded-lg border bg-card p-6 md:p-8 mb-6 shadow-sm ${seriesBorderLeft[series]}`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {issue && <SeriesBadge series={issue.series} />}
@@ -109,7 +130,7 @@ export default function ArticleView() {
 
       {/* Abstract */}
       {(article.abstract_ro || article.abstract_en) && (
-        <div className="rounded-lg border bg-card p-6 md:p-8 mb-6 shadow-sm">
+        <div className={`rounded-lg border p-6 md:p-8 mb-6 shadow-sm ${seriesAccentBg[series]}`}>
           {article.abstract_ro && (
             <>
               <h2 className="font-serif text-lg font-bold mb-3">Rezumat</h2>
@@ -131,7 +152,7 @@ export default function ArticleView() {
           <h2 className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-3">Cuvinte cheie</h2>
           <div className="flex flex-wrap gap-2">
             {keywords.map((kw, i) => (
-              <span key={i} className="px-3 py-1 rounded-sm text-sm bg-secondary border text-secondary-foreground">{kw}</span>
+              <span key={i} className={`px-3 py-1 rounded-sm text-sm border ${seriesKwBg[series]}`}>{kw}</span>
             ))}
           </div>
         </div>
