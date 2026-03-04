@@ -6,13 +6,31 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { SeriesBadge } from '@/components/SeriesBadge';
 import { JOURNAL } from '@/data/journal';
-import { SeriesId, Article } from '@/data/types';
+import { SeriesId, Article, SERIES_CONFIG } from '@/data/types';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
 
 const coverGradients: Record<SeriesId, string> = {
   'seria-1': 'from-[hsl(145,30%,35%)] via-[hsl(145,30%,50%)] to-[hsl(145,30%,80%)]',
   'seria-2': 'from-[hsl(215,35%,30%)] via-[hsl(215,35%,50%)] to-[hsl(215,35%,80%)]',
   'seria-3': 'from-[hsl(36,55%,16%)] via-[hsl(40,76%,55%)] to-[hsl(33,50%,88%)]',
+};
+
+const seriesBorderTop: Record<SeriesId, string> = {
+  'seria-1': 'border-t-[3px] border-t-series-1',
+  'seria-2': 'border-t-[3px] border-t-series-2',
+  'seria-3': 'border-t-[3px] border-t-series-3',
+};
+
+const seriesHoverBg: Record<SeriesId, string> = {
+  'seria-1': 'hover:bg-series-1-bg/60',
+  'seria-2': 'hover:bg-series-2-bg/60',
+  'seria-3': 'hover:bg-series-3-bg/60',
+};
+
+const seriesLinkColor: Record<SeriesId, string> = {
+  'seria-1': 'text-series-1-foreground',
+  'seria-2': 'text-series-2-foreground',
+  'seria-3': 'text-series-3-foreground',
 };
 
 export default function IssueDetail() {
@@ -91,10 +109,10 @@ export default function IssueDetail() {
         </div>
 
         {/* TOC */}
-        <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <div className={`rounded-lg border bg-card shadow-sm overflow-hidden ${seriesBorderTop[issue.series]}`}>
           <div className="p-5 border-b">
             <h1 className="font-serif text-xl font-bold">Cuprins</h1>
-            <p className="text-sm text-muted-foreground mt-1">{issueArticles.length} articole</p>
+            <p className="text-sm text-muted-foreground mt-1">{issueArticles.length} articole · {SERIES_CONFIG[issue.series].label}</p>
           </div>
 
           {issueArticles.length === 0 ? (
@@ -114,14 +132,14 @@ export default function IssueDetail() {
                   )}
                   <div className="divide-y">
                     {section.articles.map(article => (
-                      <div key={article.id} className="flex gap-5 p-4 hover:bg-accent/50 transition-colors group items-start">
+                      <div key={article.id} className={`flex gap-5 p-4 ${seriesHoverBg[issue.series]} transition-colors group items-start`}>
                         <div className="text-[0.78rem] text-muted-foreground font-mono min-w-[60px] pt-0.5">
                           {article.pages_start && article.pages_end
                             ? `pp. ${article.pages_start}–${article.pages_end}`
                             : ''}
                         </div>
                         <Link to={`/article/${article.id}`} className="flex-1 min-w-0">
-                          <div className="font-serif font-bold text-primary group-hover:text-primary/80 transition-colors leading-snug">
+                          <div className={`font-serif font-bold ${seriesLinkColor[issue.series]} group-hover:opacity-80 transition-colors leading-snug`}>
                             {article.title}
                           </div>
                           {article.authors && article.authors !== 'N/A' && (
