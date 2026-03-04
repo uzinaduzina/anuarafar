@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Download, Pencil } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { SeriesBadge } from '@/components/SeriesBadge';
 import { JOURNAL } from '@/data/journal';
-import { SeriesId } from '@/data/types';
+import { SeriesId, Article } from '@/data/types';
+import ArticleEditDrawer from '@/components/ArticleEditDrawer';
 
 const coverGradients: Record<SeriesId, string> = {
   'seria-1': 'from-[hsl(145,30%,35%)] via-[hsl(145,30%,50%)] to-[hsl(145,30%,80%)]',
@@ -15,7 +18,8 @@ const coverGradients: Record<SeriesId, string> = {
 export default function IssueDetail() {
   const { slug } = useParams();
   const { issues, articles, loading } = useJournalData();
-
+  const { isEditor } = useAuth();
+  const [editArticle, setEditArticle] = useState<Article | null>(null);
   if (loading) {
     return (
       <div className="container py-16 flex justify-center">
@@ -110,25 +114,30 @@ export default function IssueDetail() {
                   )}
                   <div className="divide-y">
                     {section.articles.map(article => (
-                      <Link
-                        key={article.id}
-                        to={`/article/${article.id}`}
-                        className="flex gap-5 p-4 hover:bg-accent/50 transition-colors group"
-                      >
+                      <div key={article.id} className="flex gap-5 p-4 hover:bg-accent/50 transition-colors group items-start">
                         <div className="text-[0.78rem] text-muted-foreground font-mono min-w-[60px] pt-0.5">
                           {article.pages_start && article.pages_end
                             ? `pp. ${article.pages_start}–${article.pages_end}`
                             : ''}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <Link to={`/article/${article.id}`} className="flex-1 min-w-0">
                           <div className="font-serif font-bold text-primary group-hover:text-primary/80 transition-colors leading-snug">
                             {article.title}
                           </div>
                           {article.authors && article.authors !== 'N/A' && (
                             <div className="text-sm text-muted-foreground mt-1">{article.authors}</div>
                           )}
-                        </div>
-                      </Link>
+                        </Link>
+                        {isEditor && (
+                          <button
+                            onClick={() => setEditArticle(article)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-primary"
+                            title="Editează metadate"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -148,6 +157,9 @@ export default function IssueDetail() {
           </Button>
         </div>
       )}
+
+      {/* Edit drawer */}
+      <ArticleEditDrawer article={editArticle} open={!!editArticle} onOpenChange={(open) => !open && setEditArticle(null)} />
     </div>
   );
 }

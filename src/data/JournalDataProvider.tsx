@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { Issue, Article, SeriesId } from './types';
 
 const MANIFEST_URL = '/data/issues_manifest_user.js';
@@ -57,6 +57,10 @@ interface JournalData {
   articles: Article[];
   loading: boolean;
   error: string | null;
+  updateArticle: (id: string, changes: Partial<Article>) => void;
+  updateIssue: (id: string, changes: Partial<Issue>) => void;
+  hasEdits: boolean;
+  exportAsJson: () => string;
 }
 
 const JournalDataContext = createContext<JournalData>({
@@ -64,6 +68,10 @@ const JournalDataContext = createContext<JournalData>({
   articles: [],
   loading: true,
   error: null,
+  updateArticle: () => {},
+  updateIssue: () => {},
+  hasEdits: false,
+  exportAsJson: () => '{}',
 });
 
 export function useJournalData() {
@@ -130,18 +138,16 @@ function mapArticle(ma: ManifestArticle, issueSeries: Record<string, SeriesId>):
 }
 
 function parseJsManifest(text: string): ManifestData {
-  // Strip "window.__USER_MANIFEST_OVERRIDE = " prefix to get JSON
   const jsonStr = text.replace(/^[^{]*/, '').replace(/;\s*$/, '');
   return JSON.parse(jsonStr);
 }
 
 export function JournalDataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<JournalData>({
-    issues: [],
-    articles: [],
-    loading: true,
-    error: null,
-  });
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editCount, setEditCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,19 +159,22 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
         const text = await res.text();
         const manifest = parseJsManifest(text);
 
-        const issues = (manifest.issues || []).map(mapIssue);
+        const mappedIssues = (manifest.issues || []).map(mapIssue);
 
         const issueSeries: Record<string, SeriesId> = {};
-        issues.forEach(i => { issueSeries[i.id] = i.series; });
+        mappedIssues.forEach(i => { issueSeries[i.id] = i.series; });
 
-        const articles = (manifest.articles || []).map(a => mapArticle(a, issueSeries));
+        const mappedArticles = (manifest.articles || []).map(a => mapArticle(a, issueSeries));
 
         if (!cancelled) {
-          setData({ issues, articles, loading: false, error: null });
+          setIssues(mappedIssues);
+          setArticles(mappedArticles);
+          setLoading(false);
         }
       } catch (err) {
         if (!cancelled) {
-          setData(prev => ({ ...prev, loading: false, error: (err as Error).message }));
+          setError((err as Error).message);
+          setLoading(false);
         }
       }
     }
@@ -174,8 +183,32 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
+  const updateArticle = useCallback((id: string, changes: Partial<Article>) => {
+    setArticles(prev => prev.map(a => a.id === id ? { ...a, ...changes } : a));
+    setEditCount(c => c + 1);
+  }, []);
+
+  const updateIssue = useCallback((id: string, changes: Partial<Issue>) => {
+    setIssues(prev => prev.map(i => i.id === id ? { ...i, ...changes } : i));
+    setEditCount(c => c + 1);
+  }, []);
+
+  const exportAsJson = useCallback(() => {
+    const data = { issues, articles };
+    return JSON.stringify(data, null, 2);
+  }, [issues, articles]);
+
   return (
-    <JournalDataContext.Provider value={data}>
+    <JournalDataContext.Provider value={{
+      issues,
+      articles,
+      loading,
+      error,
+      updateArticle,
+      updateIssue,
+      hasEdits: editCount > 0,
+      exportAsJson,
+    }}>
       {children}
     </JournalDataContext.Provider>
   );

@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, FileText, Upload, Users, ArrowRight, Loader2 } from 'lucide-react';
+import { BookOpen, FileText, Upload, Users, ArrowRight, Loader2, Download } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { SUBMISSIONS } from '@/data/articles';
 import { SeriesBadge } from '@/components/SeriesBadge';
 import { Button } from '@/components/ui/button';
 
 export default function DashboardHome() {
-  const { issues, articles, loading } = useJournalData();
+  const { issues, articles, loading, hasEdits, exportAsJson } = useJournalData();
 
   const publishedIssues = issues.filter(i => i.status === 'published');
   const totalArticles = articles.length || issues.reduce((s, i) => s + i.article_count, 0);
@@ -23,9 +23,25 @@ export default function DashboardHome() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="font-serif text-2xl font-bold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Privire de ansamblu asupra activității editoriale</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="font-serif text-2xl font-bold">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Privire de ansamblu asupra activității editoriale</p>
+        </div>
+        {hasEdits && (
+          <Button variant="outline" onClick={() => {
+            const json = exportAsJson();
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'manifest_edited.json';
+            a.click();
+            URL.revokeObjectURL(url);
+          }}>
+            <Download className="mr-2 h-4 w-4" /> Exportă JSON
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

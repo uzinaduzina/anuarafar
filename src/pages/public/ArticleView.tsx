@@ -1,12 +1,18 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Loader2, Pencil } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import { SeriesBadge } from '@/components/SeriesBadge';
+import { Button } from '@/components/ui/button';
 import PdfViewer from '@/components/PdfViewer';
+import ArticleEditDrawer from '@/components/ArticleEditDrawer';
 
 export default function ArticleView() {
   const { id } = useParams();
   const { issues, articles, loading } = useJournalData();
+  const { isEditor } = useAuth();
+  const [editOpen, setEditOpen] = useState(false);
 
   if (loading) {
     return (
@@ -43,13 +49,20 @@ export default function ArticleView() {
 
       {/* Article hero */}
       <div className="rounded-lg border bg-card p-6 md:p-8 mb-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-4">
-          {issue && <SeriesBadge series={issue.series} />}
-          <span className="text-xs text-muted-foreground">
-            {issue && `Vol. ${issue.volume} · ${issue.year}`}
-          </span>
-          {article.section && (
-            <span className="text-xs text-muted-foreground">· {article.section}</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            {issue && <SeriesBadge series={issue.series} />}
+            <span className="text-xs text-muted-foreground">
+              {issue && `Vol. ${issue.volume} · ${issue.year}`}
+            </span>
+            {article.section && (
+              <span className="text-xs text-muted-foreground">· {article.section}</span>
+            )}
+          </div>
+          {isEditor && (
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="mr-2 h-3 w-3" /> Editează
+            </Button>
           )}
         </div>
 
@@ -133,6 +146,9 @@ export default function ArticleView() {
           <p className="text-muted-foreground text-sm">PDF indisponibil pentru acest articol</p>
         </div>
       )}
+
+      {/* Edit drawer */}
+      <ArticleEditDrawer article={article} open={editOpen} onOpenChange={setEditOpen} />
     </div>
   );
 }
