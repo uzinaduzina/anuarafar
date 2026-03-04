@@ -4,6 +4,7 @@ import { useJournalData } from '@/data/JournalDataProvider';
 import { SeriesBadge } from '@/components/SeriesBadge';
 import { JOURNAL } from '@/data/journal';
 import { SeriesId } from '@/data/types';
+import PdfViewer from '@/components/PdfViewer';
 
 const coverGradients: Record<SeriesId, string> = {
   'seria-1': 'from-[hsl(145,30%,35%)] via-[hsl(145,30%,50%)] to-[hsl(145,30%,80%)]',
@@ -136,6 +137,13 @@ export default function IssueDetail() {
           )}
         </div>
       </div>
+
+      {/* Issue PDF Viewer */}
+      {issue.issue_pdf_path && (
+        <div className="mt-8">
+          <PdfViewer pdfPath={issue.issue_pdf_path} title={`${issue.title} — PDF integral`} />
+        </div>
+      )}
     </div>
   );
 }
