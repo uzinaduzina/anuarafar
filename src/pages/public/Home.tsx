@@ -1,21 +1,20 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Archive, Users } from 'lucide-react';
+import { ArrowRight, BookOpen, Archive, Users, Loader2 } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
-import { ISSUES } from '@/data/issues';
-import { ARTICLES } from '@/data/articles';
+import { useJournalData } from '@/data/JournalDataProvider';
 import { IssueCard } from '@/components/IssueCard';
 import { Button } from '@/components/ui/button';
 
 export default function Home() {
-  // Latest 3 issues (by year desc)
-  const latestIssues = [...ISSUES]
+  const { issues, articles, loading } = useJournalData();
+
+  const latestIssues = [...issues]
     .filter(i => i.status === 'published')
     .sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0))
     .slice(0, 3);
 
-  const totalArticles = ISSUES.reduce((s, i) => s + i.article_count, 0);
-  const totalIssues = ISSUES.length;
-  const yearRange = `1932–${new Date().getFullYear()}`;
+  const totalArticles = articles.length || issues.reduce((s, i) => s + i.article_count, 0);
+  const totalIssues = issues.length;
 
   return (
     <div>
@@ -28,7 +27,7 @@ export default function Home() {
         <div className="container relative py-16 md:py-24">
           <div className="max-w-2xl">
             <div className="text-[0.7rem] uppercase tracking-[0.14em] font-semibold text-primary mb-4">
-              ISSN {JOURNAL.issn} · {yearRange}
+              ISSN {JOURNAL.issn} · 1932–{new Date().getFullYear()}
             </div>
             <h1 className="font-serif text-3xl md:text-5xl font-bold leading-tight mb-5">
               Anuarul Arhivei de Folclor
@@ -44,25 +43,27 @@ export default function Home() {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="border-sidebar-foreground/20 text-sidebar-foreground hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground font-semibold">
-                <Link to="/submit">
-                  Trimite manuscris
-                </Link>
+                <Link to="/submit">Trimite manuscris</Link>
               </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Stats bar */}
+      {/* Stats */}
       <section className="border-b bg-card">
         <div className="container py-6">
           <div className="grid grid-cols-3 gap-8 text-center">
             <div>
-              <div className="font-serif text-2xl md:text-3xl font-bold text-primary">{totalIssues}</div>
+              <div className="font-serif text-2xl md:text-3xl font-bold text-primary">
+                {loading ? '…' : totalIssues}
+              </div>
               <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mt-1">Numere publicate</div>
             </div>
             <div>
-              <div className="font-serif text-2xl md:text-3xl font-bold text-primary">{totalArticles}+</div>
+              <div className="font-serif text-2xl md:text-3xl font-bold text-primary">
+                {loading ? '…' : `${totalArticles}+`}
+              </div>
               <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mt-1">Articole</div>
             </div>
             <div>
@@ -86,14 +87,18 @@ export default function Home() {
             </Link>
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {latestIssues.map(issue => (
-            <IssueCard key={issue.id} issue={issue} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {latestIssues.map(issue => (
+              <IssueCard key={issue.id} issue={issue} />
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Features / about */}
+      {/* Features */}
       <section className="container pb-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="rounded-lg border bg-card p-6 shadow-sm">
@@ -107,14 +112,14 @@ export default function Home() {
             <Users className="h-8 w-8 text-primary mb-4" />
             <h3 className="font-serif text-lg font-bold mb-2">Peer review</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Fiecare manuscris trece prin proces de evaluare colegială (peer review) de către specialiști în domeniu.
+              Fiecare manuscris trece prin proces de evaluare colegială de către specialiști în domeniu.
             </p>
           </div>
           <div className="rounded-lg border bg-card p-6 shadow-sm">
             <Archive className="h-8 w-8 text-primary mb-4" />
             <h3 className="font-serif text-lg font-bold mb-2">Arhivă completă</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Acces la toate cele trei serii ale Anuarului, din 1932 până în prezent, cu peste {totalArticles} articole.
+              Acces la toate cele trei serii ale Anuarului, din 1932 până în prezent.
             </p>
           </div>
         </div>
