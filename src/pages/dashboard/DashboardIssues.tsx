@@ -22,6 +22,7 @@ export default function DashboardIssues() {
     updateIssue,
     addIssue,
     exportIssuesCsv,
+    exportArticlesCsvBySeries,
     resetIssuesToFile,
     hasIssueCsvOverride,
   } = useJournalData();
@@ -49,6 +50,12 @@ export default function DashboardIssues() {
   const onExportCsv = () => {
     const csv = exportIssuesCsv();
     downloadText('issues.csv', csv, 'text/csv;charset=utf-8');
+  };
+
+  const onExportArticlesSeriesCsv = (series: 'seria-1' | 'seria-2' | 'seria-3') => {
+    const csv = exportArticlesCsvBySeries(series);
+    const fileName = `articles-${series}.csv`;
+    downloadText(fileName, csv, 'text/csv;charset=utf-8');
   };
 
   const onResetToFile = async () => {
@@ -92,6 +99,15 @@ export default function DashboardIssues() {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={onExportCsv}>
             <Download className="mr-2 h-4 w-4" /> Export CSV
+          </Button>
+          <Button variant="outline" onClick={() => onExportArticlesSeriesCsv('seria-1')}>
+            <Download className="mr-2 h-4 w-4" /> Articole Seria 1
+          </Button>
+          <Button variant="outline" onClick={() => onExportArticlesSeriesCsv('seria-2')}>
+            <Download className="mr-2 h-4 w-4" /> Articole Seria 2
+          </Button>
+          <Button variant="outline" onClick={() => onExportArticlesSeriesCsv('seria-3')}>
+            <Download className="mr-2 h-4 w-4" /> Articole Seria 3
           </Button>
           {isAdmin && (
             <>

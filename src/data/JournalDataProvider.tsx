@@ -25,6 +25,27 @@ const ISSUE_CSV_COLUMNS = [
   'cover_hint_path',
 ] as const;
 
+const ARTICLE_CSV_COLUMNS = [
+  'id',
+  'issue_id',
+  'series',
+  'section',
+  'title',
+  'authors',
+  'affiliations',
+  'emails',
+  'abstract_ro',
+  'abstract_en',
+  'keywords_ro',
+  'keywords_en',
+  'pages_start',
+  'pages_end',
+  'doi',
+  'language',
+  'status',
+  'pdf_path',
+] as const;
+
 interface ManifestIssue {
   id: string;
   slug: string;
@@ -86,6 +107,7 @@ interface JournalData {
   hasIssueCsvOverride: boolean;
   exportAsJson: () => string;
   exportIssuesCsv: () => string;
+  exportArticlesCsvBySeries: (series: SeriesId) => string;
   resetIssuesToFile: () => Promise<void>;
 }
 
@@ -117,6 +139,7 @@ const JournalDataContext = createContext<JournalData>({
   hasIssueCsvOverride: false,
   exportAsJson: () => '{}',
   exportIssuesCsv: () => '',
+  exportArticlesCsvBySeries: () => '',
   resetIssuesToFile: async () => {},
 });
 
@@ -249,6 +272,38 @@ function exportIssuesAsCsv(issues: Issue[]): string {
   return `${toCsv(rows)}\n`;
 }
 
+function articleToCsvRow(article: Article): Record<(typeof ARTICLE_CSV_COLUMNS)[number], string> {
+  return {
+    id: article.id,
+    issue_id: article.issue_id,
+    series: article.series,
+    section: article.section || '',
+    title: article.title || '',
+    authors: article.authors || '',
+    affiliations: article.affiliations || '',
+    emails: article.emails || '',
+    abstract_ro: article.abstract_ro || '',
+    abstract_en: article.abstract_en || '',
+    keywords_ro: article.keywords_ro || '',
+    keywords_en: article.keywords_en || '',
+    pages_start: article.pages_start || '',
+    pages_end: article.pages_end || '',
+    doi: article.doi || '',
+    language: article.language || '',
+    status: article.status || '',
+    pdf_path: article.pdf_path || '',
+  };
+}
+
+function exportArticlesAsCsv(articles: Article[]): string {
+  const rows = objectsToRows(
+    [...ARTICLE_CSV_COLUMNS],
+    articles.map((article) => articleToCsvRow(article)),
+  );
+
+  return `${toCsv(rows)}\n`;
+}
+
 function readArticleOverrides(): Record<string, Partial<Article>> {
   try {
     const raw = localStorage.getItem(ARTICLE_OVERRIDES_STORAGE_KEY);
@@ -367,6 +422,13 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
       persistIssuesCsv(nextIssues);
       return nextIssues;
     });
+
+    if (changes.series) {
+      setArticles((prev) => prev.map((article) => (
+        article.issue_id === id ? { ...article, series: changes.series as SeriesId } : article
+      )));
+    }
+
     setEditCount((count) => count + 1);
   }, [persistIssuesCsv]);
 
@@ -408,6 +470,11 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
 
   const exportIssuesCsv = useCallback(() => exportIssuesAsCsv(issues), [issues]);
 
+  const exportArticlesCsvBySeries = useCallback((series: SeriesId) => {
+    const filtered = articles.filter((article) => article.series === series);
+    return exportArticlesAsCsv(filtered);
+  }, [articles]);
+
   const resetIssuesToFile = useCallback(async () => {
     const res = await fetch(ISSUES_CSV_URL);
     if (!res.ok) throw new Error(`Failed to fetch CSV: ${res.status}`);
@@ -433,6 +500,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     hasIssueCsvOverride,
     exportAsJson,
     exportIssuesCsv,
+    exportArticlesCsvBySeries,
     resetIssuesToFile,
   }), [
     issues,
@@ -446,6 +514,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     hasIssueCsvOverride,
     exportAsJson,
     exportIssuesCsv,
+    exportArticlesCsvBySeries,
     resetIssuesToFile,
   ]);
 
