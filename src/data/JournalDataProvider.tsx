@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode,
 import { Issue, Article, SeriesId } from './types';
 import { objectsToRows, parseCsv, rowsToObjects, toCsv } from '@/lib/csv';
 
-const MANIFEST_URL = '/data/issues_manifest_user.js';
-const ISSUES_CSV_URL = '/data/issues.csv';
+const MANIFEST_URL = `${import.meta.env.BASE_URL}data/issues_manifest_user.js`;
+const ISSUES_CSV_URL = `${import.meta.env.BASE_URL}data/issues.csv`;
 const ISSUES_CSV_STORAGE_KEY = 'journal_issues_csv_v1';
 const ARTICLE_OVERRIDES_STORAGE_KEY = 'journal_article_overrides_v1';
 
