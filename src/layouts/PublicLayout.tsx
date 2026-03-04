@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
@@ -12,7 +12,9 @@ const NAV_ITEMS = [
 
 const DESPRE_ITEMS = [
   { label: 'Despre revistă', path: '/about', icon: Info },
-  { label: 'Colegii', path: '/editorial-board', icon: Users },
+  { label: 'Comitet științific', path: '/scientific-board', icon: Award },
+  { label: 'Colegiu de redacție', path: '/editorial-board', icon: Users },
+  { label: 'Tehnoredactare', path: '/tehnoredactare', icon: Pen },
 ];
 
 export default function PublicLayout() {
