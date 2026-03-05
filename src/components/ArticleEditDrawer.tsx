@@ -32,8 +32,21 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const setAbstract = (value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      abstract_ro: value,
+      abstract_en: '',
+    }));
+  };
+
   const handleSave = () => {
-    updateArticle(article.id, form);
+    const normalizedAbstract = String(form.abstract_ro || form.abstract_en || '').trim();
+    updateArticle(article.id, {
+      ...form,
+      abstract_ro: normalizedAbstract,
+      abstract_en: '',
+    });
     toast({ title: 'Articol actualizat', description: 'Modificările au fost salvate local.' });
     onOpenChange(false);
   };
@@ -59,8 +72,8 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
 
           {/* Abstract & Keywords — higher up */}
           <div className="space-y-1">
-            <Label className="text-xs">Rezumat</Label>
-            <Textarea className="text-sm" value={form.abstract_ro || ''} onChange={e => set('abstract_ro', e.target.value)} rows={4} />
+            <Label className="text-xs">Rezumat (o singură limbă)</Label>
+            <Textarea className="text-sm" value={form.abstract_ro || form.abstract_en || ''} onChange={e => setAbstract(e.target.value)} rows={4} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Cuvinte cheie (separate prin virgulă)</Label>

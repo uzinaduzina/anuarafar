@@ -404,9 +404,13 @@ function resolvePdfUrl(pdfPath: string): string {
   return `https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/${pdfPath}`;
 }
 
+function singleAbstractValue(article: Article): string {
+  return article.abstract_ro || article.abstract_en || '';
+}
+
 function doajRow(article: Article, issue?: Issue): Record<(typeof DOAJ_CSV_COLUMNS)[number], string> {
   const siteUrl = getPublicSiteUrl();
-  const abstractValue = article.abstract_en || article.abstract_ro || '';
+  const abstractValue = singleAbstractValue(article);
   const keywordsValue = article.keywords_en || article.keywords_ro || '';
 
   return {
@@ -485,8 +489,8 @@ function sanitizeIssn(raw: string): string {
 function buildDoajRecordXml(article: Article, issue?: Issue): string {
   const articleLanguage = toIso639_2b(article.language || JOURNAL.language || 'ro');
   const titleLanguage = articleLanguage;
-  const abstractValue = (article.abstract_en || article.abstract_ro || '').trim();
-  const abstractLanguage = article.abstract_en ? 'eng' : articleLanguage;
+  const abstractValue = singleAbstractValue(article).trim();
+  const abstractLanguage = articleLanguage;
   const fullTextUrl = resolvePdfUrl(article.pdf_path || '') || `${getPublicSiteUrl()}/article/${article.id}`;
   const fullTextFormat = article.pdf_path ? 'pdf' : 'html';
   const authors = splitList(article.authors);

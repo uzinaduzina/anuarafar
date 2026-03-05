@@ -52,6 +52,7 @@ export default function ArticleView() {
   }
 
   const issue = issues.find(i => i.id === article.issue_id);
+  const abstractText = (article.abstract_ro || article.abstract_en || '').trim();
   const keywords = (article.keywords_ro || '').split(',').map(k => k.trim()).filter(Boolean);
   const authors = article.authors.split(',').map(a => a.trim()).filter(a => a && a !== 'N/A');
   const issueArticles = articles
@@ -135,20 +136,10 @@ export default function ArticleView() {
       </div>
 
       {/* Abstract */}
-      {(article.abstract_ro || article.abstract_en) && (
+      {abstractText && (
         <div className={`rounded-lg border p-6 md:p-8 mb-6 shadow-sm ${seriesAccentBg[series]}`}>
-          {article.abstract_ro && (
-            <>
-              <h2 className="font-serif text-lg font-bold mb-3">Rezumat</h2>
-              <p className="text-sm leading-relaxed text-foreground/90 mb-4">{article.abstract_ro}</p>
-            </>
-          )}
-          {article.abstract_en && (
-            <>
-              <h3 className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-2 mt-4">Abstract (EN)</h3>
-              <p className="text-sm leading-relaxed text-foreground/90">{article.abstract_en}</p>
-            </>
-          )}
+          <h2 className="font-serif text-lg font-bold mb-3">Rezumat</h2>
+          <p className="text-sm leading-relaxed text-foreground/90">{abstractText}</p>
         </div>
       )}
 
