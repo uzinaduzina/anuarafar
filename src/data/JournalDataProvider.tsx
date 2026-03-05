@@ -144,6 +144,8 @@ interface JournalData {
   exportArticlesCsvBySeries: (series: SeriesId) => string;
   exportDoajCsvBySeries: (series: SeriesId) => string;
   exportDoajCsvByIssue: (issueId: string) => string;
+  exportDoajXmlBySeries: (series: SeriesId) => string;
+  exportDoajXmlByIssue: (issueId: string) => string;
   resetIssuesToFile: () => Promise<void>;
 }
 
@@ -179,6 +181,8 @@ const JournalDataContext = createContext<JournalData>({
   exportArticlesCsvBySeries: () => '',
   exportDoajCsvBySeries: () => '',
   exportDoajCsvByIssue: () => '',
+  exportDoajXmlBySeries: () => '',
+  exportDoajXmlByIssue: () => '',
   resetIssuesToFile: async () => {},
 });
 
@@ -435,6 +439,105 @@ function exportDoajCsv(articles: Article[], issuesById: Record<string, Issue>): 
   return `${toCsv(rows)}\n`;
 }
 
+function xmlEscape(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function toIso639_2b(code: string): string {
+  const normalized = (code || '').trim().toLowerCase();
+  if (normalized === 'ro' || normalized === 'ron' || normalized === 'rum') return 'rum';
+  if (normalized === 'en' || normalized === 'eng') return 'eng';
+  if (normalized.length === 3) return normalized;
+  return 'eng';
+}
+
+function splitList(raw: string): string[] {
+  return (raw || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function sanitizeIssn(raw: string): string {
+  const normalized = (raw || '').trim();
+  if (!normalized) return '';
+  const compact = normalized.replace(/[^0-9Xx]/g, '');
+  if (compact.length !== 8) return normalized;
+  return `${compact.slice(0, 4)}-${compact.slice(4)}`;
+}
+
+function buildDoajRecordXml(article: Article, issue?: Issue): string {
+  const articleLanguage = toIso639_2b(article.language || JOURNAL.language || 'ro');
+  const titleLanguage = articleLanguage;
+  const abstractValue = (article.abstract_en || article.abstract_ro || '').trim();
+  const abstractLanguage = article.abstract_en ? 'eng' : articleLanguage;
+  const fullTextUrl = resolvePdfUrl(article.pdf_path || '') || `${getPublicSiteUrl()}/article/${article.id}`;
+  const fullTextFormat = article.pdf_path ? 'pdf' : 'html';
+  const authors = splitList(article.authors);
+  const affiliations = splitList(article.affiliations);
+  const keywords = splitList(article.keywords_en || article.keywords_ro);
+  const issn = sanitizeIssn(JOURNAL.issn);
+  const eissn = sanitizeIssn(JOURNAL.eissn);
+
+  const authorsXml = authors.length > 0
+    ? `
+    <authors>
+${authors.map((author, index) => {
+  const affiliationId = affiliations[index] ? String(index + 1) : '';
+  const affiliationTag = affiliationId ? `\n        <affiliationId>${xmlEscape(affiliationId)}</affiliationId>` : '';
+  return `      <author>
+        <name>${xmlEscape(author)}</name>${affiliationTag}
+      </author>`;
+}).join('\n')}
+    </authors>`
+    : '';
+
+  const affiliationsXml = affiliations.length > 0
+    ? `
+    <affiliationsList>
+${affiliations.map((name, index) => `      <affiliationName affiliationId="${xmlEscape(String(index + 1))}">${xmlEscape(name)}</affiliationName>`).join('\n')}
+    </affiliationsList>`
+    : '';
+
+  const abstractXml = abstractValue
+    ? `
+    <abstract language="${xmlEscape(abstractLanguage)}">${xmlEscape(abstractValue)}</abstract>`
+    : '';
+
+  const keywordsXml = keywords.length > 0
+    ? `
+    <keywords language="${xmlEscape(articleLanguage)}">
+${keywords.map((keyword) => `      <keyword>${xmlEscape(keyword)}</keyword>`).join('\n')}
+    </keywords>`
+    : '';
+
+  const publicationDate = (issue?.date_published || '').trim() || `${new Date().getFullYear()}-01-01`;
+
+  return `  <record>
+    <language>${xmlEscape(articleLanguage)}</language>
+    <publisher>${xmlEscape(JOURNAL.publisher)}</publisher>
+    <journalTitle>${xmlEscape(JOURNAL.name)}</journalTitle>
+${issn ? `    <issn>${xmlEscape(issn)}</issn>\n` : ''}${eissn ? `    <eissn>${xmlEscape(eissn)}</eissn>\n` : ''}    <publicationDate>${xmlEscape(publicationDate)}</publicationDate>
+${issue?.volume ? `    <volume>${xmlEscape(issue.volume)}</volume>\n` : ''}${issue?.number ? `    <issue>${xmlEscape(issue.number)}</issue>\n` : ''}${article.pages_start ? `    <startPage>${xmlEscape(article.pages_start)}</startPage>\n` : ''}${article.pages_end ? `    <endPage>${xmlEscape(article.pages_end)}</endPage>\n` : ''}${article.doi ? `    <doi>${xmlEscape(article.doi)}</doi>\n` : ''}    <publisherRecordId>${xmlEscape(article.id)}</publisherRecordId>
+    <documentType>article</documentType>
+    <title language="${xmlEscape(titleLanguage)}">${xmlEscape(article.title || '')}</title>${authorsXml}${affiliationsXml}${abstractXml}
+    <fullTextUrl format="${xmlEscape(fullTextFormat)}">${xmlEscape(fullTextUrl)}</fullTextUrl>${keywordsXml}
+  </record>`;
+}
+
+function exportDoajXml(articles: Article[], issuesById: Record<string, Issue>): string {
+  const recordsXml = articles
+    .map((article) => buildDoajRecordXml(article, issuesById[article.issue_id]))
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<records>\n${recordsXml}\n</records>\n`;
+}
+
 function readArticleOverrides(): Record<string, Partial<Article>> {
   try {
     const raw = localStorage.getItem(ARTICLE_OVERRIDES_STORAGE_KEY);
@@ -651,6 +754,24 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     return exportDoajCsv(filtered, issuesById);
   }, [articles, issues]);
 
+  const exportDoajXmlBySeries = useCallback((series: SeriesId) => {
+    const issuesById = issues.reduce<Record<string, Issue>>((acc, issue) => {
+      acc[issue.id] = issue;
+      return acc;
+    }, {});
+    const filtered = articles.filter((article) => article.series === series);
+    return exportDoajXml(filtered, issuesById);
+  }, [articles, issues]);
+
+  const exportDoajXmlByIssue = useCallback((issueId: string) => {
+    const issuesById = issues.reduce<Record<string, Issue>>((acc, issue) => {
+      acc[issue.id] = issue;
+      return acc;
+    }, {});
+    const filtered = articles.filter((article) => article.issue_id === issueId);
+    return exportDoajXml(filtered, issuesById);
+  }, [articles, issues]);
+
   const resetIssuesToFile = useCallback(async () => {
     const res = await fetch(ISSUES_CSV_URL);
     if (!res.ok) throw new Error(`Failed to fetch CSV: ${res.status}`);
@@ -681,6 +802,8 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     exportArticlesCsvBySeries,
     exportDoajCsvBySeries,
     exportDoajCsvByIssue,
+    exportDoajXmlBySeries,
+    exportDoajXmlByIssue,
     resetIssuesToFile,
   }), [
     issues,
@@ -698,6 +821,8 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     exportArticlesCsvBySeries,
     exportDoajCsvBySeries,
     exportDoajCsvByIssue,
+    exportDoajXmlBySeries,
+    exportDoajXmlByIssue,
     resetIssuesToFile,
   ]);
 

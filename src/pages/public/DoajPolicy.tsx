@@ -55,7 +55,7 @@ export default function DoajPolicy() {
           <div className="space-y-2 text-sm leading-relaxed text-foreground/90">
             <p><strong>Articole individuale:</strong> fiecare articol are URL unic și pagină dedicată.</p>
             <p><strong>Full text:</strong> disponibil în PDF și/sau HTML, gratuit.</p>
-            <p><strong>Metadata:</strong> în panoul admin există export CSV DOAJ pe serie și pe număr pentru depunere metadata.</p>
+            <p><strong>Metadata:</strong> în panoul admin există export DOAJ Native XML și CSV pe serie și pe număr.</p>
             <p><strong>Identificatori persistenți:</strong> DOI este suportat și exportat când este disponibil.</p>
           </div>
         </section>

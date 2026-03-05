@@ -27,6 +27,8 @@ export default function DashboardIssues() {
     exportArticlesCsvBySeries,
     exportDoajCsvBySeries,
     exportDoajCsvByIssue,
+    exportDoajXmlBySeries,
+    exportDoajXmlByIssue,
     resetIssuesToFile,
     hasIssueCsvOverride,
   } = useJournalData();
@@ -86,6 +88,28 @@ export default function DashboardIssues() {
     const safeSlug = issue?.slug || selectedIssueId;
     const csv = exportDoajCsvByIssue(selectedIssueId);
     downloadText(`doaj-issue-${safeSlug}.csv`, csv, 'text/csv;charset=utf-8');
+  };
+
+  const onExportDoajSeriesXml = () => {
+    const xml = exportDoajXmlBySeries(doajSeries);
+    downloadText(`doaj-${doajSeries}.xml`, xml, 'application/xml;charset=utf-8');
+  };
+
+  const onExportDoajIssueXml = () => {
+    const selectedIssueId = doajIssueId || sortedIssues[0]?.id || '';
+    if (!selectedIssueId) {
+      toast({
+        title: 'Nu exista numere',
+        description: 'Adauga sau importa numere inainte de export.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const issue = issues.find((entry) => entry.id === selectedIssueId);
+    const safeSlug = issue?.slug || selectedIssueId;
+    const xml = exportDoajXmlByIssue(selectedIssueId);
+    downloadText(`doaj-issue-${safeSlug}.xml`, xml, 'application/xml;charset=utf-8');
   };
 
   const onTriggerImport = () => {
@@ -194,6 +218,12 @@ export default function DashboardIssues() {
           <Button variant="outline" onClick={onExportDoajIssueCsv}>
             <Download className="mr-2 h-4 w-4" /> Export DOAJ numar
           </Button>
+          <Button variant="outline" onClick={onExportDoajSeriesXml}>
+            <Download className="mr-2 h-4 w-4" /> DOAJ XML serie
+          </Button>
+          <Button variant="outline" onClick={onExportDoajIssueXml}>
+            <Download className="mr-2 h-4 w-4" /> DOAJ XML numar
+          </Button>
           {isAdmin && (
             <>
               <input
@@ -220,6 +250,11 @@ export default function DashboardIssues() {
           Contul editor are acces de consultare. Editarea directa a campurilor CSV este disponibila pentru admin.
         </div>
       )}
+
+      <div className="mb-4 rounded-md border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+        Exportul DOAJ XML exclude emailurile autorilor si foloseste structura DOAJ Native XML
+        (record per articol), conform cerintelor de metadata DOAJ.
+      </div>
 
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
