@@ -5,8 +5,8 @@ workers_dev = true
 
 [[kv_namespaces]]
 binding = "AUTH_KV"
-id = "REPLACE_WITH_AUTH_KV_ID"
-preview_id = "REPLACE_WITH_AUTH_KV_PREVIEW_ID"
+id = "a23b7b1d45044297b05b1c1384dfd72b"
+preview_id = "0e097dd0578d422f8265db3fe8ea8277"
 
 [vars]
 APP_NAME = "IAFAR Journal"
