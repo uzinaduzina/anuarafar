@@ -39,7 +39,7 @@ export default function DashboardSubmissions() {
     updateSubmission(submissionId, {
       assigned_reviewer: reviewer?.name || '',
       assigned_reviewer_email: reviewer?.email || '',
-      status: nextStatus as typeof statusOptions[number],
+      status: nextStatus as any,
     });
   };
 
