@@ -29,6 +29,8 @@ export default function DashboardIssues() {
     exportDoajCsvByIssue,
     exportDoajXmlBySeries,
     exportDoajXmlByIssue,
+    validateDoajBySeries,
+    validateDoajByIssue,
     resetIssuesToFile,
     hasIssueCsvOverride,
   } = useJournalData();
@@ -69,8 +71,37 @@ export default function DashboardIssues() {
   };
 
   const onExportDoajSeriesCsv = () => {
+    const validation = validateDoajBySeries(doajSeries);
+    if (validation.articleCount === 0) {
+      toast({
+        title: 'Nu exista articole pentru selectie',
+        description: `Seria ${doajSeries} nu are articole de exportat.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!validation.ok) {
+      toast({
+        title: 'Export blocat: erori DOAJ',
+        description: `${validation.errors[0]} (${validation.errors.length} erori)`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const csv = exportDoajCsvBySeries(doajSeries);
     downloadText(`doaj-${doajSeries}.csv`, csv, 'text/csv;charset=utf-8');
+    if (validation.warnings.length > 0) {
+      toast({
+        title: 'Export DOAJ finalizat cu avertismente',
+        description: `${validation.warnings.length} avertismente (ex: ${validation.warnings[0]}).`,
+      });
+      return;
+    }
+    toast({
+      title: 'Export DOAJ serie finalizat',
+      description: `${validation.articleCount} articole incluse.`,
+    });
   };
 
   const onExportDoajIssueCsv = () => {
@@ -84,15 +115,73 @@ export default function DashboardIssues() {
       return;
     }
 
+    const validation = validateDoajByIssue(selectedIssueId);
+    if (validation.articleCount === 0) {
+      toast({
+        title: 'Nu exista articole pentru selectie',
+        description: 'Numarul selectat nu are articole de exportat.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!validation.ok) {
+      toast({
+        title: 'Export blocat: erori DOAJ',
+        description: `${validation.errors[0]} (${validation.errors.length} erori)`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const issue = issues.find((entry) => entry.id === selectedIssueId);
     const safeSlug = issue?.slug || selectedIssueId;
     const csv = exportDoajCsvByIssue(selectedIssueId);
     downloadText(`doaj-issue-${safeSlug}.csv`, csv, 'text/csv;charset=utf-8');
+    if (validation.warnings.length > 0) {
+      toast({
+        title: 'Export DOAJ finalizat cu avertismente',
+        description: `${validation.warnings.length} avertismente (ex: ${validation.warnings[0]}).`,
+      });
+      return;
+    }
+    toast({
+      title: 'Export DOAJ numar finalizat',
+      description: `${validation.articleCount} articole incluse.`,
+    });
   };
 
   const onExportDoajSeriesXml = () => {
+    const validation = validateDoajBySeries(doajSeries);
+    if (validation.articleCount === 0) {
+      toast({
+        title: 'Nu exista articole pentru selectie',
+        description: `Seria ${doajSeries} nu are articole de exportat.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!validation.ok) {
+      toast({
+        title: 'Export blocat: erori DOAJ',
+        description: `${validation.errors[0]} (${validation.errors.length} erori)`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const xml = exportDoajXmlBySeries(doajSeries);
     downloadText(`doaj-${doajSeries}.xml`, xml, 'application/xml;charset=utf-8');
+    if (validation.warnings.length > 0) {
+      toast({
+        title: 'XML DOAJ finalizat cu avertismente',
+        description: `${validation.warnings.length} avertismente (ex: ${validation.warnings[0]}).`,
+      });
+      return;
+    }
+    toast({
+      title: 'DOAJ XML serie generat',
+      description: `${validation.articleCount} articole incluse.`,
+    });
   };
 
   const onExportDoajIssueXml = () => {
@@ -106,10 +195,39 @@ export default function DashboardIssues() {
       return;
     }
 
+    const validation = validateDoajByIssue(selectedIssueId);
+    if (validation.articleCount === 0) {
+      toast({
+        title: 'Nu exista articole pentru selectie',
+        description: 'Numarul selectat nu are articole de exportat.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!validation.ok) {
+      toast({
+        title: 'Export blocat: erori DOAJ',
+        description: `${validation.errors[0]} (${validation.errors.length} erori)`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const issue = issues.find((entry) => entry.id === selectedIssueId);
     const safeSlug = issue?.slug || selectedIssueId;
     const xml = exportDoajXmlByIssue(selectedIssueId);
     downloadText(`doaj-issue-${safeSlug}.xml`, xml, 'application/xml;charset=utf-8');
+    if (validation.warnings.length > 0) {
+      toast({
+        title: 'XML DOAJ finalizat cu avertismente',
+        description: `${validation.warnings.length} avertismente (ex: ${validation.warnings[0]}).`,
+      });
+      return;
+    }
+    toast({
+      title: 'DOAJ XML numar generat',
+      description: `${validation.articleCount} articole incluse.`,
+    });
   };
 
   const onTriggerImport = () => {

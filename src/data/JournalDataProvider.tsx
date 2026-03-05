@@ -128,6 +128,13 @@ interface ManifestData {
   articles: ManifestArticle[];
 }
 
+export interface DoajValidationResult {
+  ok: boolean;
+  articleCount: number;
+  errors: string[];
+  warnings: string[];
+}
+
 interface JournalData {
   issues: Issue[];
   articles: Article[];
@@ -146,6 +153,8 @@ interface JournalData {
   exportDoajCsvByIssue: (issueId: string) => string;
   exportDoajXmlBySeries: (series: SeriesId) => string;
   exportDoajXmlByIssue: (issueId: string) => string;
+  validateDoajBySeries: (series: SeriesId) => DoajValidationResult;
+  validateDoajByIssue: (issueId: string) => DoajValidationResult;
   resetIssuesToFile: () => Promise<void>;
 }
 
@@ -183,6 +192,8 @@ const JournalDataContext = createContext<JournalData>({
   exportDoajCsvByIssue: () => '',
   exportDoajXmlBySeries: () => '',
   exportDoajXmlByIssue: () => '',
+  validateDoajBySeries: () => ({ ok: true, articleCount: 0, errors: [], warnings: [] }),
+  validateDoajByIssue: () => ({ ok: true, articleCount: 0, errors: [], warnings: [] }),
   resetIssuesToFile: async () => {},
 });
 
@@ -538,6 +549,79 @@ function exportDoajXml(articles: Article[], issuesById: Record<string, Issue>): 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<records>\n${recordsXml}\n</records>\n`;
 }
 
+function isValidDoajPublicationDate(value: string): boolean {
+  return /^\d{4}(-\d{2}(-\d{2})?)?$/.test(value);
+}
+
+function validateDoajRecords(articles: Article[], issuesById: Record<string, Issue>): DoajValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const printIssn = sanitizeIssn(JOURNAL.issn);
+  const onlineIssn = sanitizeIssn(JOURNAL.eissn);
+  if (!printIssn && !onlineIssn) {
+    errors.push('Jurnalul nu are ISSN/eISSN configurat pentru DOAJ metadata.');
+  }
+
+  const seenDoi = new Map<string, string>();
+  const seenFullTextUrl = new Map<string, string>();
+  const siteUrl = getPublicSiteUrl();
+
+  for (const article of articles) {
+    const issue = issuesById[article.issue_id];
+    const articleLabel = article.id || article.title || 'articol-neidentificat';
+    const publicationDate = (issue?.date_published || '').trim();
+    const fullTextUrl = resolvePdfUrl(article.pdf_path || '') || `${siteUrl}/article/${article.id}`;
+    const doi = (article.doi || '').trim().toLowerCase();
+
+    if (!article.title.trim()) {
+      errors.push(`Articolul ${articleLabel} nu are titlu.`);
+    }
+
+    if (!publicationDate) {
+      errors.push(`Articolul ${articleLabel} nu are publicationDate (date_published in issue).`);
+    } else if (!isValidDoajPublicationDate(publicationDate)) {
+      warnings.push(`Articolul ${articleLabel} are publicationDate neconform (${publicationDate}).`);
+    }
+
+    if (!/^https?:\/\//i.test(fullTextUrl)) {
+      errors.push(`Articolul ${articleLabel} are fullTextUrl invalid (${fullTextUrl}).`);
+    }
+
+    if (!article.pdf_path) {
+      warnings.push(`Articolul ${articleLabel} nu are PDF direct; fullTextUrl va indica pagina articolului.`);
+    }
+
+    if (article.emails.trim()) {
+      warnings.push(`Articolul ${articleLabel} are emailuri in metadata internă; ele nu sunt exportate in DOAJ XML.`);
+    }
+
+    if (doi) {
+      const previous = seenDoi.get(doi);
+      if (previous) {
+        warnings.push(`DOI duplicat intre articolele ${previous} si ${articleLabel}.`);
+      } else {
+        seenDoi.set(doi, articleLabel);
+      }
+    }
+
+    const normalizedUrl = fullTextUrl.trim().toLowerCase();
+    const previousUrl = seenFullTextUrl.get(normalizedUrl);
+    if (previousUrl) {
+      warnings.push(`fullTextUrl duplicat intre articolele ${previousUrl} si ${articleLabel}.`);
+    } else {
+      seenFullTextUrl.set(normalizedUrl, articleLabel);
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    articleCount: articles.length,
+    errors: Array.from(new Set(errors)),
+    warnings: Array.from(new Set(warnings)),
+  };
+}
+
 function readArticleOverrides(): Record<string, Partial<Article>> {
   try {
     const raw = localStorage.getItem(ARTICLE_OVERRIDES_STORAGE_KEY);
@@ -772,6 +856,24 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     return exportDoajXml(filtered, issuesById);
   }, [articles, issues]);
 
+  const validateDoajBySeries = useCallback((series: SeriesId): DoajValidationResult => {
+    const issuesById = issues.reduce<Record<string, Issue>>((acc, issue) => {
+      acc[issue.id] = issue;
+      return acc;
+    }, {});
+    const filtered = articles.filter((article) => article.series === series);
+    return validateDoajRecords(filtered, issuesById);
+  }, [articles, issues]);
+
+  const validateDoajByIssue = useCallback((issueId: string): DoajValidationResult => {
+    const issuesById = issues.reduce<Record<string, Issue>>((acc, issue) => {
+      acc[issue.id] = issue;
+      return acc;
+    }, {});
+    const filtered = articles.filter((article) => article.issue_id === issueId);
+    return validateDoajRecords(filtered, issuesById);
+  }, [articles, issues]);
+
   const resetIssuesToFile = useCallback(async () => {
     const res = await fetch(ISSUES_CSV_URL);
     if (!res.ok) throw new Error(`Failed to fetch CSV: ${res.status}`);
@@ -804,6 +906,8 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     exportDoajCsvByIssue,
     exportDoajXmlBySeries,
     exportDoajXmlByIssue,
+    validateDoajBySeries,
+    validateDoajByIssue,
     resetIssuesToFile,
   }), [
     issues,
@@ -823,6 +927,8 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     exportDoajCsvByIssue,
     exportDoajXmlBySeries,
     exportDoajXmlByIssue,
+    validateDoajBySeries,
+    validateDoajByIssue,
     resetIssuesToFile,
   ]);
 
