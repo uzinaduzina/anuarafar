@@ -37,8 +37,12 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
-  const parsed = Number(raw);
+  const parsed = Number(asString(raw));
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.floor(parsed);
 }
@@ -48,7 +52,7 @@ function generateCode() {
 }
 
 function parseAccounts(env: Env): AuthAccount[] {
-  if (!env.AUTH_ACCOUNTS_JSON) return DEFAULT_ACCOUNTS;
+  if (typeof env.AUTH_ACCOUNTS_JSON !== 'string' || env.AUTH_ACCOUNTS_JSON.length === 0) return DEFAULT_ACCOUNTS;
   try {
     const parsed = JSON.parse(env.AUTH_ACCOUNTS_JSON) as AuthAccount[];
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_ACCOUNTS;
@@ -69,7 +73,7 @@ function findAccountByEmail(accounts: AuthAccount[], email: string) {
 }
 
 function getAllowedOrigins(env: Env): string[] {
-  const raw = env.ALLOWED_ORIGINS || '';
+  const raw = asString(env.ALLOWED_ORIGINS);
   return raw
     .split(',')
     .map((entry) => entry.trim())
@@ -317,28 +321,34 @@ async function handleNotifyRole(request: Request, env: Env): Promise<Response> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: buildCorsHeaders(request, env) });
+    try {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: buildCorsHeaders(request, env) });
+      }
+
+      const url = new URL(request.url);
+
+      if (request.method === 'GET' && url.pathname === '/health') {
+        return jsonResponse(request, env, 200, { ok: true, status: 'healthy' });
+      }
+
+      if (request.method === 'POST' && url.pathname === '/auth/request-code') {
+        return handleRequestCode(request, env);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/auth/verify-code') {
+        return handleVerifyCode(request, env);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/notify/role') {
+        return handleNotifyRole(request, env);
+      }
+
+      return textResponse(request, env, 404, 'Not found');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Unhandled worker error', message);
+      return jsonResponse(request, env, 500, { ok: false, error: 'Worker runtime error', detail: message });
     }
-
-    const url = new URL(request.url);
-
-    if (request.method === 'GET' && url.pathname === '/health') {
-      return jsonResponse(request, env, 200, { ok: true, status: 'healthy' });
-    }
-
-    if (request.method === 'POST' && url.pathname === '/auth/request-code') {
-      return handleRequestCode(request, env);
-    }
-
-    if (request.method === 'POST' && url.pathname === '/auth/verify-code') {
-      return handleVerifyCode(request, env);
-    }
-
-    if (request.method === 'POST' && url.pathname === '/notify/role') {
-      return handleNotifyRole(request, env);
-    }
-
-    return textResponse(request, env, 404, 'Not found');
   },
 };
