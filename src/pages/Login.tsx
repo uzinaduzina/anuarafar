@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { AUTH_ACCOUNTS, ROLE_LABELS } from '@/data/authUsers';
+import { ROLE_LABELS } from '@/data/authUsers';
 
 export default function Login() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
   const [isRequestingCode, setIsRequestingCode] = useState(false);
@@ -18,7 +19,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, requestLoginCode, verifyLoginCode, devInbox, authTransport } = useAuth();
+  const { user, requestLoginCode, verifyLoginCode, devInbox, authTransport, accounts } = useAuth();
 
   const redirectTarget = useMemo(() => {
     const state = location.state as { from?: string } | null;
@@ -34,7 +35,7 @@ export default function Login() {
   const handleRequestCode = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsRequestingCode(true);
-    const result = await requestLoginCode(email);
+    const result = await requestLoginCode(email, password);
     setIsRequestingCode(false);
 
     if (!result.ok) {
@@ -63,6 +64,7 @@ export default function Login() {
 
   const quickFill = (targetEmail: string) => {
     setEmail(targetEmail);
+    setPassword('');
     setCode('');
     setCodeRequested(false);
   };
@@ -96,6 +98,17 @@ export default function Login() {
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="nume@iafar.ro"
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Parola</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Parola contului"
                   />
                 </div>
 
@@ -133,7 +146,7 @@ export default function Login() {
 
               <div className="rounded-md border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
                 {authTransport === 'remote'
-                  ? 'Autentificare reala prin serviciul email configurat (Cloudflare + Resend).'
+                  ? 'Introdu email + parola, apoi primesti pe email un cod de login valabil 30 de zile.'
                   : 'In mediu local, codurile trimise pe email sunt afisate si in lista "Inbox local".'}
               </div>
 
@@ -148,33 +161,39 @@ export default function Login() {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-3">Conturi pe rol</div>
-                <div className="rounded-md border overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-secondary text-secondary-foreground">
-                        <th className="text-left px-3 py-2 text-[0.65rem] uppercase tracking-[0.08em] font-semibold">Rol</th>
-                        <th className="text-left px-3 py-2 text-[0.65rem] uppercase tracking-[0.08em] font-semibold">Email</th>
-                        <th className="px-3 py-2" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {AUTH_ACCOUNTS.map((account) => (
-                        <tr key={account.email} className="hover:bg-accent/50">
-                          <td className="px-3 py-2 font-medium">{ROLE_LABELS[account.role]}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{account.email}</td>
-                          <td className="px-3 py-2 text-right">
-                            <button onClick={() => quickFill(account.email)} className="text-primary text-xs hover:underline">
-                              Foloseste
-                            </button>
-                          </td>
+              {accounts.length > 0 ? (
+                <div>
+                  <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-3">Conturi pe rol</div>
+                  <div className="rounded-md border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-secondary text-secondary-foreground">
+                          <th className="text-left px-3 py-2 text-[0.65rem] uppercase tracking-[0.08em] font-semibold">Rol</th>
+                          <th className="text-left px-3 py-2 text-[0.65rem] uppercase tracking-[0.08em] font-semibold">Email</th>
+                          <th className="px-3 py-2" />
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y">
+                        {accounts.map((account) => (
+                          <tr key={account.email} className="hover:bg-accent/50">
+                            <td className="px-3 py-2 font-medium">{ROLE_LABELS[account.role]}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{account.email}</td>
+                            <td className="px-3 py-2 text-right">
+                              <button onClick={() => quickFill(account.email)} className="text-primary text-xs hover:underline">
+                                Foloseste
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
+                  Introdu emailul contului tau. In productie, utilizatorii se gestioneaza din panoul admin.
+                </div>
+              )}
 
               {authTransport === 'local' && (
                 <div>

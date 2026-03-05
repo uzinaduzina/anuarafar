@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
-import { getAccountByEmail, type AuthAccount, type UserRole } from '@/data/authUsers';
+import { AUTH_ACCOUNTS, getAccountByEmail, type AuthAccount, type UserRole } from '@/data/authUsers';
 
 type AuthUser = AuthAccount;
 type AuthTransport = 'local' | 'remote';
+type NotificationRole = UserRole | 'all';
 
 interface EmailCodeInboxItem {
   email: string;
@@ -19,6 +20,20 @@ interface StoredLoginCode {
   expiresAt: number;
 }
 
+interface CreateAccountInput {
+  name: string;
+  email: string;
+  role: UserRole;
+  password: string;
+  username?: string;
+}
+
+interface SendRoleNotificationInput {
+  role: NotificationRole;
+  subject: string;
+  message: string;
+}
+
 interface ActionResult {
   ok: boolean;
   message?: string;
@@ -29,14 +44,20 @@ interface ApiAuthResponse {
   ok?: boolean;
   message?: string;
   error?: string;
+  token?: string;
   user?: AuthUser;
+  account?: AuthAccount;
+  accounts?: AuthAccount[];
 }
 
 interface AuthContextType {
   user: AuthUser | null;
-  login: (user: AuthUser) => void;
-  requestLoginCode: (email: string) => Promise<ActionResult>;
+  login: (user: AuthUser, token?: string | null) => void;
+  requestLoginCode: (email: string, password?: string) => Promise<ActionResult>;
   verifyLoginCode: (email: string, code: string) => Promise<ActionResult>;
+  refreshAccounts: () => Promise<ActionResult>;
+  createAccount: (input: CreateAccountInput) => Promise<ActionResult>;
+  sendRoleNotification: (input: SendRoleNotificationInput) => Promise<ActionResult>;
   logout: () => void;
   isAdmin: boolean;
   isEditor: boolean;
@@ -45,9 +66,12 @@ interface AuthContextType {
   canAccess: (roles: UserRole[]) => boolean;
   devInbox: EmailCodeInboxItem[];
   authTransport: AuthTransport;
+  authToken: string | null;
+  accounts: AuthAccount[];
 }
 
 const SESSION_USER_KEY = 'auth_user';
+const SESSION_TOKEN_KEY = 'auth_session_token';
 const LOGIN_CODES_KEY = 'auth_login_codes_v1';
 const DEV_INBOX_KEY = 'auth_dev_inbox_v1';
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -92,6 +116,30 @@ function buildAction(ok: boolean, message?: string, error?: string): ActionResul
   return { ok, message, error };
 }
 
+function isAuthUser(value: unknown): value is AuthUser {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<AuthUser>;
+  return typeof candidate.username === 'string'
+    && typeof candidate.name === 'string'
+    && typeof candidate.email === 'string'
+    && typeof candidate.role === 'string';
+}
+
+function parseRemoteAccounts(accounts: unknown): AuthAccount[] {
+  if (!Array.isArray(accounts)) return [];
+  return accounts
+    .filter((entry) => isAuthUser(entry))
+    .map((entry) => {
+      const account = entry as AuthUser;
+      return {
+        username: account.username,
+        name: account.name,
+        role: account.role,
+        email: normalizeEmail(account.email),
+      };
+    });
+}
+
 async function parseApiResponse(response: Response): Promise<ApiAuthResponse> {
   const raw = await response.text();
   if (!raw) return {};
@@ -107,6 +155,9 @@ const AuthContext = createContext<AuthContextType>({
   login: () => {},
   requestLoginCode: async () => buildAction(false),
   verifyLoginCode: async () => buildAction(false),
+  refreshAccounts: async () => buildAction(false),
+  createAccount: async () => buildAction(false),
+  sendRoleNotification: async () => buildAction(false),
   logout: () => {},
   isAdmin: false,
   isEditor: false,
@@ -115,6 +166,8 @@ const AuthContext = createContext<AuthContextType>({
   canAccess: () => false,
   devInbox: [],
   authTransport: 'local',
+  authToken: null,
+  accounts: AUTH_ACCOUNTS,
 });
 
 export function useAuth() {
@@ -126,15 +179,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = sessionStorage.getItem(SESSION_USER_KEY);
     return safeJsonParse<AuthUser | null>(stored, null);
   });
-
+  const [authToken, setAuthToken] = useState<string | null>(() => sessionStorage.getItem(SESSION_TOKEN_KEY));
+  const [accounts, setAccounts] = useState<AuthAccount[]>(() => (REMOTE_AUTH_ENABLED ? [] : AUTH_ACCOUNTS));
   const [devInbox, setDevInbox] = useState<EmailCodeInboxItem[]>(() => (REMOTE_AUTH_ENABLED ? [] : readDevInbox()));
 
-  const login = useCallback((nextUser: AuthUser) => {
+  const login = useCallback((nextUser: AuthUser, token?: string | null) => {
     setUser(nextUser);
     sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(nextUser));
+
+    const normalizedToken = token || null;
+    setAuthToken(normalizedToken);
+    if (normalizedToken) {
+      sessionStorage.setItem(SESSION_TOKEN_KEY, normalizedToken);
+    } else {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    }
   }, []);
 
-  const requestLoginCode = useCallback(async (email: string): Promise<ActionResult> => {
+  const requestLoginCode = useCallback(async (email: string, password = ''): Promise<ActionResult> => {
     const normalizedEmail = normalizeEmail(email);
 
     if (REMOTE_AUTH_ENABLED) {
@@ -142,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch(`${AUTH_API_BASE}/auth/request-code`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: normalizedEmail }),
+          body: JSON.stringify({ email: normalizedEmail, password }),
         });
         const payload = await parseApiResponse(response);
 
@@ -157,7 +219,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const account = getAccountByEmail(normalizedEmail);
-
     if (!account) {
       return buildAction(false, undefined, 'Nu exista un cont asociat acestui email.');
     }
@@ -165,7 +226,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const now = Date.now();
     const code = generateCode();
     const expiresAt = now + CODE_TTL_MS;
-
     const activeCodes = readStoredCodes().filter((entry) => entry.expiresAt > now && entry.email !== normalizedEmail);
     activeCodes.push({ email: normalizedEmail, code, expiresAt });
     writeStoredCodes(activeCodes);
@@ -199,11 +259,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         const payload = await parseApiResponse(response);
 
-        if (!response.ok || payload.ok === false || !payload.user) {
+        if (!response.ok || payload.ok === false || !isAuthUser(payload.user)) {
           return buildAction(false, undefined, payload.error || 'Cod invalid sau expirat.');
         }
 
-        login(payload.user);
+        login(payload.user, typeof payload.token === 'string' ? payload.token : null);
         return buildAction(true, payload.message || 'Autentificare reusita.');
       } catch {
         return buildAction(false, undefined, 'Serviciul de autentificare nu raspunde momentan.');
@@ -211,7 +271,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const account = getAccountByEmail(normalizedEmail);
-
     if (!account) {
       return buildAction(false, undefined, 'Contul nu exista.');
     }
@@ -236,15 +295,114 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: account.email,
     };
 
-    login(nextUser);
+    login(nextUser, null);
     writeStoredCodes(activeCodes.filter((item) => item.email !== normalizedEmail));
 
     return buildAction(true, 'Autentificare reusita.');
   }, [login]);
 
+  const refreshAccounts = useCallback(async (): Promise<ActionResult> => {
+    if (!REMOTE_AUTH_ENABLED) {
+      setAccounts(AUTH_ACCOUNTS);
+      return buildAction(true);
+    }
+
+    if (!authToken) {
+      return buildAction(false, undefined, 'Sesiunea nu este valida. Reautentifica-te.');
+    }
+
+    try {
+      const response = await fetch(`${AUTH_API_BASE}/admin/users`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const payload = await parseApiResponse(response);
+
+      if (!response.ok || payload.ok === false) {
+        return buildAction(false, undefined, payload.error || 'Nu am putut incarca lista de utilizatori.');
+      }
+
+      setAccounts(parseRemoteAccounts(payload.accounts));
+      return buildAction(true);
+    } catch {
+      return buildAction(false, undefined, 'Serviciul de utilizatori nu raspunde momentan.');
+    }
+  }, [authToken]);
+
+  const createAccount = useCallback(async (input: CreateAccountInput): Promise<ActionResult> => {
+    if (!REMOTE_AUTH_ENABLED) {
+      return buildAction(false, undefined, 'Crearea de utilizatori este disponibila doar in modul remote.');
+    }
+
+    if (!authToken) {
+      return buildAction(false, undefined, 'Sesiunea nu este valida. Reautentifica-te.');
+    }
+
+    try {
+      const response = await fetch(`${AUTH_API_BASE}/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(input),
+      });
+      const payload = await parseApiResponse(response);
+
+      if (!response.ok || payload.ok === false) {
+        return buildAction(false, undefined, payload.error || 'Nu am putut crea utilizatorul.');
+      }
+
+      await refreshAccounts();
+      return buildAction(true, payload.message || 'Utilizator creat cu succes.');
+    } catch {
+      return buildAction(false, undefined, 'Serviciul de utilizatori nu raspunde momentan.');
+    }
+  }, [authToken, refreshAccounts]);
+
+  const sendRoleNotification = useCallback(async (input: SendRoleNotificationInput): Promise<ActionResult> => {
+    if (!REMOTE_AUTH_ENABLED) {
+      return buildAction(false, undefined, 'Notificarile sunt disponibile doar in modul remote.');
+    }
+
+    if (!authToken) {
+      return buildAction(false, undefined, 'Sesiunea nu este valida. Reautentifica-te.');
+    }
+
+    try {
+      const response = await fetch(`${AUTH_API_BASE}/notify/role`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(input),
+      });
+      const payload = await parseApiResponse(response);
+
+      if (!response.ok || payload.ok === false) {
+        return buildAction(false, undefined, payload.error || 'Nu am putut trimite notificarea.');
+      }
+
+      return buildAction(true, payload.message || 'Notificare trimisa.');
+    } catch {
+      return buildAction(false, undefined, 'Serviciul de notificari nu raspunde momentan.');
+    }
+  }, [authToken]);
+
   const logout = useCallback(() => {
     setUser(null);
+    setAuthToken(null);
+    if (REMOTE_AUTH_ENABLED) {
+      setAccounts([]);
+    } else {
+      setAccounts(AUTH_ACCOUNTS);
+    }
     sessionStorage.removeItem(SESSION_USER_KEY);
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
   }, []);
 
   const isAdmin = user?.role === 'admin';
@@ -262,6 +420,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     requestLoginCode,
     verifyLoginCode,
+    refreshAccounts,
+    createAccount,
+    sendRoleNotification,
     logout,
     isAdmin,
     isEditor,
@@ -270,9 +431,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     canAccess,
     devInbox,
     authTransport: REMOTE_AUTH_ENABLED ? 'remote' as const : 'local' as const,
-  }), [user, login, requestLoginCode, verifyLoginCode, logout, isAdmin, isEditor, isReviewer, isAuthor, canAccess, devInbox]);
+    authToken,
+    accounts,
+  }), [
+    user,
+    login,
+    requestLoginCode,
+    verifyLoginCode,
+    refreshAccounts,
+    createAccount,
+    sendRoleNotification,
+    logout,
+    isAdmin,
+    isEditor,
+    isReviewer,
+    isAuthor,
+    canAccess,
+    devInbox,
+    authToken,
+    accounts,
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export type { AuthUser, UserRole };
+export type { AuthUser, UserRole, CreateAccountInput, SendRoleNotificationInput };

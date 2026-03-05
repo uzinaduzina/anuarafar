@@ -5,6 +5,7 @@ Web platform for journal publishing workflows:
 - Role dashboards: `admin`, `editor`, `reviewer`, `author`
 - CSV-first data management for issues and articles
 - Email OTP login via Cloudflare Worker + Resend (production mode)
+- Admin-managed users with role + password + login code email (valid 30 days)
 
 ## Local development
 
@@ -29,10 +30,14 @@ VITE_AUTH_API_BASE=https://api.iafar.ro
 3. Rebuild and redeploy frontend.
 
 When `VITE_AUTH_API_BASE` is set:
-- Login page calls remote endpoints:
+- Login page calls remote endpoints (email + password -> code by email):
   - `POST /auth/request-code`
   - `POST /auth/verify-code`
-- Dashboard users page switches from local inbox to production status view.
+- Admin can manage users from dashboard:
+  - `GET /admin/users`
+  - `POST /admin/users`
+- Admin can send role correspondence emails:
+  - `POST /notify/role`
 
 ## GitHub Pages
 

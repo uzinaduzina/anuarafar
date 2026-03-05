@@ -1,9 +1,11 @@
 # Email Auth Worker (Cloudflare + Resend)
 
 This worker provides:
-- `POST /auth/request-code` -> sends OTP login code by email
-- `POST /auth/verify-code` -> verifies OTP and returns user role profile
-- `POST /notify/role` -> sends role-based announcements (`admin`, `editor`, `reviewer`, `author`, `all`)
+- `POST /auth/request-code` -> validates `email + password` and sends login code by email
+- `POST /auth/verify-code` -> verifies code and returns user profile + session token
+- `GET /admin/users` -> list users (admin session)
+- `POST /admin/users` -> create user with password and auto-send login code (valid 30 days)
+- `POST /notify/role` -> sends role-based announcements (`admin`, `editor`, `reviewer`, `author`, `all`) using admin session
 - `GET /health` -> health check
 
 ## 1. Prerequisites
@@ -61,7 +63,7 @@ Then rebuild/redeploy frontend.
 ```bash
 curl -X POST https://api.iafar.ro/auth/request-code \
   -H "Content-Type: application/json" \
-  -d '{"email":"liviu.o.pop@gmail.com"}'
+  -d '{"email":"liviu.o.pop@gmail.com","password":"YOUR_PASSWORD"}'
 ```
 
 ```bash
@@ -70,9 +72,23 @@ curl -X POST https://api.iafar.ro/auth/verify-code \
   -d '{"email":"liviu.o.pop@gmail.com","code":"123456"}'
 ```
 
+Use `token` from `/auth/verify-code` in `Authorization: Bearer <token>`:
+
+```bash
+curl -X GET https://api.iafar.ro/admin/users \
+  -H "Authorization: Bearer REPLACE_WITH_TOKEN"
+```
+
+```bash
+curl -X POST https://api.iafar.ro/admin/users \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer REPLACE_WITH_TOKEN" \
+  -d '{"name":"Reviewer Nou","email":"reviewer2@iafar.ro","role":"reviewer","password":"ParolaForta123"}'
+```
+
 ```bash
 curl -X POST https://api.iafar.ro/notify/role \
   -H "Content-Type: application/json" \
-  -H "X-Admin-Token: REPLACE_WITH_NOTIFY_API_KEY" \
+  -H "Authorization: Bearer REPLACE_WITH_TOKEN" \
   -d '{"role":"all","subject":"Anunt editorial","message":"Mesaj pentru toti utilizatorii."}'
 ```
