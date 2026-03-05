@@ -42,7 +42,12 @@ export default function Home() {
                   Explorează arhiva
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="border-sidebar-foreground/20 text-sidebar-foreground hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground font-semibold">
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="!bg-black/35 border-sidebar-foreground/35 text-sidebar-foreground hover:!bg-black/55 hover:text-sidebar-foreground font-semibold"
+              >
                 <Link to="/submit">Trimite manuscris</Link>
               </Button>
             </div>
