@@ -14,4 +14,4 @@ RESEND_FROM = "no-reply@send.iafar.ro"
 ALLOWED_ORIGINS = "http://localhost:5173,https://uzinaduzina.github.io,https://jurnal.iafar.ro"
 OTP_TTL_SECONDS = "600"
 OTP_RATE_LIMIT_SECONDS = "60"
-AUTH_ACCOUNTS_JSON = '[{"username":"admin","name":"Administrator","role":"admin","email":"admin@iafar.ro"},{"username":"editor","name":"Editor Principal","role":"editor","email":"editor@iafar.ro"},{"username":"reviewer","name":"Reviewer Demo","role":"reviewer","email":"reviewer@iafar.ro"},{"username":"author","name":"Autor Demo","role":"author","email":"author@iafar.ro"}]'
+AUTH_ACCOUNTS_JSON = '[{"username":"admin","name":"Liviu Pop","role":"admin","email":"liviu.o.pop@gmail.com"},{"username":"editor","name":"Editor Principal","role":"editor","email":"editor@iafar.ro"},{"username":"reviewer","name":"Reviewer Demo","role":"reviewer","email":"reviewer@iafar.ro"},{"username":"author","name":"Autor Demo","role":"author","email":"author@iafar.ro"}]'

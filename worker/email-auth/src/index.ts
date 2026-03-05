@@ -27,7 +27,7 @@ interface Env {
 }
 
 const DEFAULT_ACCOUNTS: AuthAccount[] = [
-  { username: 'admin', name: 'Administrator', role: 'admin', email: 'admin@iafar.ro' },
+  { username: 'admin', name: 'Liviu Pop', role: 'admin', email: 'liviu.o.pop@gmail.com' },
   { username: 'editor', name: 'Editor Principal', role: 'editor', email: 'editor@iafar.ro' },
   { username: 'reviewer', name: 'Reviewer Demo', role: 'reviewer', email: 'reviewer@iafar.ro' },
   { username: 'author', name: 'Autor Demo', role: 'author', email: 'author@iafar.ro' },

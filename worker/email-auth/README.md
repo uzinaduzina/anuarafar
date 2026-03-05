@@ -61,13 +61,13 @@ Then rebuild/redeploy frontend.
 ```bash
 curl -X POST https://api.iafar.ro/auth/request-code \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@iafar.ro"}'
+  -d '{"email":"liviu.o.pop@gmail.com"}'
 ```
 
 ```bash
 curl -X POST https://api.iafar.ro/auth/verify-code \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@iafar.ro","code":"123456"}'
+  -d '{"email":"liviu.o.pop@gmail.com","code":"123456"}'
 ```
 
 ```bash
