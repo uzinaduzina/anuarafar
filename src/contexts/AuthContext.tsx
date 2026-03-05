@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useCallback, useMemo } 
 import { getAccountByEmail, type AuthAccount, type UserRole } from '@/data/authUsers';
 
 type AuthUser = AuthAccount;
+type AuthTransport = 'local' | 'remote';
 
 interface EmailCodeInboxItem {
   email: string;
@@ -24,11 +25,18 @@ interface ActionResult {
   error?: string;
 }
 
+interface ApiAuthResponse {
+  ok?: boolean;
+  message?: string;
+  error?: string;
+  user?: AuthUser;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   login: (user: AuthUser) => void;
-  requestLoginCode: (email: string) => ActionResult;
-  verifyLoginCode: (email: string, code: string) => ActionResult;
+  requestLoginCode: (email: string) => Promise<ActionResult>;
+  verifyLoginCode: (email: string, code: string) => Promise<ActionResult>;
   logout: () => void;
   isAdmin: boolean;
   isEditor: boolean;
@@ -36,6 +44,7 @@ interface AuthContextType {
   isAuthor: boolean;
   canAccess: (roles: UserRole[]) => boolean;
   devInbox: EmailCodeInboxItem[];
+  authTransport: AuthTransport;
 }
 
 const SESSION_USER_KEY = 'auth_user';
@@ -43,6 +52,8 @@ const LOGIN_CODES_KEY = 'auth_login_codes_v1';
 const DEV_INBOX_KEY = 'auth_dev_inbox_v1';
 const CODE_TTL_MS = 10 * 60 * 1000;
 const DEV_INBOX_LIMIT = 20;
+const AUTH_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
+const REMOTE_AUTH_ENABLED = AUTH_API_BASE.length > 0;
 
 function safeJsonParse<T>(value: string | null, fallback: T): T {
   if (!value) return fallback;
@@ -81,11 +92,21 @@ function buildAction(ok: boolean, message?: string, error?: string): ActionResul
   return { ok, message, error };
 }
 
+async function parseApiResponse(response: Response): Promise<ApiAuthResponse> {
+  const raw = await response.text();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as ApiAuthResponse;
+  } catch {
+    return {};
+  }
+}
+
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: () => {},
-  requestLoginCode: () => buildAction(false),
-  verifyLoginCode: () => buildAction(false),
+  requestLoginCode: async () => buildAction(false),
+  verifyLoginCode: async () => buildAction(false),
   logout: () => {},
   isAdmin: false,
   isEditor: false,
@@ -93,6 +114,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthor: false,
   canAccess: () => false,
   devInbox: [],
+  authTransport: 'local',
 });
 
 export function useAuth() {
@@ -105,15 +127,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return safeJsonParse<AuthUser | null>(stored, null);
   });
 
-  const [devInbox, setDevInbox] = useState<EmailCodeInboxItem[]>(() => readDevInbox());
+  const [devInbox, setDevInbox] = useState<EmailCodeInboxItem[]>(() => (REMOTE_AUTH_ENABLED ? [] : readDevInbox()));
 
   const login = useCallback((nextUser: AuthUser) => {
     setUser(nextUser);
     sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(nextUser));
   }, []);
 
-  const requestLoginCode = useCallback((email: string): ActionResult => {
+  const requestLoginCode = useCallback(async (email: string): Promise<ActionResult> => {
     const normalizedEmail = normalizeEmail(email);
+
+    if (REMOTE_AUTH_ENABLED) {
+      try {
+        const response = await fetch(`${AUTH_API_BASE}/auth/request-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail }),
+        });
+        const payload = await parseApiResponse(response);
+
+        if (!response.ok || payload.ok === false) {
+          return buildAction(false, undefined, payload.error || 'Nu s-a putut trimite codul de autentificare.');
+        }
+
+        return buildAction(true, payload.message || `Codul de autentificare a fost trimis catre ${normalizedEmail}.`);
+      } catch {
+        return buildAction(false, undefined, 'Serviciul de autentificare nu raspunde momentan.');
+      }
+    }
+
     const account = getAccountByEmail(normalizedEmail);
 
     if (!account) {
@@ -144,9 +186,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return buildAction(true, `Codul de autentificare a fost trimis catre ${normalizedEmail}.`);
   }, []);
 
-  const verifyLoginCode = useCallback((email: string, code: string): ActionResult => {
+  const verifyLoginCode = useCallback(async (email: string, code: string): Promise<ActionResult> => {
     const normalizedEmail = normalizeEmail(email);
     const normalizedCode = code.trim();
+
+    if (REMOTE_AUTH_ENABLED) {
+      try {
+        const response = await fetch(`${AUTH_API_BASE}/auth/verify-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail, code: normalizedCode }),
+        });
+        const payload = await parseApiResponse(response);
+
+        if (!response.ok || payload.ok === false || !payload.user) {
+          return buildAction(false, undefined, payload.error || 'Cod invalid sau expirat.');
+        }
+
+        login(payload.user);
+        return buildAction(true, payload.message || 'Autentificare reusita.');
+      } catch {
+        return buildAction(false, undefined, 'Serviciul de autentificare nu raspunde momentan.');
+      }
+    }
+
     const account = getAccountByEmail(normalizedEmail);
 
     if (!account) {
@@ -206,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthor,
     canAccess,
     devInbox,
+    authTransport: REMOTE_AUTH_ENABLED ? 'remote' as const : 'local' as const,
   }), [user, login, requestLoginCode, verifyLoginCode, logout, isAdmin, isEditor, isReviewer, isAuthor, canAccess, devInbox]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

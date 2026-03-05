@@ -7,7 +7,7 @@ function formatDateTime(value: number) {
 }
 
 export default function DashboardUsers() {
-  const { devInbox } = useAuth();
+  const { devInbox, authTransport } = useAuth();
 
   return (
     <div className="space-y-8">
@@ -50,10 +50,16 @@ export default function DashboardUsers() {
       <section className="rounded-lg border bg-card shadow-sm overflow-hidden">
         <div className="p-4 border-b flex items-center gap-2">
           <Mail className="h-4 w-4 text-primary" />
-          <h2 className="font-serif text-lg font-bold">Inbox coduri email (local dev)</h2>
+          <h2 className="font-serif text-lg font-bold">
+            {authTransport === 'remote' ? 'Autentificare email (productie)' : 'Inbox coduri email (local dev)'}
+          </h2>
         </div>
 
-        {devInbox.length === 0 ? (
+        {authTransport === 'remote' ? (
+          <div className="p-6 text-sm text-muted-foreground">
+            Codurile sunt trimise prin serviciul extern de email si nu se afiseaza local in browser.
+          </div>
+        ) : devInbox.length === 0 ? (
           <div className="p-6 text-sm text-muted-foreground">Nu exista coduri trimise inca.</div>
         ) : (
           <div className="overflow-x-auto">

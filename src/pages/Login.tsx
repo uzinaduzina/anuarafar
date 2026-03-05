@@ -12,11 +12,13 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, requestLoginCode, verifyLoginCode, devInbox } = useAuth();
+  const { user, requestLoginCode, verifyLoginCode, devInbox, authTransport } = useAuth();
 
   const redirectTarget = useMemo(() => {
     const state = location.state as { from?: string } | null;
@@ -29,9 +31,11 @@ export default function Login() {
     }
   }, [user, navigate]);
 
-  const handleRequestCode = (event: React.FormEvent) => {
+  const handleRequestCode = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = requestLoginCode(email);
+    setIsRequestingCode(true);
+    const result = await requestLoginCode(email);
+    setIsRequestingCode(false);
 
     if (!result.ok) {
       toast({ title: 'Nu s-a putut trimite codul', description: result.error, variant: 'destructive' });
@@ -42,9 +46,11 @@ export default function Login() {
     toast({ title: 'Cod trimis', description: result.message });
   };
 
-  const handleVerifyCode = (event: React.FormEvent) => {
+  const handleVerifyCode = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = verifyLoginCode(email, code);
+    setIsVerifyingCode(true);
+    const result = await verifyLoginCode(email, code);
+    setIsVerifyingCode(false);
 
     if (!result.ok) {
       toast({ title: 'Autentificare esuata', description: result.error, variant: 'destructive' });
@@ -61,7 +67,9 @@ export default function Login() {
     setCodeRequested(false);
   };
 
-  const latestCodeForEmail = devInbox.find((entry) => entry.email === email.trim().toLowerCase());
+  const latestCodeForEmail = authTransport === 'local'
+    ? devInbox.find((entry) => entry.email === email.trim().toLowerCase())
+    : undefined;
 
   return (
     <div className="min-h-screen grid place-items-center bg-background p-4">
@@ -91,7 +99,7 @@ export default function Login() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full" variant="outline" size="lg">
+                <Button type="submit" className="w-full" variant="outline" size="lg" disabled={isRequestingCode}>
                   <Mail className="mr-2 h-4 w-4" /> Trimite cod pe email
                 </Button>
               </form>
@@ -110,13 +118,23 @@ export default function Login() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full font-semibold" size="lg" disabled={!codeRequested && !latestCodeForEmail}>
+                <Button
+                  type="submit"
+                  className="w-full font-semibold"
+                  size="lg"
+                  disabled={
+                    isVerifyingCode
+                    || (authTransport === 'remote' ? code.trim().length !== 6 : (!codeRequested && !latestCodeForEmail))
+                  }
+                >
                   <LogIn className="mr-2 h-4 w-4" /> Conectare cu cod
                 </Button>
               </form>
 
               <div className="rounded-md border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                In mediu local, codurile trimise pe email sunt afisate si in lista "Inbox local".
+                {authTransport === 'remote'
+                  ? 'Autentificare reala prin serviciul email configurat (Cloudflare + Resend).'
+                  : 'In mediu local, codurile trimise pe email sunt afisate si in lista "Inbox local".'}
               </div>
 
               {latestCodeForEmail && (
@@ -158,31 +176,33 @@ export default function Login() {
                 </div>
               </div>
 
-              <div>
-                <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-3">Inbox local (ultimele coduri)</div>
-                <div className="rounded-md border max-h-56 overflow-auto">
-                  {devInbox.length === 0 ? (
-                    <div className="p-3 text-xs text-muted-foreground">Nu exista coduri trimise inca.</div>
-                  ) : (
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-secondary text-secondary-foreground">
-                          <th className="text-left px-3 py-2">Email</th>
-                          <th className="text-left px-3 py-2">Cod</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {devInbox.slice(0, 8).map((entry) => (
-                          <tr key={`${entry.email}-${entry.sentAt}`}>
-                            <td className="px-3 py-2 text-muted-foreground">{entry.email}</td>
-                            <td className="px-3 py-2 font-mono">{entry.code}</td>
+              {authTransport === 'local' && (
+                <div>
+                  <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-3">Inbox local (ultimele coduri)</div>
+                  <div className="rounded-md border max-h-56 overflow-auto">
+                    {devInbox.length === 0 ? (
+                      <div className="p-3 text-xs text-muted-foreground">Nu exista coduri trimise inca.</div>
+                    ) : (
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-secondary text-secondary-foreground">
+                            <th className="text-left px-3 py-2">Email</th>
+                            <th className="text-left px-3 py-2">Cod</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                        </thead>
+                        <tbody className="divide-y">
+                          {devInbox.slice(0, 8).map((entry) => (
+                            <tr key={`${entry.email}-${entry.sentAt}`}>
+                              <td className="px-3 py-2 text-muted-foreground">{entry.email}</td>
+                              <td className="px-3 py-2 font-mono">{entry.code}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
