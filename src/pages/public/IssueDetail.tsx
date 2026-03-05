@@ -106,6 +106,20 @@ export default function IssueDetail() {
               </div>
             ))}
           </div>
+
+          {issue.issue_pdf_path && (
+            <div className="mt-4">
+              <Button asChild size="lg" className="w-full">
+                <a
+                  href={`https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/${issue.issue_pdf_path}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Download className="mr-2 h-4 w-4" /> Descarcă numărul integral (PDF)
+                </a>
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* TOC */}
@@ -164,17 +178,6 @@ export default function IssueDetail() {
           )}
         </div>
       </div>
-
-      {/* Issue PDF download */}
-      {issue.issue_pdf_path && (
-        <div className="mt-8 flex justify-center">
-          <Button asChild size="lg">
-            <a href={`https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/${issue.issue_pdf_path}`} target="_blank" rel="noreferrer">
-              <Download className="mr-2 h-4 w-4" /> Descarcă numărul integral (PDF)
-            </a>
-          </Button>
-        </div>
-      )}
 
       {/* Edit drawer */}
       <ArticleEditDrawer article={editArticle} open={!!editArticle} onOpenChange={(open) => !open && setEditArticle(null)} />
