@@ -1,10 +1,18 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { Download, Loader2, Plus, RotateCcw, Upload } from 'lucide-react';
+import { ChevronDown, Download, Loader2, Plus, RotateCcw, Upload } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type { SeriesId } from '@/data/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 function downloadText(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -296,52 +304,73 @@ export default function DashboardIssues() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={onExportCsv}>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Export CSV principal */}
+          <Button variant="outline" size="sm" onClick={onExportCsv}>
             <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
-          <Button variant="outline" onClick={() => onExportArticlesSeriesCsv('seria-1')}>
-            <Download className="mr-2 h-4 w-4" /> Articole Seria 1
-          </Button>
-          <Button variant="outline" onClick={() => onExportArticlesSeriesCsv('seria-2')}>
-            <Download className="mr-2 h-4 w-4" /> Articole Seria 2
-          </Button>
-          <Button variant="outline" onClick={() => onExportArticlesSeriesCsv('seria-3')}>
-            <Download className="mr-2 h-4 w-4" /> Articole Seria 3
-          </Button>
-          <select
-            className="h-10 rounded-md border bg-background px-2 text-sm"
-            value={doajSeries}
-            onChange={(event) => setDoajSeries(event.target.value as SeriesId)}
-          >
-            <option value="seria-1">DOAJ Seria 1</option>
-            <option value="seria-2">DOAJ Seria 2</option>
-            <option value="seria-3">DOAJ Seria 3</option>
-          </select>
-          <Button variant="outline" onClick={onExportDoajSeriesCsv}>
-            <Download className="mr-2 h-4 w-4" /> Export DOAJ serie
-          </Button>
-          <select
-            className="h-10 min-w-[220px] rounded-md border bg-background px-2 text-sm"
-            value={doajIssueId}
-            onChange={(event) => setDoajIssueId(event.target.value)}
-          >
-            <option value="">Selecteaza numar pentru DOAJ</option>
-            {sortedIssues.map((issue) => (
-              <option key={issue.id} value={issue.id}>
-                {issue.year} · {issue.volume} · {issue.title}
-              </option>
-            ))}
-          </select>
-          <Button variant="outline" onClick={onExportDoajIssueCsv}>
-            <Download className="mr-2 h-4 w-4" /> Export DOAJ numar
-          </Button>
-          <Button variant="outline" onClick={onExportDoajSeriesXml}>
-            <Download className="mr-2 h-4 w-4" /> DOAJ XML serie
-          </Button>
-          <Button variant="outline" onClick={onExportDoajIssueXml}>
-            <Download className="mr-2 h-4 w-4" /> DOAJ XML numar
-          </Button>
+
+          {/* Export Articole per serie */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" /> Articole per serie <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuLabel>Export articole CSV</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onExportArticlesSeriesCsv('seria-1')}>Seria I (1932–1945)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExportArticlesSeriesCsv('seria-2')}>Seria II (1980–1998)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExportArticlesSeriesCsv('seria-3')}>Seria III (2022–)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* DOAJ Export */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" /> DOAJ Export <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-72">
+              <DropdownMenuLabel>Export DOAJ per serie</DropdownMenuLabel>
+              <div className="px-2 py-1.5">
+                <select
+                  className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+                  value={doajSeries}
+                  onChange={(event) => setDoajSeries(event.target.value as SeriesId)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="seria-1">Seria I</option>
+                  <option value="seria-2">Seria II</option>
+                  <option value="seria-3">Seria III</option>
+                </select>
+              </div>
+              <DropdownMenuItem onClick={onExportDoajSeriesCsv}>CSV serie</DropdownMenuItem>
+              <DropdownMenuItem onClick={onExportDoajSeriesXml}>XML serie</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Export DOAJ per număr</DropdownMenuLabel>
+              <div className="px-2 py-1.5">
+                <select
+                  className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+                  value={doajIssueId}
+                  onChange={(event) => setDoajIssueId(event.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="">Selectează număr…</option>
+                  {sortedIssues.map((issue) => (
+                    <option key={issue.id} value={issue.id}>
+                      {issue.year} · {issue.volume}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <DropdownMenuItem onClick={onExportDoajIssueCsv}>CSV număr</DropdownMenuItem>
+              <DropdownMenuItem onClick={onExportDoajIssueXml}>XML număr</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {isAdmin && (
             <>
               <input
@@ -351,13 +380,13 @@ export default function DashboardIssues() {
                 className="hidden"
                 onChange={onImportCsvFile}
               />
-              <Button variant="outline" onClick={onTriggerImport} disabled={importing}>
+              <Button variant="outline" size="sm" onClick={onTriggerImport} disabled={importing}>
                 <Upload className="mr-2 h-4 w-4" /> {importing ? 'Import...' : 'Import CSV'}
               </Button>
-              <Button variant="outline" onClick={onResetToFile} disabled={resetting}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Reset din fisier
+              <Button variant="outline" size="sm" onClick={onResetToFile} disabled={resetting}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Reset
               </Button>
-              <Button onClick={onAddIssue}><Plus className="mr-2 h-4 w-4" /> Numar nou</Button>
+              <Button size="sm" onClick={onAddIssue}><Plus className="mr-2 h-4 w-4" /> Număr nou</Button>
             </>
           )}
         </div>
