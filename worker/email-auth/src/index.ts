@@ -31,6 +31,28 @@ interface EmailAttachment {
   content_type?: string;
 }
 
+interface EmailTemplate {
+  subject: string;
+  html: string;
+  text: string;
+}
+
+interface EmailTemplateDetail {
+  label: string;
+  value: string;
+}
+
+interface BuildEmailTemplateInput {
+  subject: string;
+  heading: string;
+  greeting?: string;
+  intro: string;
+  details?: EmailTemplateDetail[];
+  note?: string;
+  action?: string;
+  footer?: string;
+}
+
 type SubmissionStatus = 'submitted' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
 
 interface StoredSubmissionFile {
@@ -553,6 +575,200 @@ async function sendEmail(
   });
 }
 
+function getAppName(env: Env): string {
+  return env.APP_NAME || 'IAFAR Journal';
+}
+
+function uniqueEmailList(entries: string[]): string[] {
+  const values = new Set<string>();
+  for (const entry of entries) {
+    const normalized = normalizeEmail(entry);
+    if (isValidEmail(normalized)) values.add(normalized);
+  }
+  return [...values];
+}
+
+function submissionStatusLabel(status: SubmissionStatus): string {
+  if (status === 'submitted') return 'Trimis';
+  if (status === 'under_review') return 'In evaluare';
+  if (status === 'decision_pending') return 'Decizie pendinte';
+  if (status === 'accepted') return 'Acceptat';
+  if (status === 'rejected') return 'Respins';
+  return 'Revizuire solicitata';
+}
+
+function recommendationLabel(value: string): string {
+  if (value === 'accept') return 'Acceptat';
+  if (value === 'minor_revisions') return 'Revizuiri minore';
+  if (value === 'major_revisions') return 'Revizuiri majore';
+  if (value === 'reject') return 'Respins';
+  return value || '-';
+}
+
+function buildWorkflowEmailTemplate(input: BuildEmailTemplateInput): EmailTemplate {
+  const details = Array.isArray(input.details) ? input.details : [];
+  const detailsHtml = details.length > 0
+    ? `
+      <table style="width:100%;border-collapse:collapse;margin:10px 0 14px 0">
+        <tbody>
+          ${details.map((detail) => `
+            <tr>
+              <td style="padding:4px 8px 4px 0;vertical-align:top;color:#374151;font-weight:600;white-space:nowrap">${escapeHtml(detail.label)}</td>
+              <td style="padding:4px 0;color:#111827">${escapeHtml(detail.value || '-')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `
+    : '';
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+      <h2 style="margin:0 0 12px 0">${escapeHtml(input.heading)}</h2>
+      <p>Salut${input.greeting ? `, ${escapeHtml(input.greeting)}` : ''}.</p>
+      <p>${escapeHtml(input.intro)}</p>
+      ${detailsHtml}
+      ${input.note ? `<p><strong>Nota:</strong> ${escapeHtml(input.note)}</p>` : ''}
+      ${input.action ? `<p>${escapeHtml(input.action)}</p>` : ''}
+      ${input.footer ? `<p style="color:#6b7280;font-size:12px">${escapeHtml(input.footer)}</p>` : ''}
+    </div>
+  `.trim();
+
+  const textLines = [
+    `Salut${input.greeting ? `, ${input.greeting}` : ''}.`,
+    input.intro,
+    ...details.map((detail) => `${detail.label}: ${detail.value || '-'}`),
+    input.note ? `Nota: ${input.note}` : '',
+    input.action || '',
+    input.footer || '',
+  ].filter((line) => Boolean(line));
+
+  return {
+    subject: input.subject,
+    html,
+    text: textLines.join('\n'),
+  };
+}
+
+function buildSubmissionDetails(submission: StoredSubmission): EmailTemplateDetail[] {
+  return [
+    { label: 'ID', value: submission.id },
+    { label: 'Titlu', value: submission.title },
+    { label: 'Autori', value: submission.authors },
+    { label: 'Email contact', value: submission.email },
+  ];
+}
+
+function getEditorialNotificationRecipients(env: Env, users: StoredUser[]): string[] {
+  const accountRecipients = users
+    .filter((entry) => entry.role === 'admin' || entry.role === 'editor')
+    .map((entry) => entry.email);
+  return uniqueEmailList([...parseSubmissionRecipients(env), ...accountRecipients]);
+}
+
+function buildNewSubmissionEditorialEmail(env: Env, submission: StoredSubmission, receivedAtIso: string): EmailTemplate {
+  const details = [
+    ...buildSubmissionDetails(submission),
+    { label: 'Fisiere primite', value: String(submission.files.length) },
+  ];
+  return buildWorkflowEmailTemplate({
+    subject: `[Manuscris nou] ${submission.title}`,
+    heading: 'Notificare submisie noua',
+    intro: `A fost inregistrata o submisie noua in ${getAppName(env)}.`,
+    details,
+    note: 'Acesta este doar un email de notificare. Manuscrisul complet si fisierele sunt disponibile doar in panoul admin.',
+    action: 'Redistribuie submisia catre un reviewer din dashboard-ul de administrare.',
+    footer: `Primita la: ${receivedAtIso}`,
+  });
+}
+
+function buildAuthorSubmissionConfirmationEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+  return buildWorkflowEmailTemplate({
+    subject: `${getAppName(env)} - confirmare primire manuscris`,
+    heading: 'Manuscris primit',
+    intro: `Am primit manuscrisul tau pentru ${getAppName(env)}.`,
+    details: [
+      { label: 'ID submisie', value: submission.id },
+      { label: 'Titlu', value: submission.title },
+      { label: 'Status', value: submissionStatusLabel(submission.status) },
+    ],
+    action: 'Vei primi o notificare cand manuscrisul este trimis catre review si la decizia editoriala.',
+  });
+}
+
+function buildReviewerAssignedEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+  return buildWorkflowEmailTemplate({
+    subject: `${getAppName(env)} - submisie asignata pentru review`,
+    heading: 'Submisie asignata',
+    greeting: submission.assigned_reviewer || 'reviewer',
+    intro: `Ti-a fost alocata o submisie pentru evaluare in ${getAppName(env)}.`,
+    details: [
+      { label: 'ID', value: submission.id },
+      { label: 'Titlu', value: submission.title },
+      { label: 'Termen recomandat', value: submission.reviewer_deadline || '-' },
+    ],
+    action: 'Conecteaza-te in platforma pentru a analiza manuscrisul si a trimite recomandarea.',
+  });
+}
+
+function buildReviewerUnassignedEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+  return buildWorkflowEmailTemplate({
+    subject: `${getAppName(env)} - submisie retrasa din alocare`,
+    heading: 'Submisie realocata',
+    intro: `Submisia de mai jos a fost retrasa din alocarea ta in ${getAppName(env)}.`,
+    details: [
+      { label: 'ID', value: submission.id },
+      { label: 'Titlu', value: submission.title },
+    ],
+    action: 'Nu mai este necesara evaluarea pentru acest manuscris.',
+  });
+}
+
+function buildAuthorSentToReviewEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+  return buildWorkflowEmailTemplate({
+    subject: `${getAppName(env)} - manuscris trimis spre review`,
+    heading: 'Manuscris in evaluare',
+    intro: `Manuscrisul tau a fost trimis catre evaluare in ${getAppName(env)}.`,
+    details: [
+      { label: 'ID submisie', value: submission.id },
+      { label: 'Titlu', value: submission.title },
+      { label: 'Status', value: submissionStatusLabel(submission.status) },
+      { label: 'Reviewer', value: submission.assigned_reviewer || 'alocat de editor' },
+    ],
+    action: 'Vei primi o notificare dupa finalizarea evaluarii editoriale.',
+  });
+}
+
+function buildReviewCompletedEditorialEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+  return buildWorkflowEmailTemplate({
+    subject: `${getAppName(env)} - recenzie noua primita`,
+    heading: 'Recenzie noua',
+    intro: `Un reviewer a trimis recomandarea pentru o submisie din ${getAppName(env)}.`,
+    details: [
+      { label: 'ID', value: submission.id },
+      { label: 'Titlu', value: submission.title },
+      { label: 'Reviewer', value: submission.assigned_reviewer || submission.assigned_reviewer_email || '-' },
+      { label: 'Recomandare', value: recommendationLabel(submission.recommendation) },
+      { label: 'Status curent', value: submissionStatusLabel(submission.status) },
+    ],
+    action: 'Verifica observatiile in dashboard si finalizeaza decizia editoriala.',
+  });
+}
+
+function buildAuthorDecisionEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+  return buildWorkflowEmailTemplate({
+    subject: `${getAppName(env)} - decizie editoriala`,
+    heading: 'Decizie editoriala',
+    intro: `A fost inregistrata o decizie pentru manuscrisul tau in ${getAppName(env)}.`,
+    details: [
+      { label: 'ID submisie', value: submission.id },
+      { label: 'Titlu', value: submission.title },
+      { label: 'Decizie', value: submissionStatusLabel(submission.status) },
+      { label: 'Mesaj editor', value: submission.decision || '-' },
+    ],
+  });
+}
+
 async function issueLoginCode(env: Env, email: string, ttlSeconds: number): Promise<{ code: string; expiresAt: number }> {
   const code = generateCode();
   const expiresAt = Date.now() + ttlSeconds * 1000;
@@ -982,7 +1198,6 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
   }
 
   let totalSize = 0;
-  const appName = env.APP_NAME || 'IAFAR Journal';
   const submissionId = crypto.randomUUID();
   const receivedAt = new Date();
   const storedFiles: StoredSubmissionFile[] = [];
@@ -1052,33 +1267,14 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
   await writeSubmissions(env, [submission, ...existingSubmissions]);
 
   const recipients = parseSubmissionRecipients(env);
-  const subject = `[Manuscris nou] ${title}`;
-
-  const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-      <h2 style="margin:0 0 12px 0">Notificare submisie noua</h2>
-      <p><strong>ID:</strong> ${escapeHtml(submissionId)}</p>
-      <p><strong>Titlu:</strong> ${escapeHtml(title)}</p>
-      <p><strong>Autori:</strong> ${escapeHtml(authors)}</p>
-      <p><strong>Email contact:</strong> ${escapeHtml(email)}</p>
-      <p><strong>Fisiere primite:</strong> ${escapeHtml(String(storedFiles.length))}</p>
-      <p><strong>Nota:</strong> Acesta este doar un email de notificare. Manuscrisul complet si fisierele sunt disponibile doar in panoul admin, pentru redistribuire la revieweri.</p>
-      <p style="color:#6b7280;font-size:12px">Primita la: ${escapeHtml(receivedAt.toISOString())}</p>
-    </div>
-  `.trim();
-
-  const text = [
-    'Notificare submisie noua',
-    `ID: ${submissionId}`,
-    `Titlu: ${title}`,
-    `Autori: ${authors}`,
-    `Email contact: ${email}`,
-    `Fisiere primite: ${storedFiles.length}`,
-    'Nota: Acesta este doar un email de notificare. Manuscrisul complet este disponibil in panoul admin pentru redistribuire la revieweri.',
-    `Primita la: ${receivedAt.toISOString()}`,
-  ].join('\n');
-
-  const sendResult = await sendEmail(env, recipients, subject, html, text);
+  const editorialTemplate = buildNewSubmissionEditorialEmail(env, submission, receivedAt.toISOString());
+  const sendResult = await sendEmail(
+    env,
+    recipients,
+    editorialTemplate.subject,
+    editorialTemplate.html,
+    editorialTemplate.text,
+  );
   if (!sendResult.ok) {
     const errorBody = await sendResult.text();
     console.error('Resend manuscript send failed', sendResult.status, errorBody);
@@ -1088,29 +1284,13 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
     });
   }
 
-  const confirmationHtml = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-      <p>Salut,</p>
-      <p>Am primit manuscrisul tau pentru <strong>${escapeHtml(appName)}</strong>.</p>
-      <p><strong>ID submisie:</strong> ${escapeHtml(submissionId)}</p>
-      <p><strong>Titlu:</strong> ${escapeHtml(title)}</p>
-      <p>Echipa editoriala va reveni dupa evaluare.</p>
-    </div>
-  `.trim();
-
-  const confirmationText = [
-    `Am primit manuscrisul tau pentru ${appName}.`,
-    `ID submisie: ${submissionId}`,
-    `Titlu: ${title}`,
-    'Echipa editoriala va reveni dupa evaluare.',
-  ].join('\n');
-
+  const confirmationTemplate = buildAuthorSubmissionConfirmationEmail(env, submission);
   const confirmationResult = await sendEmail(
     env,
     [email],
-    `${appName} - confirmare primire manuscris`,
-    confirmationHtml,
-    confirmationText,
+    confirmationTemplate.subject,
+    confirmationTemplate.html,
+    confirmationTemplate.text,
   );
 
   if (!confirmationResult.ok) {
@@ -1221,41 +1401,98 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
   submissions[index] = next;
   await writeSubmissions(env, submissions);
 
-  const reviewerJustAssigned = canAdminEdit
-    && normalizeEmail(next.assigned_reviewer_email) !== ''
-    && normalizeEmail(current.assigned_reviewer_email) !== normalizeEmail(next.assigned_reviewer_email);
+  const currentReviewerEmail = normalizeEmail(current.assigned_reviewer_email);
+  const nextReviewerEmail = normalizeEmail(next.assigned_reviewer_email);
+  const reviewerAssignmentChanged = canAdminEdit && currentReviewerEmail !== nextReviewerEmail;
+  const reviewerAssigned = reviewerAssignmentChanged && nextReviewerEmail !== '' && isValidEmail(nextReviewerEmail);
+  const reviewerUnassigned = reviewerAssignmentChanged && currentReviewerEmail !== '' && isValidEmail(currentReviewerEmail);
+  const sentToReview = canAdminEdit && current.status !== 'under_review' && next.status === 'under_review';
+  const reviewerSubmittedReview = canReviewerEdit && (
+    current.recommendation !== next.recommendation
+    || current.review_notes !== next.review_notes
+    || current.reviewed_at !== next.reviewed_at
+    || (current.status !== 'decision_pending' && next.status === 'decision_pending')
+  );
+  const finalDecisionSet = canAdminEdit
+    && current.status !== next.status
+    && (next.status === 'accepted' || next.status === 'rejected' || next.status === 'revision_requested');
 
-  if (reviewerJustAssigned && isValidEmail(next.assigned_reviewer_email)) {
-    const appName = env.APP_NAME || 'IAFAR Journal';
-    const html = `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-        <p>Salut, ${escapeHtml(next.assigned_reviewer || 'reviewer')}.</p>
-        <p>Ti-a fost alocata o submisie noua pentru evaluare in <strong>${escapeHtml(appName)}</strong>.</p>
-        <p><strong>ID:</strong> ${escapeHtml(next.id)}</p>
-        <p><strong>Titlu:</strong> ${escapeHtml(next.title)}</p>
-        <p><strong>Termen recomandat:</strong> ${escapeHtml(next.reviewer_deadline || '-')}</p>
-        <p>Conecteaza-te in platforma pentru a vedea manuscrisul si a trimite recomandarea.</p>
-      </div>
-    `.trim();
-
-    const text = [
-      `Ti-a fost alocata o submisie noua pentru evaluare in ${appName}.`,
-      `ID: ${next.id}`,
-      `Titlu: ${next.title}`,
-      `Termen recomandat: ${next.reviewer_deadline || '-'}`,
-      'Conecteaza-te in platforma pentru a vedea manuscrisul si a trimite recomandarea.',
-    ].join('\n');
-
+  if (reviewerAssigned) {
+    const template = buildReviewerAssignedEmail(env, next);
     const notifyResult = await sendEmail(
       env,
-      [next.assigned_reviewer_email],
-      `${appName} - submisie asignata pentru review`,
-      html,
-      text,
+      [nextReviewerEmail],
+      template.subject,
+      template.html,
+      template.text,
     );
     if (!notifyResult.ok) {
       const errorBody = await notifyResult.text();
       console.error('Resend reviewer assignment failed', notifyResult.status, errorBody);
+    }
+  }
+
+  if (reviewerUnassigned) {
+    const template = buildReviewerUnassignedEmail(env, next);
+    const notifyResult = await sendEmail(
+      env,
+      [currentReviewerEmail],
+      template.subject,
+      template.html,
+      template.text,
+    );
+    if (!notifyResult.ok) {
+      const errorBody = await notifyResult.text();
+      console.error('Resend reviewer unassignment failed', notifyResult.status, errorBody);
+    }
+  }
+
+  if (sentToReview && isValidEmail(next.email)) {
+    const template = buildAuthorSentToReviewEmail(env, next);
+    const notifyResult = await sendEmail(
+      env,
+      [next.email],
+      template.subject,
+      template.html,
+      template.text,
+    );
+    if (!notifyResult.ok) {
+      const errorBody = await notifyResult.text();
+      console.error('Resend author under-review notify failed', notifyResult.status, errorBody);
+    }
+  }
+
+  if (reviewerSubmittedReview) {
+    const users = await readUsers(env);
+    const recipients = getEditorialNotificationRecipients(env, users);
+    if (recipients.length > 0) {
+      const template = buildReviewCompletedEditorialEmail(env, next);
+      const notifyResult = await sendEmail(
+        env,
+        recipients,
+        template.subject,
+        template.html,
+        template.text,
+      );
+      if (!notifyResult.ok) {
+        const errorBody = await notifyResult.text();
+        console.error('Resend editorial review-complete notify failed', notifyResult.status, errorBody);
+      }
+    }
+  }
+
+  if (finalDecisionSet && isValidEmail(next.email)) {
+    const template = buildAuthorDecisionEmail(env, next);
+    const notifyResult = await sendEmail(
+      env,
+      [next.email],
+      template.subject,
+      template.html,
+      template.text,
+    );
+    if (!notifyResult.ok) {
+      const errorBody = await notifyResult.text();
+      console.error('Resend author decision notify failed', notifyResult.status, errorBody);
     }
   }
 

@@ -26,7 +26,7 @@ interface SubmissionDataContextValue {
   submissions: Submission[];
   loading: boolean;
   createSubmission: (input: NewSubmissionInput) => Submission;
-  updateSubmission: (id: string, changes: Partial<Submission>) => void;
+  updateSubmission: (id: string, changes: Partial<Submission>) => Promise<ActionResult>;
   getSubmissionsForAuthor: (email: string) => Submission[];
   getSubmissionsForReviewer: (email: string) => Submission[];
   refreshSubmissions: () => Promise<ActionResult>;
@@ -56,7 +56,7 @@ const SubmissionDataContext = createContext<SubmissionDataContextValue>({
     decision: '',
     files: [],
   }),
-  updateSubmission: () => {},
+  updateSubmission: async () => ({ ok: false }),
   getSubmissionsForAuthor: () => [],
   getSubmissionsForReviewer: () => [],
   refreshSubmissions: async () => ({ ok: false }),
@@ -195,39 +195,37 @@ export function SubmissionDataProvider({ children }: { children: ReactNode }) {
     void refreshSubmissions();
   }, [authToken, authTransport, user?.email, refreshSubmissions]);
 
-  const updateSubmission = useCallback((id: string, changes: Partial<Submission>) => {
+  const updateSubmission = useCallback(async (id: string, changes: Partial<Submission>): Promise<ActionResult> => {
     if (REMOTE_SUBMISSIONS_ENABLED && authTransport === 'remote' && authToken) {
-      void (async () => {
-        try {
-          const response = await fetch(`${SUBMISSION_API_BASE}/submissions/update`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({ id, changes }),
-          });
+      try {
+        const response = await fetch(`${SUBMISSION_API_BASE}/submissions/update`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ id, changes }),
+        });
 
-          const payload = parseApiResponse(await response.text());
-          if (!response.ok || payload.ok === false) {
-            console.error('Submission update failed', payload.error || response.statusText);
-            return;
-          }
-
-          if (payload.submission && typeof payload.submission === 'object') {
-            const normalized = normalizeSubmission(payload.submission as Submission);
-            setSubmissions((prev) => prev.map((submission) => (
-              submission.id === normalized.id ? normalized : submission
-            )));
-            return;
-          }
-
-          await refreshSubmissions();
-        } catch (error) {
-          console.error('Submission update failed', error);
+        const payload = parseApiResponse(await response.text());
+        if (!response.ok || payload.ok === false) {
+          return { ok: false, error: String(payload.error || response.statusText || 'Actualizarea a esuat.') };
         }
-      })();
-      return;
+
+        if (payload.submission && typeof payload.submission === 'object') {
+          const normalized = normalizeSubmission(payload.submission as Submission);
+          setSubmissions((prev) => prev.map((submission) => (
+            submission.id === normalized.id ? normalized : submission
+          )));
+          return { ok: true };
+        }
+
+        const refresh = await refreshSubmissions();
+        return refresh.ok ? { ok: true } : refresh;
+      } catch (error) {
+        console.error('Submission update failed', error);
+        return { ok: false, error: 'Serviciul de submisii nu raspunde momentan.' };
+      }
     }
 
     setSubmissions((prev) => prev.map((submission) => (
@@ -235,6 +233,7 @@ export function SubmissionDataProvider({ children }: { children: ReactNode }) {
         ? normalizeSubmission({ ...submission, ...changes })
         : submission
     )));
+    return { ok: true };
   }, [authToken, authTransport, refreshSubmissions]);
 
   const createSubmission = useCallback((input: NewSubmissionInput): Submission => {

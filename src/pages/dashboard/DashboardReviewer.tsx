@@ -46,7 +46,7 @@ export default function DashboardReviewer() {
     }));
   };
 
-  const submitReview = (id: string) => {
+  const submitReview = async (id: string) => {
     const entry = formState[id];
     if (!entry?.recommendation) {
       toast({
@@ -57,12 +57,21 @@ export default function DashboardReviewer() {
       return;
     }
 
-    updateSubmission(id, {
+    const result = await updateSubmission(id, {
       recommendation: entry.recommendation,
       review_notes: entry.notes,
       reviewed_at: todayIsoDate(),
       status: 'decision_pending',
     });
+
+    if (!result.ok) {
+      toast({
+        title: 'Nu am putut trimite recenzia',
+        description: result.error || 'Incearca din nou.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     toast({
       title: 'Recenzie trimisa',
@@ -175,7 +184,7 @@ export default function DashboardReviewer() {
                   )}
 
                   <div className="flex justify-end">
-                    <Button size="sm" onClick={() => submitReview(submission.id)}>Trimite recomandare</Button>
+                    <Button size="sm" onClick={() => void submitReview(submission.id)}>Trimite recomandare</Button>
                   </div>
                 </div>
               );

@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
-import { Download } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { CheckCircle2, Download, RotateCcw, Send, XCircle } from 'lucide-react';
 import { getAccountsByRole } from '@/data/authUsers';
 import { useSubmissionData } from '@/data/SubmissionDataProvider';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import type { Submission } from '@/data/types';
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
   submitted: { label: 'Trimis', cls: 'bg-primary/10 text-primary' },
@@ -20,27 +21,119 @@ export default function DashboardSubmissions() {
   const { submissions, updateSubmission, downloadSubmissionFile } = useSubmissionData();
   const { toast } = useToast();
   const reviewers = useMemo(() => getAccountsByRole('reviewer'), []);
+  const [decisionDrafts, setDecisionDrafts] = useState<Record<string, string>>({});
 
   const sortedSubmissions = useMemo(
     () => [...submissions].sort((a, b) => b.date_submitted.localeCompare(a.date_submitted)),
     [submissions],
   );
 
-  const handleAssignReviewer = (
+  const applySubmissionUpdate = async (
+    submissionId: string,
+    changes: Partial<Submission>,
+    successTitle: string,
+    successDescription?: string,
+  ) => {
+    const result = await updateSubmission(submissionId, changes);
+    if (!result.ok) {
+      toast({
+        title: 'Actualizarea a esuat',
+        description: result.error || 'Incearca din nou.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    if (successDescription) {
+      toast({ title: successTitle, description: successDescription });
+    } else {
+      toast({ title: successTitle });
+    }
+    return true;
+  };
+
+  const handleAssignReviewer = async (
     submissionId: string,
     reviewerEmail: string,
     currentStatus: string,
   ) => {
     const reviewer = reviewers.find((account) => account.email === reviewerEmail);
     const nextStatus = reviewer
-      ? (currentStatus === 'submitted' ? 'under_review' : currentStatus)
+      ? currentStatus
       : (currentStatus === 'under_review' ? 'submitted' : currentStatus);
 
-    updateSubmission(submissionId, {
+    await applySubmissionUpdate(submissionId, {
       assigned_reviewer: reviewer?.name || '',
       assigned_reviewer_email: reviewer?.email || '',
-      status: nextStatus as any,
-    });
+      status: nextStatus as Submission['status'],
+    }, 'Reviewer actualizat', reviewer
+      ? 'Submisia a fost redistribuita catre reviewer si au fost trimise notificarile.'
+      : 'Reviewer eliminat din submisie.');
+  };
+
+  const handleSendToReview = async (submission: Submission) => {
+    if (!submission.assigned_reviewer_email) {
+      toast({
+        title: 'Selecteaza reviewer',
+        description: 'Alege mai intai un reviewer pentru aceasta submisie.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    await applySubmissionUpdate(
+      submission.id,
+      { status: 'under_review' },
+      'Trimis la review',
+      'Reviewerul si autorul au fost notificati prin email.',
+    );
+  };
+
+  const handleSetDecisionPending = async (submissionId: string) => {
+    await applySubmissionUpdate(
+      submissionId,
+      { status: 'decision_pending' },
+      'Setat ca decizie pendinta',
+      'Submisia asteapta decizia editoriala finala.',
+    );
+  };
+
+  const handleDecisionAction = async (
+    submissionId: string,
+    status: Submission['status'],
+    defaultDecision: string,
+    successTitle: string,
+  ) => {
+    const draft = (decisionDrafts[submissionId] || '').trim();
+    const finalDecision = draft || defaultDecision;
+    const ok = await applySubmissionUpdate(
+      submissionId,
+      { status, decision: finalDecision },
+      successTitle,
+      'Autorul va primi notificarea de decizie.',
+    );
+    if (ok) {
+      setDecisionDrafts((prev) => ({ ...prev, [submissionId]: finalDecision }));
+    }
+  };
+
+  const handleSaveDecisionDraft = async (submissionId: string) => {
+    const draft = (decisionDrafts[submissionId] || '').trim();
+    if (!draft) {
+      toast({
+        title: 'Decizie lipsa',
+        description: 'Introdu textul deciziei inainte de salvare.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    await applySubmissionUpdate(
+      submissionId,
+      { decision: draft },
+      'Decizie salvata',
+      'Textul deciziei a fost salvat.',
+    );
   };
 
   const handleDownload = async (submissionId: string, fileId: string, fileName: string) => {
@@ -74,6 +167,7 @@ export default function DashboardSubmissions() {
                 <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Termen</th>
                 <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recomandare</th>
                 <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Decizie</th>
+                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Flow evaluare</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -113,7 +207,11 @@ export default function DashboardSubmissions() {
                       <select
                         className="w-full h-8 rounded-md border bg-background px-2 text-xs"
                         value={submission.status}
-                        onChange={(event) => updateSubmission(submission.id, { status: event.target.value as typeof submission.status })}
+                        onChange={(event) => void applySubmissionUpdate(
+                          submission.id,
+                          { status: event.target.value as typeof submission.status },
+                          'Status actualizat',
+                        )}
                       >
                         {statusOptions.map((option) => (
                           <option key={option} value={option}>{statusConfig[option].label}</option>
@@ -124,7 +222,7 @@ export default function DashboardSubmissions() {
                       <select
                         className="w-[170px] h-8 rounded-md border bg-background px-2 text-xs"
                         value={submission.assigned_reviewer_email || ''}
-                        onChange={(event) => handleAssignReviewer(submission.id, event.target.value, submission.status)}
+                        onChange={(event) => void handleAssignReviewer(submission.id, event.target.value, submission.status)}
                       >
                         <option value="">Nealocat</option>
                         {reviewers.map((reviewer) => (
@@ -137,7 +235,11 @@ export default function DashboardSubmissions() {
                         type="date"
                         className="h-8 rounded-md border bg-background px-2 text-xs"
                         value={submission.reviewer_deadline || ''}
-                        onChange={(event) => updateSubmission(submission.id, { reviewer_deadline: event.target.value })}
+                        onChange={(event) => void applySubmissionUpdate(
+                          submission.id,
+                          { reviewer_deadline: event.target.value },
+                          'Termen actualizat',
+                        )}
                       />
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground max-w-[170px]">
@@ -145,12 +247,41 @@ export default function DashboardSubmissions() {
                       {submission.reviewed_at && <div className="mt-1">Evaluat: {submission.reviewed_at}</div>}
                     </td>
                     <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
                       <input
                         className="h-8 w-[170px] rounded-md border bg-background px-2 text-xs"
-                        value={submission.decision || ''}
-                        onChange={(event) => updateSubmission(submission.id, { decision: event.target.value })}
+                        value={decisionDrafts[submission.id] ?? submission.decision ?? ''}
+                        onChange={(event) => setDecisionDrafts((prev) => ({ ...prev, [submission.id]: event.target.value }))}
                         placeholder="acceptat / respins"
                       />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs"
+                          onClick={() => void handleSaveDecisionDraft(submission.id)}
+                        >
+                          Salveaza
+                        </Button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" className="h-8 text-xs" onClick={() => void handleSendToReview(submission)}>
+                          <Send className="mr-1 h-3 w-3" /> Trimite la review
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleSetDecisionPending(submission.id)}>
+                          Decizie pendinta
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'accepted', 'acceptat', 'Articol acceptat')}>
+                          <CheckCircle2 className="mr-1 h-3 w-3" /> Accepta
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'revision_requested', 'revizuire solicitata', 'Revizuire solicitata')}>
+                          <RotateCcw className="mr-1 h-3 w-3" /> Revizuire
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'rejected', 'respins', 'Articol respins')}>
+                          <XCircle className="mr-1 h-3 w-3" /> Respinge
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
