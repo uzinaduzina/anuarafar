@@ -34,6 +34,12 @@ interface SendRoleNotificationInput {
   message: string;
 }
 
+interface PersistedSession {
+  user: AuthUser;
+  token: string | null;
+  expiresAt: number;
+}
+
 interface ActionResult {
   ok: boolean;
   message?: string;
@@ -72,10 +78,12 @@ interface AuthContextType {
 
 const SESSION_USER_KEY = 'auth_user';
 const SESSION_TOKEN_KEY = 'auth_session_token';
+const AUTH_SESSION_KEY = 'auth_session_v2';
 const LOGIN_CODES_KEY = 'auth_login_codes_v1';
 const DEV_INBOX_KEY = 'auth_dev_inbox_v1';
 const CODE_TTL_MS = 10 * 60 * 1000;
 const DEV_INBOX_LIMIT = 20;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const AUTH_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
 const REMOTE_AUTH_ENABLED = AUTH_API_BASE.length > 0;
 
@@ -140,6 +148,62 @@ function parseRemoteAccounts(accounts: unknown): AuthAccount[] {
     });
 }
 
+function parseTokenExpiry(token: string): number | null {
+  const payloadPart = token.split('.')[0];
+  if (!payloadPart) return null;
+  try {
+    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded)) as { exp?: number };
+    if (typeof payload.exp === 'number' && Number.isFinite(payload.exp)) {
+      return payload.exp;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPersistedSession() {
+  localStorage.removeItem(AUTH_SESSION_KEY);
+}
+
+function persistSession(session: PersistedSession) {
+  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+}
+
+function readPersistedSession(): PersistedSession | null {
+  const now = Date.now();
+  const stored = safeJsonParse<PersistedSession | null>(localStorage.getItem(AUTH_SESSION_KEY), null);
+  if (stored && isAuthUser(stored.user) && typeof stored.expiresAt === 'number') {
+    if (stored.expiresAt > now) {
+      return {
+        user: stored.user,
+        token: typeof stored.token === 'string' ? stored.token : null,
+        expiresAt: stored.expiresAt,
+      };
+    }
+    clearPersistedSession();
+  }
+
+  const legacyUser = safeJsonParse<AuthUser | null>(sessionStorage.getItem(SESSION_USER_KEY), null);
+  const legacyToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
+  if (legacyUser && isAuthUser(legacyUser)) {
+    const fallbackExpiry = legacyToken ? parseTokenExpiry(legacyToken) : null;
+    const next: PersistedSession = {
+      user: legacyUser,
+      token: legacyToken || null,
+      expiresAt: fallbackExpiry && fallbackExpiry > now ? fallbackExpiry : now + SESSION_TTL_MS,
+    };
+    persistSession(next);
+    sessionStorage.removeItem(SESSION_USER_KEY);
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    return next;
+  }
+
+  return null;
+}
+
 async function parseApiResponse(response: Response): Promise<ApiAuthResponse> {
   const raw = await response.text();
   if (!raw) return {};
@@ -175,25 +239,23 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const stored = sessionStorage.getItem(SESSION_USER_KEY);
-    return safeJsonParse<AuthUser | null>(stored, null);
-  });
-  const [authToken, setAuthToken] = useState<string | null>(() => sessionStorage.getItem(SESSION_TOKEN_KEY));
+  const initialSession = readPersistedSession();
+  const [user, setUser] = useState<AuthUser | null>(() => initialSession?.user || null);
+  const [authToken, setAuthToken] = useState<string | null>(() => initialSession?.token || null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(() => initialSession?.expiresAt || null);
   const [accounts, setAccounts] = useState<AuthAccount[]>(() => (REMOTE_AUTH_ENABLED ? [] : AUTH_ACCOUNTS));
   const [devInbox, setDevInbox] = useState<EmailCodeInboxItem[]>(() => (REMOTE_AUTH_ENABLED ? [] : readDevInbox()));
 
   const login = useCallback((nextUser: AuthUser, token?: string | null) => {
-    setUser(nextUser);
-    sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(nextUser));
-
+    const now = Date.now();
     const normalizedToken = token || null;
+    const tokenExpiry = normalizedToken ? parseTokenExpiry(normalizedToken) : null;
+    const expiresAt = tokenExpiry && tokenExpiry > now ? tokenExpiry : now + SESSION_TTL_MS;
+
+    setUser(nextUser);
     setAuthToken(normalizedToken);
-    if (normalizedToken) {
-      sessionStorage.setItem(SESSION_TOKEN_KEY, normalizedToken);
-    } else {
-      sessionStorage.removeItem(SESSION_TOKEN_KEY);
-    }
+    setSessionExpiresAt(expiresAt);
+    persistSession({ user: nextUser, token: normalizedToken, expiresAt });
   }, []);
 
   const requestLoginCode = useCallback(async (email: string, password = ''): Promise<ActionResult> => {
@@ -307,8 +369,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return buildAction(true);
     }
 
-    if (!authToken) {
-      return buildAction(false, undefined, 'Sesiunea nu este valida. Reautentifica-te.');
+    if (!authToken || !sessionExpiresAt || sessionExpiresAt <= Date.now()) {
+      setUser(null);
+      setAuthToken(null);
+      setSessionExpiresAt(null);
+      setAccounts([]);
+      clearPersistedSession();
+      return buildAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
     }
 
     try {
@@ -330,15 +397,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return buildAction(false, undefined, 'Serviciul de utilizatori nu raspunde momentan.');
     }
-  }, [authToken]);
+  }, [authToken, sessionExpiresAt]);
 
   const createAccount = useCallback(async (input: CreateAccountInput): Promise<ActionResult> => {
     if (!REMOTE_AUTH_ENABLED) {
       return buildAction(false, undefined, 'Crearea de utilizatori este disponibila doar in modul remote.');
     }
 
-    if (!authToken) {
-      return buildAction(false, undefined, 'Sesiunea nu este valida. Reautentifica-te.');
+    if (!authToken || !sessionExpiresAt || sessionExpiresAt <= Date.now()) {
+      setUser(null);
+      setAuthToken(null);
+      setSessionExpiresAt(null);
+      setAccounts([]);
+      clearPersistedSession();
+      return buildAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
     }
 
     try {
@@ -361,15 +433,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return buildAction(false, undefined, 'Serviciul de utilizatori nu raspunde momentan.');
     }
-  }, [authToken, refreshAccounts]);
+  }, [authToken, refreshAccounts, sessionExpiresAt]);
 
   const sendRoleNotification = useCallback(async (input: SendRoleNotificationInput): Promise<ActionResult> => {
     if (!REMOTE_AUTH_ENABLED) {
       return buildAction(false, undefined, 'Notificarile sunt disponibile doar in modul remote.');
     }
 
-    if (!authToken) {
-      return buildAction(false, undefined, 'Sesiunea nu este valida. Reautentifica-te.');
+    if (!authToken || !sessionExpiresAt || sessionExpiresAt <= Date.now()) {
+      setUser(null);
+      setAuthToken(null);
+      setSessionExpiresAt(null);
+      setAccounts([]);
+      clearPersistedSession();
+      return buildAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
     }
 
     try {
@@ -391,16 +468,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return buildAction(false, undefined, 'Serviciul de notificari nu raspunde momentan.');
     }
-  }, [authToken]);
+  }, [authToken, sessionExpiresAt]);
 
   const logout = useCallback(() => {
     setUser(null);
     setAuthToken(null);
+    setSessionExpiresAt(null);
     if (REMOTE_AUTH_ENABLED) {
       setAccounts([]);
     } else {
       setAccounts(AUTH_ACCOUNTS);
     }
+    clearPersistedSession();
     sessionStorage.removeItem(SESSION_USER_KEY);
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
   }, []);

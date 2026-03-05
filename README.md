@@ -6,6 +6,7 @@ Web platform for journal publishing workflows:
 - CSV-first data management for issues and articles
 - Email OTP login via Cloudflare Worker + Resend (production mode)
 - Admin-managed users with role + password + login code email (valid 30 days)
+- Persistent login session (30 days) after successful code verification
 
 ## Local development
 
