@@ -48,6 +48,15 @@ GitHub Pages deploy is configured via workflow:
 Live URL:
 - `https://anuar.iafar.ro/`
 
+## Cloudflare Workers Build (Git-connected)
+
+If you use Cloudflare **Workers** auto-build from Git (not Pages), use:
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
+- Root directory: `/`
+
+This repo includes `wrangler.jsonc` configured to publish static assets from `dist` with SPA fallback.
+
 ## Security notes
 
 - Never commit `RESEND_API_KEY`, `OTP_SECRET`, `NOTIFY_API_KEY`.
