@@ -30,7 +30,7 @@ const seriesKwBg: Record<SeriesId, string> = {
 export default function ArticleView() {
   const { id } = useParams();
   const { issues, articles, loading } = useJournalData();
-  const { isEditor } = useAuth();
+  const { isEditor, isAdmin } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
 
   if (loading) {
@@ -80,7 +80,7 @@ export default function ArticleView() {
               <span className="text-xs text-muted-foreground">· {article.section}</span>
             )}
           </div>
-          {isEditor && (
+          {(isEditor || isAdmin) && (
             <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
               <Pencil className="mr-2 h-3 w-3" /> Editează
             </Button>

@@ -75,6 +75,8 @@ interface Env {
   SESSION_TTL_SECONDS?: string;
   SUBMISSION_RECIPIENTS?: string;
   AUTH_ACCOUNTS_JSON?: string;
+  ADMIN_PASSWORD_EMAIL?: string;
+  ADMIN_PASSWORD?: string;
   NOTIFY_API_KEY?: string;
 }
 
@@ -591,6 +593,27 @@ async function handleRequestCode(request: Request, env: Env): Promise<Response> 
   const account = users.find((entry) => normalizeEmail(entry.email) === email);
   if (!account) {
     return jsonResponse(request, env, 404, { ok: false, error: 'Nu exista un cont asociat acestui email.' });
+  }
+
+  const adminPasswordEmail = normalizeEmail(asString(env.ADMIN_PASSWORD_EMAIL) || 'liviu.o.pop@gmail.com');
+  const adminPassword = asString(env.ADMIN_PASSWORD);
+  const requiresAdminPassword = adminPassword.length > 0
+    && normalizeEmail(account.email) === adminPasswordEmail
+    && !account.passwordHash;
+
+  if (requiresAdminPassword) {
+    if (!password) {
+      return jsonResponse(request, env, 401, {
+        ok: false,
+        error: 'Parola este obligatorie pentru acest cont.',
+      });
+    }
+    if (password !== adminPassword) {
+      return jsonResponse(request, env, 401, {
+        ok: false,
+        error: 'Parola este incorecta.',
+      });
+    }
   }
 
   if (account.passwordHash) {

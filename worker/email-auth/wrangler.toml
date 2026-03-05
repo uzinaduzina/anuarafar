@@ -17,3 +17,4 @@ OTP_RATE_LIMIT_SECONDS = "60"
 SESSION_TTL_SECONDS = "2592000"
 SUBMISSION_RECIPIENTS = "anuar@iafar.ro,confafar@gmail.com"
 AUTH_ACCOUNTS_JSON = '[{"username":"admin","name":"Liviu Pop","role":"admin","email":"liviu.o.pop@gmail.com"}]'
+ADMIN_PASSWORD_EMAIL = "liviu.o.pop@gmail.com"

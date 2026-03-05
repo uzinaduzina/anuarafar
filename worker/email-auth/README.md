@@ -37,22 +37,25 @@ Paste resulting IDs into `wrangler.toml`:
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put OTP_SECRET
 npx wrangler secret put NOTIFY_API_KEY
+npx wrangler secret put ADMIN_PASSWORD
 ```
 
 - `RESEND_API_KEY`: Resend server API key
 - `OTP_SECRET`: random long string used for OTP hashing
 - `NOTIFY_API_KEY`: token required for `/notify/role`
+- `ADMIN_PASSWORD`: parola ceruta la pasul de request-code pentru contul admin (`ADMIN_PASSWORD_EMAIL`)
 
 Set sender in `wrangler.toml`:
 
 ```toml
 RESEND_FROM = "no-reply@anuar.iafar.ro"
+ADMIN_PASSWORD_EMAIL = "liviu.o.pop@gmail.com"
+```
 
 Submission recipients in `wrangler.toml`:
 
 ```toml
 SUBMISSION_RECIPIENTS = "anuar@iafar.ro,confafar@gmail.com"
-```
 ```
 
 ## 4. Deploy Worker

@@ -36,7 +36,7 @@ const seriesLinkColor: Record<SeriesId, string> = {
 export default function IssueDetail() {
   const { slug } = useParams();
   const { issues, articles, loading } = useJournalData();
-  const { isEditor } = useAuth();
+  const { isEditor, isAdmin } = useAuth();
   const [editArticle, setEditArticle] = useState<Article | null>(null);
   if (loading) {
     return (
@@ -146,7 +146,7 @@ export default function IssueDetail() {
                             <div className="text-sm text-muted-foreground mt-1">{article.authors}</div>
                           )}
                         </Link>
-                        {isEditor && (
+                        {(isEditor || isAdmin) && (
                           <button
                             onClick={() => setEditArticle(article)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-primary"
