@@ -11,8 +11,9 @@ preview_id = "0e097dd0578d422f8265db3fe8ea8277"
 [vars]
 APP_NAME = "IAFAR Journal"
 RESEND_FROM = "no-reply@anuar.iafar.ro"
-ALLOWED_ORIGINS = "http://localhost:5173,https://uzinaduzina.github.io,https://jurnal.iafar.ro"
+ALLOWED_ORIGINS = "http://localhost:5173,https://uzinaduzina.github.io,https://jurnal.iafar.ro,https://anuar.iafar.ro,https://anuarafar.mztjvntwqx.workers.dev"
 OTP_TTL_SECONDS = "2592000"
 OTP_RATE_LIMIT_SECONDS = "60"
 SESSION_TTL_SECONDS = "2592000"
+SUBMISSION_RECIPIENTS = "anuar@iafar.ro,confafar@gmail.com"
 AUTH_ACCOUNTS_JSON = '[{"username":"admin","name":"Liviu Pop","role":"admin","email":"liviu.o.pop@gmail.com"}]'

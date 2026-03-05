@@ -6,6 +6,10 @@ This worker provides:
 - `GET /admin/users` -> list users (admin session)
 - `POST /admin/users` -> create user with password and auto-send login code (valid 30 days)
 - `POST /notify/role` -> sends role-based announcements (`admin`, `editor`, `reviewer`, `author`, `all`) using admin session
+- `POST /submissions/send` -> receives manuscript + attachments from public form, stores files in KV, sends notification email to editorial inbox
+- `GET /submissions` -> list submissions (admin/editor: all; reviewer: assigned; author: own)
+- `POST /submissions/update` -> update assignment/status/decision/review notes
+- `GET /submissions/:id/files/:fileId` -> download stored manuscript file (authorized roles)
 - `GET /health` -> health check
 
 ## 1. Prerequisites
@@ -43,6 +47,12 @@ Set sender in `wrangler.toml`:
 
 ```toml
 RESEND_FROM = "no-reply@anuar.iafar.ro"
+
+Submission recipients in `wrangler.toml`:
+
+```toml
+SUBMISSION_RECIPIENTS = "anuar@iafar.ro,confafar@gmail.com"
+```
 ```
 
 ## 4. Deploy Worker

@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
+import { Download } from 'lucide-react';
 import { getAccountsByRole } from '@/data/authUsers';
 import { useSubmissionData } from '@/data/SubmissionDataProvider';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
   submitted: { label: 'Trimis', cls: 'bg-primary/10 text-primary' },
@@ -14,7 +17,8 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
 const statusOptions = Object.keys(statusConfig);
 
 export default function DashboardSubmissions() {
-  const { submissions, updateSubmission } = useSubmissionData();
+  const { submissions, updateSubmission, downloadSubmissionFile } = useSubmissionData();
+  const { toast } = useToast();
   const reviewers = useMemo(() => getAccountsByRole('reviewer'), []);
 
   const sortedSubmissions = useMemo(
@@ -37,6 +41,17 @@ export default function DashboardSubmissions() {
       assigned_reviewer_email: reviewer?.email || '',
       status: nextStatus as typeof statusOptions[number],
     });
+  };
+
+  const handleDownload = async (submissionId: string, fileId: string, fileName: string) => {
+    const result = await downloadSubmissionFile(submissionId, fileId, fileName);
+    if (!result.ok) {
+      toast({
+        title: 'Nu am putut descarca fisierul',
+        description: result.error || 'Incearca din nou.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -71,6 +86,21 @@ export default function DashboardSubmissions() {
                     <td className="px-4 py-3 text-sm max-w-[260px]">
                       <div className="font-medium truncate">{submission.title}</div>
                       <div className="text-xs text-muted-foreground mt-1">{submission.date_submitted}</div>
+                      {submission.files && submission.files.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {submission.files.map((file) => (
+                            <Button
+                              key={file.id}
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => handleDownload(submission.id, file.id, file.filename)}
+                            >
+                              <Download className="mr-1 h-3 w-3" /> {file.filename}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       <div>{submission.authors}</div>

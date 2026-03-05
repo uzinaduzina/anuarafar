@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, Download } from 'lucide-react';
 import { useSubmissionData } from '@/data/SubmissionDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ function todayIsoDate() {
 
 export default function DashboardReviewer() {
   const { user } = useAuth();
-  const { getSubmissionsForReviewer, updateSubmission } = useSubmissionData();
+  const { getSubmissionsForReviewer, updateSubmission, downloadSubmissionFile } = useSubmissionData();
   const { toast } = useToast();
 
   const [formState, setFormState] = useState<Record<string, { recommendation: string; notes: string }>>({});
@@ -68,6 +68,17 @@ export default function DashboardReviewer() {
       title: 'Recenzie trimisa',
       description: 'Recomandarea a fost inregistrata pentru editor.',
     });
+  };
+
+  const handleDownload = async (submissionId: string, fileId: string, fileName: string) => {
+    const result = await downloadSubmissionFile(submissionId, fileId, fileName);
+    if (!result.ok) {
+      toast({
+        title: 'Nu am putut descarca fisierul',
+        description: result.error || 'Incearca din nou.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -147,6 +158,21 @@ export default function DashboardReviewer() {
                       />
                     </div>
                   </div>
+
+                  {submission.files && submission.files.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {submission.files.map((file) => (
+                        <Button
+                          key={file.id}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(submission.id, file.id, file.filename)}
+                        >
+                          <Download className="mr-2 h-3 w-3" /> {file.filename}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="flex justify-end">
                     <Button size="sm" onClick={() => submitReview(submission.id)}>Trimite recomandare</Button>

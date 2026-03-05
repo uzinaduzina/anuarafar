@@ -69,6 +69,12 @@ export interface Submission {
   review_notes?: string;
   reviewed_at?: string;
   decision: string;
+  files?: Array<{
+    id: string;
+    filename: string;
+    size: number;
+    content_type?: string;
+  }>;
 }
 
 export type UserRole = 'admin' | 'editor' | 'reviewer' | 'author' | 'public';

@@ -25,6 +25,44 @@ interface SessionPayload {
   exp: number;
 }
 
+interface EmailAttachment {
+  filename: string;
+  content: string;
+  content_type?: string;
+}
+
+type SubmissionStatus = 'submitted' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
+
+interface StoredSubmissionFile {
+  id: string;
+  filename: string;
+  size: number;
+  contentType?: string;
+  storageKey: string;
+}
+
+interface StoredSubmission {
+  id: string;
+  title: string;
+  authors: string;
+  email: string;
+  affiliation: string;
+  abstract: string;
+  keywords_ro: string;
+  keywords_en: string;
+  date_submitted: string;
+  status: SubmissionStatus;
+  assigned_reviewer: string;
+  assigned_reviewer_email: string;
+  reviewer_deadline: string;
+  recommendation: string;
+  review_notes: string;
+  reviewed_at: string;
+  decision: string;
+  files: StoredSubmissionFile[];
+  createdAt: number;
+}
+
 interface Env {
   AUTH_KV: KVNamespace;
   RESEND_API_KEY: string;
@@ -35,13 +73,20 @@ interface Env {
   OTP_TTL_SECONDS?: string;
   OTP_RATE_LIMIT_SECONDS?: string;
   SESSION_TTL_SECONDS?: string;
+  SUBMISSION_RECIPIENTS?: string;
   AUTH_ACCOUNTS_JSON?: string;
   NOTIFY_API_KEY?: string;
 }
 
 const USERS_KEY = 'auth_users_v1';
+const SUBMISSIONS_KEY = 'submissions_v1';
+const SUBMISSION_FILE_KEY_PREFIX = 'submission_file_v1:';
 const DEFAULT_OTP_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+const DEFAULT_SUBMISSION_RECIPIENTS = ['anuar@iafar.ro', 'confafar@gmail.com'];
+const MAX_SUBMISSION_FILES = 5;
+const MAX_SUBMISSION_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_SUBMISSION_TOTAL_BYTES = 25 * 1024 * 1024;
 
 const DEFAULT_ACCOUNTS: AuthAccount[] = [
   { username: 'admin', name: 'Liviu Pop', role: 'admin', email: 'liviu.o.pop@gmail.com' },
@@ -77,6 +122,72 @@ function sanitizeUsername(raw: string, fallbackEmail: string): string {
     .replace(/^[._-]+/, '')
     .replace(/[._-]+$/, '');
   return normalized || `user-${Date.now()}`;
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function parseSubmissionRecipients(env: Env): string[] {
+  const configured = asString(env.SUBMISSION_RECIPIENTS)
+    .split(',')
+    .map((entry) => normalizeEmail(entry))
+    .filter((entry) => isValidEmail(entry));
+
+  if (configured.length > 0) return configured;
+  return DEFAULT_SUBMISSION_RECIPIENTS;
+}
+
+function hasAllowedSubmissionFileExtension(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return lower.endsWith('.doc') || lower.endsWith('.docx') || lower.endsWith('.pdf');
+}
+
+function isSubmissionStatus(value: string): value is SubmissionStatus {
+  return value === 'submitted'
+    || value === 'under_review'
+    || value === 'decision_pending'
+    || value === 'accepted'
+    || value === 'rejected'
+    || value === 'revision_requested';
+}
+
+function sanitizeFileName(fileName: string): string {
+  const trimmed = fileName.trim();
+  if (!trimmed) return 'attachment.bin';
+  const sanitized = trimmed.replace(/[^\w.\-() ]/g, '_').replace(/\s+/g, ' ');
+  return sanitized || 'attachment.bin';
+}
+
+function guessContentType(fileName: string, fallback?: string): string | undefined {
+  if (fallback && fallback.length > 0) return fallback;
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.doc')) return 'application/msword';
+  if (lower.endsWith('.docx')) {
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  return undefined;
+}
+
+function arrayBufferToBase64(value: ArrayBuffer): string {
+  const bytes = new Uint8Array(value);
+  let binary = '';
+  const chunkSize = 0x2000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8Array(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
 }
 
 function parseAccounts(env: Env): AuthAccount[] {
@@ -155,6 +266,98 @@ async function readUsers(env: Env): Promise<StoredUser[]> {
   return seededUsers;
 }
 
+function parseStoredSubmissions(raw: string | null): StoredSubmission[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as Array<Partial<StoredSubmission>>;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((entry) => Boolean(entry && entry.id && entry.title && entry.email && entry.date_submitted))
+      .map((entry) => {
+        const statusRaw = asString(entry.status);
+        const filesRaw = Array.isArray(entry.files) ? entry.files : [];
+        const files: StoredSubmissionFile[] = filesRaw
+          .filter((item) => {
+            if (!item || typeof item !== 'object') return false;
+            const candidate = item as Partial<StoredSubmissionFile>;
+            return Boolean(candidate.id && candidate.filename && candidate.storageKey);
+          })
+          .map((item) => {
+            const candidate = item as Partial<StoredSubmissionFile>;
+            return {
+              id: asString(candidate.id),
+              filename: sanitizeFileName(asString(candidate.filename)),
+              size: Number(candidate.size) || 0,
+              contentType: asString(candidate.contentType) || undefined,
+              storageKey: asString(candidate.storageKey),
+            };
+          });
+
+        return {
+          id: asString(entry.id),
+          title: asString(entry.title).trim(),
+          authors: asString(entry.authors).trim(),
+          email: normalizeEmail(asString(entry.email)),
+          affiliation: asString(entry.affiliation).trim(),
+          abstract: asString(entry.abstract).trim(),
+          keywords_ro: asString(entry.keywords_ro).trim(),
+          keywords_en: asString(entry.keywords_en).trim(),
+          date_submitted: asString(entry.date_submitted),
+          status: isSubmissionStatus(statusRaw) ? statusRaw : 'submitted',
+          assigned_reviewer: asString(entry.assigned_reviewer).trim(),
+          assigned_reviewer_email: normalizeEmail(asString(entry.assigned_reviewer_email)),
+          reviewer_deadline: asString(entry.reviewer_deadline),
+          recommendation: asString(entry.recommendation).trim(),
+          review_notes: asString(entry.review_notes).trim(),
+          reviewed_at: asString(entry.reviewed_at),
+          decision: asString(entry.decision).trim(),
+          files,
+          createdAt: Number(entry.createdAt) || Date.now(),
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+async function readSubmissions(env: Env): Promise<StoredSubmission[]> {
+  const raw = await env.AUTH_KV.get(SUBMISSIONS_KEY);
+  return parseStoredSubmissions(raw);
+}
+
+async function writeSubmissions(env: Env, submissions: StoredSubmission[]) {
+  await env.AUTH_KV.put(SUBMISSIONS_KEY, JSON.stringify(submissions));
+}
+
+function toPublicSubmission(submission: StoredSubmission) {
+  return {
+    id: submission.id,
+    title: submission.title,
+    authors: submission.authors,
+    email: submission.email,
+    affiliation: submission.affiliation,
+    abstract: submission.abstract,
+    keywords_ro: submission.keywords_ro,
+    keywords_en: submission.keywords_en,
+    date_submitted: submission.date_submitted,
+    status: submission.status,
+    assigned_reviewer: submission.assigned_reviewer,
+    assigned_reviewer_email: submission.assigned_reviewer_email,
+    reviewer_deadline: submission.reviewer_deadline,
+    recommendation: submission.recommendation,
+    review_notes: submission.review_notes,
+    reviewed_at: submission.reviewed_at,
+    decision: submission.decision,
+    files: submission.files.map((file) => ({
+      id: file.id,
+      filename: file.filename,
+      size: file.size,
+      content_type: file.contentType || '',
+    })),
+  };
+}
+
 function getAllowedOrigins(env: Env): string[] {
   const raw = asString(env.ALLOWED_ORIGINS);
   return raw
@@ -180,6 +383,7 @@ function buildCorsHeaders(request: Request, env: Env): Headers {
   headers.set('Access-Control-Allow-Origin', origin);
   headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   headers.set('Access-Control-Allow-Headers', 'Content-Type,X-Admin-Token,Authorization');
+  headers.set('Access-Control-Expose-Headers', 'Content-Disposition');
   headers.set('Access-Control-Max-Age', '86400');
   headers.set('Vary', 'Origin');
   return headers;
@@ -238,6 +442,13 @@ function ttlLabel(seconds: number): string {
   }
   const minutes = Math.max(1, Math.round(seconds / 60));
   return `${minutes} minute`;
+}
+
+function toIsoDate(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function toBase64Url(value: string): string {
@@ -305,7 +516,14 @@ async function isAdminAuthorized(request: Request, env: Env): Promise<boolean> {
   return false;
 }
 
-async function sendEmail(env: Env, to: string[], subject: string, html: string, text?: string): Promise<Response> {
+async function sendEmail(
+  env: Env,
+  to: string[],
+  subject: string,
+  html: string,
+  text?: string,
+  attachments: EmailAttachment[] = [],
+): Promise<Response> {
   return fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -318,6 +536,7 @@ async function sendEmail(env: Env, to: string[], subject: string, html: string, 
       subject,
       html,
       text,
+      attachments: attachments.length > 0 ? attachments : undefined,
     }),
   });
 }
@@ -611,6 +830,393 @@ async function handleNotifyRole(request: Request, env: Env): Promise<Response> {
   });
 }
 
+function canReadSubmission(session: SessionPayload, submission: StoredSubmission): boolean {
+  if (session.role === 'admin' || session.role === 'editor') return true;
+  if (session.role === 'reviewer') {
+    return normalizeEmail(submission.assigned_reviewer_email) === normalizeEmail(session.email);
+  }
+  return normalizeEmail(submission.email) === normalizeEmail(session.email);
+}
+
+async function handleSubmitManuscript(request: Request, env: Env): Promise<Response> {
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.toLowerCase().includes('multipart/form-data')) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Request invalid. Foloseste multipart/form-data.' });
+  }
+
+  const form = await request.formData();
+  const title = asString(form.get('title')).trim();
+  const authors = asString(form.get('authors')).trim();
+  const email = normalizeEmail(asString(form.get('email')));
+  const affiliation = asString(form.get('affiliation')).trim();
+  const abstractValue = asString(form.get('abstract')).trim();
+  const keywordsRo = asString(form.get('keywords_ro')).trim();
+  const keywordsEn = asString(form.get('keywords_en')).trim();
+
+  if (!title || !authors || !email || !abstractValue) {
+    return jsonResponse(request, env, 400, {
+      ok: false,
+      error: 'Completeaza campurile obligatorii: titlu, autori, email, rezumat.',
+    });
+  }
+
+  if (!isValidEmail(email)) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Email de contact invalid.' });
+  }
+
+  const uploadedFiles = form
+    .getAll('files')
+    .filter((entry): entry is File => entry instanceof File)
+    .filter((entry) => entry.size > 0);
+
+  if (uploadedFiles.length === 0) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Ataseaza cel putin un fisier (DOC, DOCX sau PDF).' });
+  }
+
+  if (uploadedFiles.length > MAX_SUBMISSION_FILES) {
+    return jsonResponse(request, env, 400, {
+      ok: false,
+      error: `Poti trimite maximum ${MAX_SUBMISSION_FILES} fisiere la o submisie.`,
+    });
+  }
+
+  let totalSize = 0;
+  const appName = env.APP_NAME || 'IAFAR Journal';
+  const submissionId = crypto.randomUUID();
+  const receivedAt = new Date();
+  const storedFiles: StoredSubmissionFile[] = [];
+
+  for (const file of uploadedFiles) {
+    const safeFileName = sanitizeFileName(file.name || 'attachment.bin');
+    if (!hasAllowedSubmissionFileExtension(safeFileName)) {
+      return jsonResponse(request, env, 400, {
+        ok: false,
+        error: `Fisierul ${safeFileName} nu este acceptat. Formate permise: DOC, DOCX, PDF.`,
+      });
+    }
+
+    if (file.size > MAX_SUBMISSION_FILE_BYTES) {
+      return jsonResponse(request, env, 400, {
+        ok: false,
+        error: `Fisierul ${safeFileName} depaseste limita de 20 MB.`,
+      });
+    }
+
+    totalSize += file.size;
+    if (totalSize > MAX_SUBMISSION_TOTAL_BYTES) {
+      return jsonResponse(request, env, 400, {
+        ok: false,
+        error: 'Dimensiunea totala a atasamentelor depaseste limita de 25 MB.',
+      });
+    }
+
+    const buffer = await file.arrayBuffer();
+    const fileId = crypto.randomUUID();
+    const storageKey = `${SUBMISSION_FILE_KEY_PREFIX}${submissionId}:${fileId}`;
+    const contentBase64 = arrayBufferToBase64(buffer);
+    await env.AUTH_KV.put(storageKey, JSON.stringify({ contentBase64 }));
+
+    storedFiles.push({
+      id: fileId,
+      filename: safeFileName,
+      size: file.size,
+      contentType: guessContentType(safeFileName, file.type),
+      storageKey,
+    });
+  }
+
+  const submission: StoredSubmission = {
+    id: submissionId,
+    title,
+    authors,
+    email,
+    affiliation,
+    abstract: abstractValue,
+    keywords_ro: keywordsRo,
+    keywords_en: keywordsEn,
+    date_submitted: toIsoDate(receivedAt),
+    status: 'submitted',
+    assigned_reviewer: '',
+    assigned_reviewer_email: '',
+    reviewer_deadline: '',
+    recommendation: '',
+    review_notes: '',
+    reviewed_at: '',
+    decision: '',
+    files: storedFiles,
+    createdAt: receivedAt.getTime(),
+  };
+
+  const existingSubmissions = await readSubmissions(env);
+  await writeSubmissions(env, [submission, ...existingSubmissions]);
+
+  const recipients = parseSubmissionRecipients(env);
+  const subject = `[Manuscris nou] ${title}`;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+      <h2 style="margin:0 0 12px 0">Notificare submisie noua</h2>
+      <p><strong>ID:</strong> ${escapeHtml(submissionId)}</p>
+      <p><strong>Titlu:</strong> ${escapeHtml(title)}</p>
+      <p><strong>Autori:</strong> ${escapeHtml(authors)}</p>
+      <p><strong>Email contact:</strong> ${escapeHtml(email)}</p>
+      <p><strong>Fisiere primite:</strong> ${escapeHtml(String(storedFiles.length))}</p>
+      <p><strong>Nota:</strong> Acesta este doar un email de notificare. Manuscrisul complet si fisierele sunt disponibile doar in panoul admin, pentru redistribuire la revieweri.</p>
+      <p style="color:#6b7280;font-size:12px">Primita la: ${escapeHtml(receivedAt.toISOString())}</p>
+    </div>
+  `.trim();
+
+  const text = [
+    'Notificare submisie noua',
+    `ID: ${submissionId}`,
+    `Titlu: ${title}`,
+    `Autori: ${authors}`,
+    `Email contact: ${email}`,
+    `Fisiere primite: ${storedFiles.length}`,
+    'Nota: Acesta este doar un email de notificare. Manuscrisul complet este disponibil in panoul admin pentru redistribuire la revieweri.',
+    `Primita la: ${receivedAt.toISOString()}`,
+  ].join('\n');
+
+  const sendResult = await sendEmail(env, recipients, subject, html, text);
+  if (!sendResult.ok) {
+    const errorBody = await sendResult.text();
+    console.error('Resend manuscript send failed', sendResult.status, errorBody);
+    return jsonResponse(request, env, 502, {
+      ok: false,
+      error: 'Nu am putut trimite manuscrisul pe email. Incearca din nou in cateva minute.',
+    });
+  }
+
+  const confirmationHtml = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+      <p>Salut,</p>
+      <p>Am primit manuscrisul tau pentru <strong>${escapeHtml(appName)}</strong>.</p>
+      <p><strong>ID submisie:</strong> ${escapeHtml(submissionId)}</p>
+      <p><strong>Titlu:</strong> ${escapeHtml(title)}</p>
+      <p>Echipa editoriala va reveni dupa evaluare.</p>
+    </div>
+  `.trim();
+
+  const confirmationText = [
+    `Am primit manuscrisul tau pentru ${appName}.`,
+    `ID submisie: ${submissionId}`,
+    `Titlu: ${title}`,
+    'Echipa editoriala va reveni dupa evaluare.',
+  ].join('\n');
+
+  const confirmationResult = await sendEmail(
+    env,
+    [email],
+    `${appName} - confirmare primire manuscris`,
+    confirmationHtml,
+    confirmationText,
+  );
+
+  if (!confirmationResult.ok) {
+    const errorBody = await confirmationResult.text();
+    console.error('Resend manuscript confirmation failed', confirmationResult.status, errorBody);
+  }
+
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    message: 'Manuscrisul a fost trimis cu succes catre redactia revistei.',
+    submissionId,
+  });
+}
+
+async function handleListSubmissions(request: Request, env: Env): Promise<Response> {
+  const session = await readSessionFromRequest(request, env);
+  if (!session) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  const submissions = await readSubmissions(env);
+  const visibleSubmissions = submissions.filter((entry) => canReadSubmission(session, entry));
+  visibleSubmissions.sort((a, b) => b.createdAt - a.createdAt);
+
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    submissions: visibleSubmissions.map((entry) => toPublicSubmission(entry)),
+  });
+}
+
+async function handleUpdateSubmission(request: Request, env: Env): Promise<Response> {
+  const session = await readSessionFromRequest(request, env);
+  if (!session) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  const body = await readJson(request);
+  const submissionId = asString(body.id).trim();
+  const changes = (body.changes && typeof body.changes === 'object') ? body.changes as Record<string, unknown> : {};
+
+  if (!submissionId) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'ID submisie lipsa.' });
+  }
+
+  const submissions = await readSubmissions(env);
+  const index = submissions.findIndex((entry) => entry.id === submissionId);
+  if (index < 0) {
+    return jsonResponse(request, env, 404, { ok: false, error: 'Submisia nu exista.' });
+  }
+
+  const current = submissions[index];
+  const canAdminEdit = session.role === 'admin' || session.role === 'editor';
+  const canReviewerEdit = session.role === 'reviewer' && normalizeEmail(current.assigned_reviewer_email) === normalizeEmail(session.email);
+
+  if (!canAdminEdit && !canReviewerEdit) {
+    return jsonResponse(request, env, 403, { ok: false, error: 'Nu ai drepturi pentru actualizarea acestei submisii.' });
+  }
+
+  const next: StoredSubmission = { ...current };
+  let changed = false;
+
+  if (canAdminEdit) {
+    if (typeof changes.status === 'string' && isSubmissionStatus(changes.status)) {
+      next.status = changes.status;
+      changed = true;
+    }
+    if (typeof changes.assigned_reviewer === 'string') {
+      next.assigned_reviewer = changes.assigned_reviewer.trim();
+      changed = true;
+    }
+    if (typeof changes.assigned_reviewer_email === 'string') {
+      next.assigned_reviewer_email = normalizeEmail(changes.assigned_reviewer_email);
+      changed = true;
+    }
+    if (typeof changes.reviewer_deadline === 'string') {
+      next.reviewer_deadline = changes.reviewer_deadline.trim();
+      changed = true;
+    }
+    if (typeof changes.decision === 'string') {
+      next.decision = changes.decision.trim();
+      changed = true;
+    }
+  }
+
+  if (canAdminEdit || canReviewerEdit) {
+    if (typeof changes.recommendation === 'string') {
+      next.recommendation = changes.recommendation.trim();
+      changed = true;
+    }
+    if (typeof changes.review_notes === 'string') {
+      next.review_notes = changes.review_notes.trim();
+      changed = true;
+    }
+    if (typeof changes.reviewed_at === 'string') {
+      next.reviewed_at = changes.reviewed_at.trim();
+      changed = true;
+    }
+    if (canReviewerEdit && typeof changes.status === 'string' && isSubmissionStatus(changes.status)) {
+      next.status = changes.status;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Nu exista modificari valide pentru aceasta submisie.' });
+  }
+
+  submissions[index] = next;
+  await writeSubmissions(env, submissions);
+
+  const reviewerJustAssigned = canAdminEdit
+    && normalizeEmail(next.assigned_reviewer_email) !== ''
+    && normalizeEmail(current.assigned_reviewer_email) !== normalizeEmail(next.assigned_reviewer_email);
+
+  if (reviewerJustAssigned && isValidEmail(next.assigned_reviewer_email)) {
+    const appName = env.APP_NAME || 'IAFAR Journal';
+    const html = `
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <p>Salut, ${escapeHtml(next.assigned_reviewer || 'reviewer')}.</p>
+        <p>Ti-a fost alocata o submisie noua pentru evaluare in <strong>${escapeHtml(appName)}</strong>.</p>
+        <p><strong>ID:</strong> ${escapeHtml(next.id)}</p>
+        <p><strong>Titlu:</strong> ${escapeHtml(next.title)}</p>
+        <p><strong>Termen recomandat:</strong> ${escapeHtml(next.reviewer_deadline || '-')}</p>
+        <p>Conecteaza-te in platforma pentru a vedea manuscrisul si a trimite recomandarea.</p>
+      </div>
+    `.trim();
+
+    const text = [
+      `Ti-a fost alocata o submisie noua pentru evaluare in ${appName}.`,
+      `ID: ${next.id}`,
+      `Titlu: ${next.title}`,
+      `Termen recomandat: ${next.reviewer_deadline || '-'}`,
+      'Conecteaza-te in platforma pentru a vedea manuscrisul si a trimite recomandarea.',
+    ].join('\n');
+
+    const notifyResult = await sendEmail(
+      env,
+      [next.assigned_reviewer_email],
+      `${appName} - submisie asignata pentru review`,
+      html,
+      text,
+    );
+    if (!notifyResult.ok) {
+      const errorBody = await notifyResult.text();
+      console.error('Resend reviewer assignment failed', notifyResult.status, errorBody);
+    }
+  }
+
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    message: 'Submisia a fost actualizata.',
+    submission: toPublicSubmission(next),
+  });
+}
+
+async function handleDownloadSubmissionFile(
+  request: Request,
+  env: Env,
+  submissionId: string,
+  fileId: string,
+): Promise<Response> {
+  const session = await readSessionFromRequest(request, env);
+  if (!session) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  const submissions = await readSubmissions(env);
+  const submission = submissions.find((entry) => entry.id === submissionId);
+  if (!submission) {
+    return jsonResponse(request, env, 404, { ok: false, error: 'Submisia nu exista.' });
+  }
+
+  if (!canReadSubmission(session, submission)) {
+    return jsonResponse(request, env, 403, { ok: false, error: 'Nu ai acces la acest fisier.' });
+  }
+
+  const targetFile = submission.files.find((entry) => entry.id === fileId);
+  if (!targetFile) {
+    return jsonResponse(request, env, 404, { ok: false, error: 'Fisierul nu exista pentru aceasta submisie.' });
+  }
+
+  const rawFile = await env.AUTH_KV.get(targetFile.storageKey);
+  if (!rawFile) {
+    return jsonResponse(request, env, 404, { ok: false, error: 'Fisierul nu mai este disponibil.' });
+  }
+
+  let contentBase64 = '';
+  try {
+    const parsed = JSON.parse(rawFile) as { contentBase64?: string };
+    contentBase64 = asString(parsed.contentBase64);
+  } catch {
+    contentBase64 = '';
+  }
+
+  if (!contentBase64) {
+    return jsonResponse(request, env, 500, { ok: false, error: 'Continut fisier invalid.' });
+  }
+
+  const bytes = base64ToUint8Array(contentBase64);
+  const headers = buildCorsHeaders(request, env);
+  headers.set('Content-Type', targetFile.contentType || 'application/octet-stream');
+  headers.set('Content-Disposition', `attachment; filename="${targetFile.filename.replace(/"/g, '')}"`);
+  headers.set('Cache-Control', 'no-store');
+
+  return new Response(bytes, { status: 200, headers });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
@@ -642,6 +1248,25 @@ export default {
 
       if (request.method === 'POST' && url.pathname === '/notify/role') {
         return handleNotifyRole(request, env);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/submissions/send') {
+        return handleSubmitManuscript(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/submissions') {
+        return handleListSubmissions(request, env);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/submissions/update') {
+        return handleUpdateSubmission(request, env);
+      }
+
+      const filePathMatch = url.pathname.match(/^\/submissions\/([^/]+)\/files\/([^/]+)$/);
+      if (request.method === 'GET' && filePathMatch) {
+        const submissionId = decodeURIComponent(filePathMatch[1]);
+        const fileId = decodeURIComponent(filePathMatch[2]);
+        return handleDownloadSubmissionFile(request, env, submissionId, fileId);
       }
 
       return textResponse(request, env, 404, 'Not found');

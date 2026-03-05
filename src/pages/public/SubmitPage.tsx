@@ -166,14 +166,117 @@ function Guidelines() {
   );
 }
 
+const SUBMISSION_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
+
+interface SubmissionFormState {
+  title: string;
+  authors: string;
+  email: string;
+  affiliation: string;
+  abstract: string;
+  keywords_ro: string;
+  keywords_en: string;
+}
+
+const INITIAL_FORM: SubmissionFormState = {
+  title: '',
+  authors: '',
+  email: '',
+  affiliation: '',
+  abstract: '',
+  keywords_ro: '',
+  keywords_en: '',
+};
+
 export default function SubmitPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [submissionId, setSubmissionId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [form, setForm] = useState<SubmissionFormState>(INITIAL_FORM);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
-    toast({ title: 'Manuscris trimis!', description: 'Veți primi confirmarea pe email.' });
+  const updateField = (field: keyof SubmissionFormState, value: string) => {
+    setForm((previous) => ({ ...previous, [field]: value }));
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files ? Array.from(event.target.files) : [];
+    setFiles(selected);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!SUBMISSION_API_BASE) {
+      toast({
+        title: 'Configurare lipsa',
+        description: 'Lipseste VITE_AUTH_API_BASE. Formularul nu poate trimite manuscrisul.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (files.length === 0) {
+      toast({
+        title: 'Atasament obligatoriu',
+        description: 'Ataseaza cel putin un fisier (DOC, DOCX sau PDF).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = new FormData();
+      payload.append('title', form.title);
+      payload.append('authors', form.authors);
+      payload.append('email', form.email);
+      payload.append('affiliation', form.affiliation);
+      payload.append('abstract', form.abstract);
+      payload.append('keywords_ro', form.keywords_ro);
+      payload.append('keywords_en', form.keywords_en);
+      files.forEach((file) => payload.append('files', file));
+
+      const response = await fetch(`${SUBMISSION_API_BASE}/submissions/send`, {
+        method: 'POST',
+        body: payload,
+      });
+
+      const raw = await response.text();
+      let data: Record<string, unknown> = {};
+      try {
+        data = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok || data.ok === false) {
+        toast({
+          title: 'Trimiterea a esuat',
+          description: String(data.error || 'Nu am putut trimite manuscrisul.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setSubmissionId(String(data.submissionId || ''));
+      setSubmitted(true);
+      setForm(INITIAL_FORM);
+      setFiles([]);
+      toast({
+        title: 'Manuscris trimis',
+        description: String(data.message || 'Submisia a fost inregistrata cu succes.'),
+      });
+    } catch {
+      toast({
+        title: 'Trimiterea a esuat',
+        description: 'Serviciul de submisii nu raspunde momentan.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -184,6 +287,9 @@ export default function SubmitPage() {
         <p className="text-muted-foreground">
           Veți primi o confirmare pe adresa de email indicată. Echipa editorială va revizui manuscrisul în 2-4 săptămâni.
         </p>
+        {submissionId && (
+          <p className="text-sm text-muted-foreground mt-3">ID submisie: <strong>{submissionId}</strong></p>
+        )}
       </div>
     );
   }
@@ -212,38 +318,38 @@ export default function SubmitPage() {
               
               <div className="space-y-2">
                 <Label htmlFor="title">Titlu *</Label>
-                <Input id="title" required placeholder="Titlul manuscrisului" />
+                <Input id="title" required placeholder="Titlul manuscrisului" value={form.title} onChange={(event) => updateField('title', event.target.value)} />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="authors">Autori *</Label>
-                  <Input id="authors" required placeholder="Nume autori (separați prin virgulă)" />
+                  <Input id="authors" required placeholder="Nume autori (separați prin virgulă)" value={form.authors} onChange={(event) => updateField('authors', event.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email contact *</Label>
-                  <Input id="email" type="email" required placeholder="email@exemplu.ro" />
+                  <Input id="email" type="email" required placeholder="email@exemplu.ro" value={form.email} onChange={(event) => updateField('email', event.target.value)} />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="affiliation">Afiliere instituțională</Label>
-                <Input id="affiliation" placeholder="Universitatea / Institutul" />
+                <Input id="affiliation" placeholder="Universitatea / Institutul" value={form.affiliation} onChange={(event) => updateField('affiliation', event.target.value)} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="abstract">Rezumat *</Label>
-                <Textarea id="abstract" required placeholder="Rezumatul manuscrisului (max. 200 cuvinte)" rows={5} />
+                <Textarea id="abstract" required placeholder="Rezumatul manuscrisului (max. 200 cuvinte)" rows={5} value={form.abstract} onChange={(event) => updateField('abstract', event.target.value)} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="keywords_ro">Cuvinte cheie (RO)</Label>
-                  <Input id="keywords_ro" placeholder="5 termeni, separați prin virgulă" />
+                  <Input id="keywords_ro" placeholder="5 termeni, separați prin virgulă" value={form.keywords_ro} onChange={(event) => updateField('keywords_ro', event.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="keywords_en">Keywords (EN)</Label>
-                  <Input id="keywords_en" placeholder="5 terms, comma separated" />
+                  <Input id="keywords_en" placeholder="5 terms, comma separated" value={form.keywords_en} onChange={(event) => updateField('keywords_en', event.target.value)} />
                 </div>
               </div>
             </div>
@@ -254,11 +360,16 @@ export default function SubmitPage() {
                 <Send className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
                 <p className="font-medium mb-1">Încarcă manuscrisul</p>
                 <p className="text-sm text-muted-foreground">Max. 20 MB · Format: DOC, DOCX (+ opțional PDF pentru layout)</p>
-                <input type="file" className="mt-3" accept=".pdf,.doc,.docx" />
+                <input type="file" className="mt-3" accept=".pdf,.doc,.docx" multiple onChange={handleFileChange} />
+                {files.length > 0 && (
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    Fișiere selectate: {files.map((file) => file.name).join(', ')}
+                  </div>
+                )}
               </div>
             </div>
 
-            <Button type="submit" size="lg" className="w-full font-semibold">
+            <Button type="submit" size="lg" className="w-full font-semibold" disabled={isSubmitting}>
               <Send className="mr-2 h-4 w-4" /> Trimite manuscrisul
             </Button>
           </form>
