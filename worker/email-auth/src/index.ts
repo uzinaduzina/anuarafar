@@ -223,6 +223,16 @@ function toAccount(user: StoredUser): AuthAccount {
   };
 }
 
+function buildAuthorAccountFromEmail(email: string): AuthAccount {
+  const normalizedEmail = normalizeEmail(email);
+  return {
+    username: sanitizeUsername(normalizedEmail.split('@')[0] || 'author', normalizedEmail),
+    name: normalizedEmail,
+    role: 'author',
+    email: normalizedEmail,
+  };
+}
+
 function parseStoredUsers(raw: string | null): StoredUser[] {
   if (!raw) return [];
   try {
@@ -580,6 +590,29 @@ async function sendLoginCodeEmail(
   );
 }
 
+type PasswordCheckResult = 'ok' | 'missing' | 'wrong' | 'not_configured';
+
+async function checkAccountPassword(account: StoredUser, password: string, env: Env): Promise<PasswordCheckResult> {
+  const adminPasswordEmail = normalizeEmail(asString(env.ADMIN_PASSWORD_EMAIL) || 'liviu.o.pop@gmail.com');
+  const adminPassword = asString(env.ADMIN_PASSWORD);
+  const hasAdminSecretPassword = adminPassword.length > 0
+    && normalizeEmail(account.email) === adminPasswordEmail
+    && !account.passwordHash;
+
+  if (hasAdminSecretPassword) {
+    if (!password) return 'missing';
+    return password === adminPassword ? 'ok' : 'wrong';
+  }
+
+  if (account.passwordHash) {
+    if (!password) return 'missing';
+    const passwordHash = await hashPassword(password, env);
+    return passwordHash === account.passwordHash ? 'ok' : 'wrong';
+  }
+
+  return 'not_configured';
+}
+
 async function handleRequestCode(request: Request, env: Env): Promise<Response> {
   const body = await readJson(request);
   const email = typeof body.email === 'string' ? normalizeEmail(body.email) : '';
@@ -590,25 +623,16 @@ async function handleRequestCode(request: Request, env: Env): Promise<Response> 
   }
 
   const users = await readUsers(env);
-  const account = users.find((entry) => normalizeEmail(entry.email) === email);
-  if (!account) {
-    return jsonResponse(request, env, 404, { ok: false, error: 'Nu exista un cont asociat acestui email.' });
-  }
-
-  const adminPasswordEmail = normalizeEmail(asString(env.ADMIN_PASSWORD_EMAIL) || 'liviu.o.pop@gmail.com');
-  const adminPassword = asString(env.ADMIN_PASSWORD);
-  const requiresAdminPassword = adminPassword.length > 0
-    && normalizeEmail(account.email) === adminPasswordEmail
-    && !account.passwordHash;
-
-  if (requiresAdminPassword) {
-    if (!password) {
+  const storedAccount = users.find((entry) => normalizeEmail(entry.email) === email);
+  if (storedAccount) {
+    const passwordCheck = await checkAccountPassword(storedAccount, password, env);
+    if (passwordCheck === 'missing') {
       return jsonResponse(request, env, 401, {
         ok: false,
         error: 'Parola este obligatorie pentru acest cont.',
       });
     }
-    if (password !== adminPassword) {
+    if (passwordCheck === 'wrong') {
       return jsonResponse(request, env, 401, {
         ok: false,
         error: 'Parola este incorecta.',
@@ -616,20 +640,11 @@ async function handleRequestCode(request: Request, env: Env): Promise<Response> 
     }
   }
 
-  if (account.passwordHash) {
-    if (!password) {
-      return jsonResponse(request, env, 401, {
-        ok: false,
-        error: 'Parola este obligatorie pentru acest cont.',
-      });
-    }
-
-    const passwordHash = await hashPassword(password, env);
-    if (passwordHash !== account.passwordHash) {
-      return jsonResponse(request, env, 401, {
-        ok: false,
-        error: 'Parola este incorecta.',
-      });
+  if (!storedAccount) {
+    const submissions = await readSubmissions(env);
+    const hasAuthorSubmission = submissions.some((entry) => normalizeEmail(entry.email) === email);
+    if (!hasAuthorSubmission) {
+      return jsonResponse(request, env, 404, { ok: false, error: 'Nu exista un cont sau o submisie asociata acestui email.' });
     }
   }
 
@@ -647,7 +662,8 @@ async function handleRequestCode(request: Request, env: Env): Promise<Response> 
   const loginCode = await issueLoginCode(env, email, ttlSeconds);
   await env.AUTH_KV.put(rateKey, '1', { expirationTtl: rateLimitSeconds });
 
-  const sendResult = await sendLoginCodeEmail(env, email, account.name, loginCode.code, ttlSeconds);
+  const recipientName = storedAccount?.name || 'Autor';
+  const sendResult = await sendLoginCodeEmail(env, email, recipientName, loginCode.code, ttlSeconds);
   if (!sendResult.ok) {
     const errorBody = await sendResult.text();
     console.error('Resend send failed', sendResult.status, errorBody);
@@ -657,6 +673,62 @@ async function handleRequestCode(request: Request, env: Env): Promise<Response> 
   return jsonResponse(request, env, 200, {
     ok: true,
     message: `Codul de autentificare a fost trimis catre ${email} si este valabil ${ttlLabel(ttlSeconds)}.`,
+  });
+}
+
+async function handleLoginWithPassword(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const identifierRaw = typeof body.identifier === 'string'
+    ? body.identifier
+    : (typeof body.email === 'string' ? body.email : '');
+  const identifier = identifierRaw.trim();
+  const password = typeof body.password === 'string' ? body.password : '';
+
+  if (!identifier) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Utilizator sau email invalid.' });
+  }
+  if (!password) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Parola este obligatorie.' });
+  }
+
+  const identifierEmail = normalizeEmail(identifier);
+  const identifierUsername = sanitizeUsername(identifier, identifier);
+  const users = await readUsers(env);
+  const account = users.find((entry) => (
+    normalizeEmail(entry.email) === identifierEmail
+      || sanitizeUsername(entry.username, entry.email) === identifierUsername
+  ));
+  if (!account) {
+    return jsonResponse(request, env, 404, { ok: false, error: 'Contul nu exista.' });
+  }
+  if (account.role === 'author') {
+    return jsonResponse(request, env, 403, {
+      ok: false,
+      error: 'Conturile de autor se autentifica prin codul trimis pe emailul folosit la submisie.',
+    });
+  }
+
+  const passwordCheck = await checkAccountPassword(account, password, env);
+  if (passwordCheck === 'not_configured') {
+    return jsonResponse(request, env, 400, {
+      ok: false,
+      error: 'Acest cont nu are parola setata pentru login direct. Foloseste codul pe email.',
+    });
+  }
+  if (passwordCheck === 'wrong') {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Parola este incorecta.' });
+  }
+  if (passwordCheck === 'missing') {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Parola este obligatorie.' });
+  }
+
+  const publicAccount = toAccount(account);
+  const token = await createSessionToken(publicAccount, env);
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    message: 'Autentificare reusita.',
+    user: publicAccount,
+    token,
   });
 }
 
@@ -671,8 +743,15 @@ async function handleVerifyCode(request: Request, env: Env): Promise<Response> {
 
   const users = await readUsers(env);
   const account = users.find((entry) => normalizeEmail(entry.email) === email);
-  if (!account) {
-    return jsonResponse(request, env, 404, { ok: false, error: 'Contul nu exista.' });
+  let authAccount: AuthAccount | null = account ? toAccount(account) : null;
+
+  if (!authAccount) {
+    const submissions = await readSubmissions(env);
+    const hasAuthorSubmission = submissions.some((entry) => normalizeEmail(entry.email) === email);
+    if (!hasAuthorSubmission) {
+      return jsonResponse(request, env, 404, { ok: false, error: 'Contul nu exista.' });
+    }
+    authAccount = buildAuthorAccountFromEmail(email);
   }
 
   const rawEntry = await env.AUTH_KV.get(`otp:${email}`);
@@ -698,13 +777,12 @@ async function handleVerifyCode(request: Request, env: Env): Promise<Response> {
   }
 
   await env.AUTH_KV.delete(`otp:${email}`);
-  const publicAccount = toAccount(account);
-  const token = await createSessionToken(publicAccount, env);
+  const token = await createSessionToken(authAccount, env);
 
   return jsonResponse(request, env, 200, {
     ok: true,
     message: 'Autentificare reusita.',
-    user: publicAccount,
+    user: authAccount,
     token,
   });
 }
@@ -1255,6 +1333,10 @@ export default {
 
       if (request.method === 'POST' && url.pathname === '/auth/request-code') {
         return handleRequestCode(request, env);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/auth/login-password') {
+        return handleLoginWithPassword(request, env);
       }
 
       if (request.method === 'POST' && url.pathname === '/auth/verify-code') {

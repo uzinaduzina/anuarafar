@@ -60,6 +60,7 @@ interface AuthContextType {
   user: AuthUser | null;
   login: (user: AuthUser, token?: string | null) => void;
   requestLoginCode: (email: string, password?: string) => Promise<ActionResult>;
+  loginWithPassword: (identifier: string, password: string) => Promise<ActionResult>;
   verifyLoginCode: (email: string, code: string) => Promise<ActionResult>;
   refreshAccounts: () => Promise<ActionResult>;
   createAccount: (input: CreateAccountInput) => Promise<ActionResult>;
@@ -218,6 +219,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   login: () => {},
   requestLoginCode: async () => buildAction(false),
+  loginWithPassword: async () => buildAction(false),
   verifyLoginCode: async () => buildAction(false),
   refreshAccounts: async () => buildAction(false),
   createAccount: async () => buildAction(false),
@@ -307,6 +309,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return buildAction(true, `Codul de autentificare a fost trimis catre ${normalizedEmail}.`);
   }, []);
+
+  const loginWithPassword = useCallback(async (identifier: string, password: string): Promise<ActionResult> => {
+    const normalizedIdentifier = identifier.trim();
+    if (!normalizedIdentifier) {
+      return buildAction(false, undefined, 'Utilizatorul sau emailul este obligatoriu.');
+    }
+    if (!password) {
+      return buildAction(false, undefined, 'Parola este obligatorie.');
+    }
+
+    if (REMOTE_AUTH_ENABLED) {
+      try {
+        const response = await fetch(`${AUTH_API_BASE}/auth/login-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: normalizedIdentifier, password }),
+        });
+        const payload = await parseApiResponse(response);
+
+        if (!response.ok || payload.ok === false || !isAuthUser(payload.user)) {
+          return buildAction(false, undefined, payload.error || 'Autentificare esuata.');
+        }
+
+        login(payload.user, typeof payload.token === 'string' ? payload.token : null);
+        return buildAction(true, payload.message || 'Autentificare reusita.');
+      } catch {
+        return buildAction(false, undefined, 'Serviciul de autentificare nu raspunde momentan.');
+      }
+    }
+
+    const lookupEmail = normalizedIdentifier.includes('@') ? normalizeEmail(normalizedIdentifier) : '';
+    const account = AUTH_ACCOUNTS.find((entry) => (
+      entry.username.toLowerCase() === normalizedIdentifier.toLowerCase()
+      || entry.email.toLowerCase() === lookupEmail
+    ));
+    if (!account) {
+      return buildAction(false, undefined, 'Contul nu exista.');
+    }
+
+    const nextUser: AuthUser = {
+      username: account.username,
+      name: account.name,
+      role: account.role,
+      email: account.email,
+    };
+    login(nextUser, null);
+    return buildAction(true, 'Autentificare reusita.');
+  }, [login]);
 
   const verifyLoginCode = useCallback(async (email: string, code: string): Promise<ActionResult> => {
     const normalizedEmail = normalizeEmail(email);
@@ -498,6 +548,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     login,
     requestLoginCode,
+    loginWithPassword,
     verifyLoginCode,
     refreshAccounts,
     createAccount,
@@ -516,6 +567,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     login,
     requestLoginCode,
+    loginWithPassword,
     verifyLoginCode,
     refreshAccounts,
     createAccount,

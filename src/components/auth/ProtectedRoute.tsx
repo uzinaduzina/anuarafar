@@ -17,7 +17,8 @@ export function RequireAuth({ children }: RequireAuthProps) {
   const location = useLocation();
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    const isAuthorPath = location.pathname.startsWith('/dashboard/author');
+    return <Navigate to={isAuthorPath ? '/login' : '/admin-login'} replace state={{ from: location.pathname }} />;
   }
 
   return <>{children}</>;
@@ -25,12 +26,17 @@ export function RequireAuth({ children }: RequireAuthProps) {
 
 export function RequireRole({ roles, children }: RequireRoleProps) {
   const { user } = useAuth();
+  const location = useLocation();
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const needsAuthorLogin = roles.includes('author');
+    return <Navigate to={needsAuthorLogin ? '/login' : '/admin-login'} replace state={{ from: location.pathname }} />;
   }
 
   if (!roles.includes(user.role)) {
+    if (user.role === 'author') {
+      return <Navigate to="/dashboard/author" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -2,6 +2,7 @@
 
 This worker provides:
 - `POST /auth/request-code` -> validates `email + password` and sends login code by email
+- `POST /auth/login-password` -> direct login for admin/editor/reviewer using `identifier + password`
 - `POST /auth/verify-code` -> verifies code and returns user profile + session token
 - `GET /admin/users` -> list users (admin session)
 - `POST /admin/users` -> create user with password and auto-send login code (valid 30 days)
@@ -83,6 +84,12 @@ Then rebuild/redeploy frontend.
 curl -X POST https://api.iafar.ro/auth/request-code \
   -H "Content-Type: application/json" \
   -d '{"email":"liviu.o.pop@gmail.com","password":"YOUR_PASSWORD"}'
+```
+
+```bash
+curl -X POST https://api.iafar.ro/auth/login-password \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"admin","password":"YOUR_PASSWORD"}'
 ```
 
 ```bash

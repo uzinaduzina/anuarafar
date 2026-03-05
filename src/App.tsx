@@ -20,6 +20,7 @@ import ScientificBoard from './pages/public/ScientificBoard';
 import TehnoredactarePage from './pages/public/TehnoredactarePage';
 import SubmitPage from './pages/public/SubmitPage';
 import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import DashboardHome from './pages/dashboard/DashboardHome';
 import DashboardIssues from './pages/dashboard/DashboardIssues';
 import DashboardSubmissions from './pages/dashboard/DashboardSubmissions';
@@ -58,6 +59,7 @@ const App = () => (
                 </Route>
 
                 <Route path="/login" element={<Login />} />
+                <Route path="/admin-login" element={<AdminLogin />} />
 
                 <Route
                   path="/dashboard"
