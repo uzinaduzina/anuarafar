@@ -10,7 +10,7 @@ preview_id = "0e097dd0578d422f8265db3fe8ea8277"
 
 [vars]
 APP_NAME = "IAFAR Journal"
-RESEND_FROM = "onboarding@resend.dev"
+RESEND_FROM = "no-reply@anuar.iafar.ro"
 ALLOWED_ORIGINS = "http://localhost:5173,https://uzinaduzina.github.io,https://jurnal.iafar.ro"
 OTP_TTL_SECONDS = "2592000"
 OTP_RATE_LIMIT_SECONDS = "60"

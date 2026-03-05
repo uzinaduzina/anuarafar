@@ -11,7 +11,7 @@ This worker provides:
 ## 1. Prerequisites
 
 - Cloudflare account with domain `iafar.ro` active in Cloudflare DNS
-- Resend account with sender domain verified (recommended `send.iafar.ro`)
+- Resend account with sender domain verified (recommended `anuar.iafar.ro`)
 - `wrangler` CLI
 
 ## 2. Configure KV
@@ -38,6 +38,12 @@ npx wrangler secret put NOTIFY_API_KEY
 - `RESEND_API_KEY`: Resend server API key
 - `OTP_SECRET`: random long string used for OTP hashing
 - `NOTIFY_API_KEY`: token required for `/notify/role`
+
+Set sender in `wrangler.toml`:
+
+```toml
+RESEND_FROM = "no-reply@anuar.iafar.ro"
+```
 
 ## 4. Deploy Worker
 
