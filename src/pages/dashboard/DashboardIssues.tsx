@@ -4,6 +4,7 @@ import { useJournalData } from '@/data/JournalDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import type { SeriesId } from '@/data/types';
 
 function downloadText(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -24,6 +25,8 @@ export default function DashboardIssues() {
     importIssuesCsv,
     exportIssuesCsv,
     exportArticlesCsvBySeries,
+    exportDoajCsvBySeries,
+    exportDoajCsvByIssue,
     resetIssuesToFile,
     hasIssueCsvOverride,
   } = useJournalData();
@@ -31,6 +34,8 @@ export default function DashboardIssues() {
   const { toast } = useToast();
   const [resetting, setResetting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [doajSeries, setDoajSeries] = useState<SeriesId>('seria-3');
+  const [doajIssueId, setDoajIssueId] = useState('');
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const sortedIssues = useMemo(
@@ -59,6 +64,28 @@ export default function DashboardIssues() {
     const csv = exportArticlesCsvBySeries(series);
     const fileName = `articles-${series}.csv`;
     downloadText(fileName, csv, 'text/csv;charset=utf-8');
+  };
+
+  const onExportDoajSeriesCsv = () => {
+    const csv = exportDoajCsvBySeries(doajSeries);
+    downloadText(`doaj-${doajSeries}.csv`, csv, 'text/csv;charset=utf-8');
+  };
+
+  const onExportDoajIssueCsv = () => {
+    const selectedIssueId = doajIssueId || sortedIssues[0]?.id || '';
+    if (!selectedIssueId) {
+      toast({
+        title: 'Nu exista numere',
+        description: 'Adauga sau importa numere inainte de export.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const issue = issues.find((entry) => entry.id === selectedIssueId);
+    const safeSlug = issue?.slug || selectedIssueId;
+    const csv = exportDoajCsvByIssue(selectedIssueId);
+    downloadText(`doaj-issue-${safeSlug}.csv`, csv, 'text/csv;charset=utf-8');
   };
 
   const onTriggerImport = () => {
@@ -139,6 +166,33 @@ export default function DashboardIssues() {
           </Button>
           <Button variant="outline" onClick={() => onExportArticlesSeriesCsv('seria-3')}>
             <Download className="mr-2 h-4 w-4" /> Articole Seria 3
+          </Button>
+          <select
+            className="h-10 rounded-md border bg-background px-2 text-sm"
+            value={doajSeries}
+            onChange={(event) => setDoajSeries(event.target.value as SeriesId)}
+          >
+            <option value="seria-1">DOAJ Seria 1</option>
+            <option value="seria-2">DOAJ Seria 2</option>
+            <option value="seria-3">DOAJ Seria 3</option>
+          </select>
+          <Button variant="outline" onClick={onExportDoajSeriesCsv}>
+            <Download className="mr-2 h-4 w-4" /> Export DOAJ serie
+          </Button>
+          <select
+            className="h-10 min-w-[220px] rounded-md border bg-background px-2 text-sm"
+            value={doajIssueId}
+            onChange={(event) => setDoajIssueId(event.target.value)}
+          >
+            <option value="">Selecteaza numar pentru DOAJ</option>
+            {sortedIssues.map((issue) => (
+              <option key={issue.id} value={issue.id}>
+                {issue.year} · {issue.volume} · {issue.title}
+              </option>
+            ))}
+          </select>
+          <Button variant="outline" onClick={onExportDoajIssueCsv}>
+            <Download className="mr-2 h-4 w-4" /> Export DOAJ numar
           </Button>
           {isAdmin && (
             <>

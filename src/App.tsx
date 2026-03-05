@@ -14,6 +14,7 @@ import ArchivePage from './pages/public/ArchivePage';
 import IssueDetail from './pages/public/IssueDetail';
 import ArticleView from './pages/public/ArticleView';
 import About from './pages/public/About';
+import DoajPolicy from './pages/public/DoajPolicy';
 import EditorialBoard from './pages/public/EditorialBoard';
 import ScientificBoard from './pages/public/ScientificBoard';
 import TehnoredactarePage from './pages/public/TehnoredactarePage';
@@ -49,6 +50,7 @@ const App = () => (
                   <Route path="/archive/:slug" element={<IssueDetail />} />
                   <Route path="/article/:id" element={<ArticleView />} />
                   <Route path="/about" element={<About />} />
+                  <Route path="/doaj" element={<DoajPolicy />} />
                   <Route path="/scientific-board" element={<ScientificBoard />} />
                   <Route path="/editorial-board" element={<EditorialBoard />} />
                   <Route path="/tehnoredactare" element={<TehnoredactarePage />} />

@@ -54,6 +54,12 @@ export default function ArticleView() {
   const issue = issues.find(i => i.id === article.issue_id);
   const keywords = (article.keywords_ro || '').split(',').map(k => k.trim()).filter(Boolean);
   const authors = article.authors.split(',').map(a => a.trim()).filter(a => a && a !== 'N/A');
+  const issueArticles = articles
+    .filter((entry) => entry.issue_id === article.issue_id)
+    .sort((a, b) => (parseInt(a.pages_start, 10) || 0) - (parseInt(b.pages_start, 10) || 0));
+  const currentIndex = issueArticles.findIndex((entry) => entry.id === article.id);
+  const previousArticle = currentIndex > 0 ? issueArticles[currentIndex - 1] : null;
+  const nextArticle = currentIndex >= 0 && currentIndex < issueArticles.length - 1 ? issueArticles[currentIndex + 1] : null;
 
   const series = issue?.series || article.series;
 
@@ -157,6 +163,23 @@ export default function ArticleView() {
           </div>
         </div>
       )}
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {previousArticle ? (
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/article/${previousArticle.id}`}>Articol anterior</Link>
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" disabled>Articol anterior</Button>
+        )}
+        {nextArticle ? (
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/article/${nextArticle.id}`}>Articol următor</Link>
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" disabled>Articol următor</Button>
+        )}
+      </div>
 
       {/* PDF Viewer */}
       {article.pdf_path ? (

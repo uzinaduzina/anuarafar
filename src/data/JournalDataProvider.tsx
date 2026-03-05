@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo } from 'react';
 import { Issue, Article, SeriesId } from './types';
 import { objectsToRows, parseCsv, rowsToObjects, toCsv } from '@/lib/csv';
+import { JOURNAL } from './journal';
 
 const MANIFEST_URL = `${import.meta.env.BASE_URL}data/issues_manifest_user.js`;
 const ISSUES_CSV_URL = `${import.meta.env.BASE_URL}data/issues.csv`;
@@ -44,6 +45,38 @@ const ARTICLE_CSV_COLUMNS = [
   'language',
   'status',
   'pdf_path',
+] as const;
+
+const DOAJ_CSV_COLUMNS = [
+  'journal_title',
+  'journal_issn_print',
+  'journal_issn_online',
+  'publisher',
+  'publisher_country',
+  'article_title',
+  'authors',
+  'abstract',
+  'keywords',
+  'doi',
+  'article_url',
+  'full_text_url',
+  'publication_date',
+  'volume',
+  'issue',
+  'issue_title',
+  'issue_year',
+  'start_page',
+  'end_page',
+  'language',
+  'license',
+  'license_url',
+  'copyright_statement',
+  'open_access_statement',
+  'peer_review',
+  'author_fees',
+  'series',
+  'issue_id',
+  'article_id',
 ] as const;
 
 interface ManifestIssue {
@@ -109,6 +142,8 @@ interface JournalData {
   exportAsJson: () => string;
   exportIssuesCsv: () => string;
   exportArticlesCsvBySeries: (series: SeriesId) => string;
+  exportDoajCsvBySeries: (series: SeriesId) => string;
+  exportDoajCsvByIssue: (issueId: string) => string;
   resetIssuesToFile: () => Promise<void>;
 }
 
@@ -142,6 +177,8 @@ const JournalDataContext = createContext<JournalData>({
   exportAsJson: () => '{}',
   exportIssuesCsv: () => '',
   exportArticlesCsvBySeries: () => '',
+  exportDoajCsvBySeries: () => '',
+  exportDoajCsvByIssue: () => '',
   resetIssuesToFile: async () => {},
 });
 
@@ -337,6 +374,64 @@ function exportArticlesAsCsv(articles: Article[]): string {
     articles.map((article) => articleToCsvRow(article)),
   );
 
+  return `${toCsv(rows)}\n`;
+}
+
+function getPublicSiteUrl(): string {
+  const configured = String(import.meta.env.VITE_PUBLIC_SITE_URL || '').trim().replace(/\/+$/, '');
+  return configured || 'https://anuar.iafar.ro';
+}
+
+function resolvePdfUrl(pdfPath: string): string {
+  if (!pdfPath) return '';
+  if (/^https?:\/\//i.test(pdfPath)) return pdfPath;
+  if (pdfPath.startsWith('/')) return `${getPublicSiteUrl()}${pdfPath}`;
+  return `https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/${pdfPath}`;
+}
+
+function doajRow(article: Article, issue?: Issue): Record<(typeof DOAJ_CSV_COLUMNS)[number], string> {
+  const siteUrl = getPublicSiteUrl();
+  const abstractValue = article.abstract_en || article.abstract_ro || '';
+  const keywordsValue = article.keywords_en || article.keywords_ro || '';
+
+  return {
+    journal_title: JOURNAL.name,
+    journal_issn_print: JOURNAL.issn,
+    journal_issn_online: JOURNAL.eissn,
+    publisher: JOURNAL.publisher,
+    publisher_country: JOURNAL.country,
+    article_title: article.title || '',
+    authors: article.authors || '',
+    abstract: abstractValue,
+    keywords: keywordsValue,
+    doi: article.doi || '',
+    article_url: `${siteUrl}/article/${article.id}`,
+    full_text_url: resolvePdfUrl(article.pdf_path || ''),
+    publication_date: issue?.date_published || '',
+    volume: issue?.volume || '',
+    issue: issue?.number || '',
+    issue_title: issue?.title || '',
+    issue_year: issue?.year || '',
+    start_page: article.pages_start || '',
+    end_page: article.pages_end || '',
+    language: article.language || JOURNAL.language || 'ro',
+    license: 'CC BY 4.0',
+    license_url: 'https://creativecommons.org/licenses/by/4.0/',
+    copyright_statement: 'Autorii isi pastreaza drepturile de autor; revista publica in regim open access CC BY 4.0.',
+    open_access_statement: 'Acces deschis imediat, fara embargo si fara autentificare pentru citire/descarcare.',
+    peer_review: 'Double-blind peer review, minimum doi referenti independenti.',
+    author_fees: 'Fara taxe pentru autori (APC = 0).',
+    series: article.series,
+    issue_id: article.issue_id,
+    article_id: article.id,
+  };
+}
+
+function exportDoajCsv(articles: Article[], issuesById: Record<string, Issue>): string {
+  const rows = objectsToRows(
+    [...DOAJ_CSV_COLUMNS],
+    articles.map((article) => doajRow(article, issuesById[article.issue_id])),
+  );
   return `${toCsv(rows)}\n`;
 }
 
@@ -538,6 +633,24 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     return exportArticlesAsCsv(filtered);
   }, [articles]);
 
+  const exportDoajCsvBySeries = useCallback((series: SeriesId) => {
+    const issuesById = issues.reduce<Record<string, Issue>>((acc, issue) => {
+      acc[issue.id] = issue;
+      return acc;
+    }, {});
+    const filtered = articles.filter((article) => article.series === series);
+    return exportDoajCsv(filtered, issuesById);
+  }, [articles, issues]);
+
+  const exportDoajCsvByIssue = useCallback((issueId: string) => {
+    const issuesById = issues.reduce<Record<string, Issue>>((acc, issue) => {
+      acc[issue.id] = issue;
+      return acc;
+    }, {});
+    const filtered = articles.filter((article) => article.issue_id === issueId);
+    return exportDoajCsv(filtered, issuesById);
+  }, [articles, issues]);
+
   const resetIssuesToFile = useCallback(async () => {
     const res = await fetch(ISSUES_CSV_URL);
     if (!res.ok) throw new Error(`Failed to fetch CSV: ${res.status}`);
@@ -566,6 +679,8 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     exportAsJson,
     exportIssuesCsv,
     exportArticlesCsvBySeries,
+    exportDoajCsvBySeries,
+    exportDoajCsvByIssue,
     resetIssuesToFile,
   }), [
     issues,
@@ -581,6 +696,8 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     exportAsJson,
     exportIssuesCsv,
     exportArticlesCsvBySeries,
+    exportDoajCsvBySeries,
+    exportDoajCsvByIssue,
     resetIssuesToFile,
   ]);
 

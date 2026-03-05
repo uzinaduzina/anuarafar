@@ -80,9 +80,9 @@ export default function About() {
             <Scale className="h-5 w-5 text-primary" /> Drepturi de autor
           </h2>
           <p className="text-sm leading-relaxed text-foreground/90">
-            © 2025 Institutul Arhiva de Folclor a Academiei Române. 
-            Toate drepturile de editare și difuzare rezervate. Orice reproducere totală sau parțială a 
-            textelor, fără acordul autorilor, este interzisă.
+            Conținutul științific este publicat în regim open access sub licență
+            {' '}<strong>Creative Commons CC BY 4.0</strong>. Autorii își păstrează drepturile de autor,
+            iar reutilizarea este permisă cu citarea sursei.
           </p>
         </div>
 

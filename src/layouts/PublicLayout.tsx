@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2 } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
@@ -15,6 +15,7 @@ const DESPRE_ITEMS = [
   { label: 'Comitet științific', path: '/scientific-board', icon: Award },
   { label: 'Colegiu de redacție', path: '/editorial-board', icon: Users },
   { label: 'Tehnoredactare', path: '/tehnoredactare', icon: Pen },
+  { label: 'Politici DOAJ', path: '/doaj', icon: FileCheck2 },
 ];
 
 export default function PublicLayout() {
