@@ -46,7 +46,7 @@ GitHub Pages deploy is configured via workflow:
 - `.github/workflows/deploy-gh-pages.yml`
 
 Live URL:
-- `https://uzinaduzina.github.io/anuarafar/`
+- `https://anuar.iafar.ro/`
 
 ## Security notes
 
