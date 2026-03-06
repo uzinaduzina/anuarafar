@@ -213,20 +213,37 @@ export default function DashboardSubmissions() {
               {/* Expandable section */}
               {expanded && (
                 <div className="border-t px-4 py-4 space-y-4 bg-muted/30">
-                  {/* Row 1: Status + Reviewers */}
+                  {/* Row 1: Status & Decizie + Reviewers */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Status */}
-                    <div className="space-y-1.5">
-                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Status</label>
-                      <select
-                        className="w-full h-9 rounded-md border bg-background px-2 text-sm"
-                        value={submission.status}
-                        onChange={(e) => void applySubmissionUpdate(submission.id, { status: e.target.value as Submission['status'] }, 'Status actualizat')}
-                      >
-                        {statusOptions.map((opt) => (
-                          <option key={opt} value={opt}>{statusConfig[opt].label}</option>
-                        ))}
-                      </select>
+                    {/* Status & Decizie editorială */}
+                    <div className="space-y-3">
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Status & Decizie editorială</label>
+                      <div className="space-y-2">
+                        <select
+                          className="w-full h-9 rounded-md border bg-background px-2 text-sm"
+                          value={submission.status}
+                          onChange={(e) => void applySubmissionUpdate(submission.id, { status: e.target.value as Submission['status'] }, 'Status actualizat')}
+                        >
+                          {statusOptions.map((opt) => (
+                            <option key={opt} value={opt}>{statusConfig[opt].label}</option>
+                          ))}
+                        </select>
+                        <select
+                          className="w-full h-9 rounded-md border bg-background px-2 text-sm"
+                          value={decisionDrafts[submission.id] ?? submission.decision ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setDecisionDrafts((prev) => ({ ...prev, [submission.id]: val }));
+                            void applySubmissionUpdate(submission.id, { decision: val }, 'Decizie salvată');
+                          }}
+                        >
+                          <option value="">— Decizie editorială —</option>
+                          <option value="acceptat">Acceptat</option>
+                          <option value="acceptat cu revizuiri minore">Acceptat cu revizuiri minore</option>
+                          <option value="revizuire solicitată">Revizuire solicitată</option>
+                          <option value="respins">Respins</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Reviewer 1 */}
@@ -240,17 +257,15 @@ export default function DashboardSubmissions() {
                         <option value="">Nealocat</option>
                         {reviewers.map((r) => <option key={r.email} value={r.email}>{r.name}</option>)}
                       </select>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="date"
-                          className="flex-1 h-8 rounded-md border bg-background px-2 text-xs"
-                          value={submission.reviewer_deadline || ''}
-                          onChange={(e) => void applySubmissionUpdate(submission.id, { reviewer_deadline: e.target.value }, 'Termen R1 actualizat')}
-                        />
-                        {submission.recommendation && (
-                          <span className="text-xs font-medium text-foreground">{submission.recommendation}</span>
-                        )}
-                      </div>
+                      <input
+                        type="date"
+                        className="w-full h-8 rounded-md border bg-background px-2 text-xs"
+                        value={submission.reviewer_deadline || ''}
+                        onChange={(e) => void applySubmissionUpdate(submission.id, { reviewer_deadline: e.target.value }, 'Termen R1 actualizat')}
+                      />
+                      {submission.recommendation && (
+                        <div className="text-xs font-medium text-foreground">Recomandare: {submission.recommendation}</div>
+                      )}
                     </div>
 
                     {/* Reviewer 2 */}
@@ -264,17 +279,15 @@ export default function DashboardSubmissions() {
                         <option value="">Nealocat</option>
                         {reviewers.map((r) => <option key={r.email} value={r.email}>{r.name}</option>)}
                       </select>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="date"
-                          className="flex-1 h-8 rounded-md border bg-background px-2 text-xs"
-                          value={submission.reviewer_deadline_2 || ''}
-                          onChange={(e) => void applySubmissionUpdate(submission.id, { reviewer_deadline_2: e.target.value }, 'Termen R2 actualizat')}
-                        />
-                        {submission.recommendation_2 && (
-                          <span className="text-xs font-medium text-foreground">{submission.recommendation_2}</span>
-                        )}
-                      </div>
+                      <input
+                        type="date"
+                        className="w-full h-8 rounded-md border bg-background px-2 text-xs"
+                        value={submission.reviewer_deadline_2 || ''}
+                        onChange={(e) => void applySubmissionUpdate(submission.id, { reviewer_deadline_2: e.target.value }, 'Termen R2 actualizat')}
+                      />
+                      {submission.recommendation_2 && (
+                        <div className="text-xs font-medium text-foreground">Recomandare: {submission.recommendation_2}</div>
+                      )}
                     </div>
                   </div>
 
@@ -297,45 +310,25 @@ export default function DashboardSubmissions() {
                     </div>
                   )}
 
-                  {/* Row 3: Decision + Actions */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 pt-2 border-t border-border/50">
-                    <div className="flex-1 space-y-1.5">
-                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Decizie editorială</label>
-                      <select
-                        className="h-9 w-full max-w-md rounded-md border bg-background px-3 text-sm"
-                        value={decisionDrafts[submission.id] ?? submission.decision ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setDecisionDrafts((prev) => ({ ...prev, [submission.id]: val }));
-                          void applySubmissionUpdate(submission.id, { decision: val }, 'Decizie salvată');
-                        }}
-                      >
-                        <option value="">— Selectează —</option>
-                        <option value="acceptat">Acceptat</option>
-                        <option value="acceptat cu revizuiri minore">Acceptat cu revizuiri minore</option>
-                        <option value="revizuire solicitată">Revizuire solicitată</option>
-                        <option value="respins">Respins</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        className="h-8 text-xs"
-                        onClick={() => void handleSendToReview(submission)}
-                        disabled={!submission.anonymized_files?.length}
-                      >
-                        <Send className="mr-1 h-3 w-3" /> La review
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'accepted', 'acceptat', 'Articol acceptat')}>
-                        <CheckCircle2 className="mr-1 h-3 w-3" /> Acceptă
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'revision_requested', 'revizuire solicitată', 'Revizuire solicitată')}>
-                        <RotateCcw className="mr-1 h-3 w-3" /> Revizuire
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'rejected', 'respins', 'Articol respins')}>
-                        <XCircle className="mr-1 h-3 w-3" /> Respinge
-                      </Button>
-                    </div>
+                  {/* Row 3: Actions */}
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => void handleSendToReview(submission)}
+                      disabled={!submission.anonymized_files?.length}
+                    >
+                      <Send className="mr-1 h-3 w-3" /> La review
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'accepted', 'acceptat', 'Articol acceptat')}>
+                      <CheckCircle2 className="mr-1 h-3 w-3" /> Acceptă
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'revision_requested', 'revizuire solicitată', 'Revizuire solicitată')}>
+                      <RotateCcw className="mr-1 h-3 w-3" /> Revizuire
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'rejected', 'respins', 'Articol respins')}>
+                      <XCircle className="mr-1 h-3 w-3" /> Respinge
+                    </Button>
                   </div>
                 </div>
               )}
