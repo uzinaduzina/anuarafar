@@ -54,11 +54,11 @@ export default function DashboardHome() {
       <div className="space-y-8">
         <div>
           <h1 className="font-serif text-2xl font-bold">Dashboard autor</h1>
-          <p className="text-sm text-muted-foreground mt-1">Stare submisii si trimitere manuscrise noi.</p>
+          <p className="text-sm text-muted-foreground mt-1">Stare articole trimise si trimitere manuscrise noi.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard icon={FileText} value={ownSubmissions.length} label="Submisii totale" />
+          <StatCard icon={FileText} value={ownSubmissions.length} label="Articole trimise" />
           <StatCard icon={BookOpen} value={accepted.length} label="Articole acceptate" />
           <StatCard icon={Upload} value={ownSubmissions.filter((submission) => submission.status === 'under_review').length} label="In evaluare" />
         </div>
@@ -85,7 +85,7 @@ export default function DashboardHome() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard icon={BookOpen} value={publishedIssues.length} label="Numere publicate" />
         <StatCard icon={FileText} value={totalArticles} label="Articole totale" />
-        <StatCard icon={Upload} value={pendingSubmissions} label="Submisii noi" />
+        <StatCard icon={Upload} value={pendingSubmissions} label="Articole noi" />
         <StatCard icon={ClipboardCheck} value={underReview} label="In evaluare" />
       </div>
 
@@ -124,7 +124,7 @@ export default function DashboardHome() {
 
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
         <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="font-serif text-lg font-bold">Submisii recente</h2>
+          <h2 className="font-serif text-lg font-bold">Articole trimise recent</h2>
           <Button asChild variant="ghost" size="sm" className="text-primary">
             <Link to="/dashboard/submissions">Vezi toate <ArrowRight className="ml-1 h-3 w-3" /></Link>
           </Button>
