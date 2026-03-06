@@ -52,6 +52,10 @@ const DEMO_SUBMISSIONS: Submission[] = [
     assigned_reviewer: '', assigned_reviewer_email: '',
     reviewer_deadline: '2026-04-20',
     recommendation: '', decision: '',
+    anonymized_files: [
+      { id: 'demo-file-2', filename: 'manuscris_blind_002.docx', size: 312000 },
+      { id: 'demo-file-2b', filename: 'manuscris_blind_002_layout.pdf', size: 580000 },
+    ],
   },
   {
     id: 'demo-rev-3',
