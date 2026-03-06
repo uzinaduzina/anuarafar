@@ -39,7 +39,7 @@ const roleNavigation = {
   editor: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
     { title: 'Numere', url: '/dashboard/issues', icon: BookOpen },
-    { title: 'Submisii', url: '/dashboard/submissions', icon: FileText },
+    { title: 'Articole trimise', url: '/dashboard/submissions', icon: FileText },
   ],
   reviewer: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
