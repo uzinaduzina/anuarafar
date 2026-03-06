@@ -301,12 +301,21 @@ export default function DashboardSubmissions() {
                   <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 pt-2 border-t border-border/50">
                     <div className="flex-1 space-y-1.5">
                       <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Decizie editorială</label>
-                      <input
+                      <select
                         className="h-9 w-full max-w-md rounded-md border bg-background px-3 text-sm"
                         value={decisionDrafts[submission.id] ?? submission.decision ?? ''}
-                        onChange={(e) => setDecisionDrafts((prev) => ({ ...prev, [submission.id]: e.target.value }))}
-                        placeholder="Notează decizia..."
-                      />
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setDecisionDrafts((prev) => ({ ...prev, [submission.id]: val }));
+                          void applySubmissionUpdate(submission.id, { decision: val }, 'Decizie salvată');
+                        }}
+                      >
+                        <option value="">— Selectează —</option>
+                        <option value="acceptat">Acceptat</option>
+                        <option value="acceptat cu revizuiri minore">Acceptat cu revizuiri minore</option>
+                        <option value="revizuire solicitată">Revizuire solicitată</option>
+                        <option value="respins">Respins</option>
+                      </select>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button
