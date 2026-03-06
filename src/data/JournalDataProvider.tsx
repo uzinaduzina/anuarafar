@@ -135,6 +135,11 @@ export interface DoajValidationResult {
   warnings: string[];
 }
 
+interface DeleteIssueResult {
+  ok: boolean;
+  error?: string;
+}
+
 interface JournalData {
   issues: Issue[];
   articles: Article[];
@@ -143,6 +148,7 @@ interface JournalData {
   updateArticle: (id: string, changes: Partial<Article>) => void;
   updateIssue: (id: string, changes: Partial<Issue>) => void;
   addIssue: (seed?: Partial<Issue>) => Issue;
+  deleteIssue: (id: string) => DeleteIssueResult;
   importIssuesCsv: (csvText: string) => number;
   hasEdits: boolean;
   hasIssueCsvOverride: boolean;
@@ -182,6 +188,7 @@ const JournalDataContext = createContext<JournalData>({
     issue_pdf_path: '',
     cover_hint_path: '',
   }),
+  deleteIssue: () => ({ ok: false, error: 'Delete not implemented.' }),
   importIssuesCsv: () => 0,
   hasEdits: false,
   hasIssueCsvOverride: false,
@@ -803,6 +810,32 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     return draftIssue;
   }, [issues, persistIssuesCsv]);
 
+  const deleteIssue = useCallback((id: string): DeleteIssueResult => {
+    const issueId = String(id || '').trim();
+    if (!issueId) {
+      return { ok: false, error: 'ID-ul numarului este invalid.' };
+    }
+
+    const targetIssue = issues.find((issue) => issue.id === issueId);
+    if (!targetIssue) {
+      return { ok: false, error: 'Numarul nu exista sau a fost deja sters.' };
+    }
+
+    const linkedArticlesCount = articles.filter((article) => article.issue_id === issueId).length;
+    if (linkedArticlesCount > 0) {
+      return {
+        ok: false,
+        error: `Nu poti sterge acest numar deoarece are ${linkedArticlesCount} articole asociate.`,
+      };
+    }
+
+    const nextIssues = issues.filter((issue) => issue.id !== issueId);
+    setIssues(nextIssues);
+    persistIssuesCsv(nextIssues);
+    setEditCount((count) => count + 1);
+    return { ok: true };
+  }, [articles, issues, persistIssuesCsv]);
+
   const importIssuesCsv = useCallback((csvText: string) => {
     const parsedIssues = parseIssuesCsvText(csvText);
     setIssues(parsedIssues);
@@ -900,6 +933,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     updateArticle,
     updateIssue,
     addIssue,
+    deleteIssue,
     importIssuesCsv,
     hasEdits: editCount > 0,
     hasIssueCsvOverride,
@@ -921,6 +955,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     updateArticle,
     updateIssue,
     addIssue,
+    deleteIssue,
     importIssuesCsv,
     editCount,
     hasIssueCsvOverride,

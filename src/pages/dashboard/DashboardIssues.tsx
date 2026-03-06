@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { ChevronDown, Download, Loader2, Plus, RotateCcw, Upload } from 'lucide-react';
+import { ChevronDown, Download, Loader2, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -27,9 +27,11 @@ function downloadText(filename: string, content: string, mime: string) {
 export default function DashboardIssues() {
   const {
     issues,
+    articles,
     loading,
     updateIssue,
     addIssue,
+    deleteIssue,
     importIssuesCsv,
     exportIssuesCsv,
     exportArticlesCsvBySeries,
@@ -54,6 +56,12 @@ export default function DashboardIssues() {
     () => [...issues].sort((a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0)),
     [issues],
   );
+  const linkedArticlesByIssueId = useMemo(() => {
+    return articles.reduce<Record<string, number>>((acc, article) => {
+      acc[article.issue_id] = (acc[article.issue_id] || 0) + 1;
+      return acc;
+    }, {});
+  }, [articles]);
 
   if (loading) {
     return <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -64,6 +72,29 @@ export default function DashboardIssues() {
     toast({
       title: 'Numar adaugat',
       description: `A fost creat un rand nou (${added.id}) in tabelul CSV.`,
+    });
+  };
+
+  const onDeleteIssue = (issueId: string, issueLabel: string) => {
+    const confirmed = window.confirm(
+      `Sigur vrei sa stergi numarul "${issueLabel}" (ID ${issueId})?\n\nAceasta actiune nu poate fi anulata.`,
+    );
+    if (!confirmed) return;
+
+    const result = deleteIssue(issueId);
+    if (!result.ok) {
+      toast({
+        title: 'Stergerea a esuat',
+        description: result.error || 'Nu am putut sterge numarul.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setDoajIssueId((prev) => (prev === issueId ? '' : prev));
+    toast({
+      title: 'Numar sters',
+      description: `Numarul "${issueLabel}" a fost eliminat din CSV.`,
     });
   };
 
@@ -424,6 +455,7 @@ export default function DashboardIssues() {
                   'Eticheta serie',
                   'Issue PDF path',
                   'Cover path',
+                  'Actiuni',
                 ].map((header) => (
                   <th key={header} className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">{header}</th>
                 ))}
@@ -547,6 +579,26 @@ export default function DashboardIssues() {
                     onChange={(value) => updateField(issue.id, 'cover_hint_path', value)}
                     widthClass="w-[200px]"
                   />
+                  <td className="px-4 py-3">
+                    {isAdmin ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+                        onClick={() => onDeleteIssue(issue.id, `${issue.year} · ${issue.volume}`)}
+                        disabled={(linkedArticlesByIssueId[issue.id] || 0) > 0}
+                        title={
+                          (linkedArticlesByIssueId[issue.id] || 0) > 0
+                            ? 'Nu poti sterge un numar care are articole asociate.'
+                            : 'Sterge numarul'
+                        }
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" /> Sterge
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
