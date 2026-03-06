@@ -1,5 +1,17 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, Download, RotateCcw, Send, XCircle } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  RotateCcw,
+  Send,
+  XCircle,
+  Eye,
+  Calendar,
+  User,
+  FileText,
+} from 'lucide-react';
 import { getAccountsByRole } from '@/data/authUsers';
 import { useSubmissionData } from '@/data/SubmissionDataProvider';
 import { Button } from '@/components/ui/button';
@@ -9,9 +21,9 @@ import type { Submission } from '@/data/types';
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
   submitted: { label: 'Trimis', cls: 'bg-primary/10 text-primary' },
-  anonymization: { label: 'In anonimizare', cls: 'bg-amber-100 text-amber-900' },
-  under_review: { label: 'In evaluare', cls: 'bg-series-2-bg text-series-2-foreground' },
-  decision_pending: { label: 'Decizie pendinte', cls: 'bg-series-3-bg text-series-3-foreground' },
+  anonymization: { label: 'În anonimizare', cls: 'bg-amber-100 text-amber-900' },
+  under_review: { label: 'În evaluare', cls: 'bg-series-2-bg text-series-2-foreground' },
+  decision_pending: { label: 'Decizie pendintă', cls: 'bg-series-3-bg text-series-3-foreground' },
   accepted: { label: 'Acceptat', cls: 'bg-series-1-bg text-series-1-foreground' },
   rejected: { label: 'Respins', cls: 'bg-destructive/10 text-destructive' },
   revision_requested: { label: 'Revizuire', cls: 'bg-series-3-bg text-series-3-foreground' },
@@ -19,21 +31,40 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
 
 const statusOptions = Object.keys(statusConfig);
 
+type FilterStatus = 'all' | string;
+
 export default function DashboardSubmissions() {
   const { submissions, updateSubmission, downloadSubmissionFile } = useSubmissionData();
   const { toast } = useToast();
   const reviewers = useMemo(() => getAccountsByRole('reviewer'), []);
   const [decisionDrafts, setDecisionDrafts] = useState<Record<string, string>>({});
   const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
 
   const sortedSubmissions = useMemo(
     () => [...submissions].sort((a, b) => b.date_submitted.localeCompare(a.date_submitted)),
     [submissions],
   );
+
+  const filteredSubmissions = useMemo(
+    () => filterStatus === 'all' ? sortedSubmissions : sortedSubmissions.filter((s) => s.status === filterStatus),
+    [sortedSubmissions, filterStatus],
+  );
+
   const activeSubmission = useMemo(
-    () => sortedSubmissions.find((submission) => submission.id === activeSubmissionId) || null,
+    () => sortedSubmissions.find((s) => s.id === activeSubmissionId) || null,
     [activeSubmissionId, sortedSubmissions],
   );
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const applySubmissionUpdate = async (
     submissionId: string,
@@ -43,19 +74,10 @@ export default function DashboardSubmissions() {
   ) => {
     const result = await updateSubmission(submissionId, changes);
     if (!result.ok) {
-      toast({
-        title: 'Actualizarea a esuat',
-        description: result.error || 'Incearca din nou.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Actualizarea a eșuat', description: result.error || 'Încearcă din nou.', variant: 'destructive' });
       return false;
     }
-
-    if (successDescription) {
-      toast({ title: successTitle, description: successDescription });
-    } else {
-      toast({ title: successTitle });
-    }
+    toast({ title: successTitle, ...(successDescription ? { description: successDescription } : {}) });
     return true;
   };
 
@@ -68,365 +90,261 @@ export default function DashboardSubmissions() {
     hasAnonymizedFiles: boolean,
   ) => {
     if (reviewerEmail && reviewerEmail === otherReviewerEmail) {
-      toast({
-        title: 'Reviewer duplicat',
-        description: 'Alege doi revieweri diferiti pentru evaluare double-blind.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Reviewer duplicat', description: 'Alege doi revieweri diferiți.', variant: 'destructive' });
       return;
     }
-
-    const reviewer = reviewers.find((account) => account.email === reviewerEmail);
-    const nextStatus = reviewer
-      ? currentStatus
-      : (currentStatus === 'under_review' ? (hasAnonymizedFiles ? 'anonymization' : 'submitted') : currentStatus);
-
-    const reviewerPatch: Partial<Submission> = slot === 2
-      ? {
-          assigned_reviewer_2: reviewer?.name || '',
-          assigned_reviewer_email_2: reviewer?.email || '',
-          status: nextStatus as Submission['status'],
-        }
-      : {
-          assigned_reviewer: reviewer?.name || '',
-          assigned_reviewer_email: reviewer?.email || '',
-          status: nextStatus as Submission['status'],
-        };
-
-    await applySubmissionUpdate(submissionId, reviewerPatch, `Reviewer ${slot} actualizat`, reviewer
-      ? 'Submisia a fost redistribuita catre reviewer si au fost trimise notificarile.'
-      : 'Reviewer eliminat din submisie.');
+    const reviewer = reviewers.find((a) => a.email === reviewerEmail);
+    const nextStatus = reviewer ? currentStatus : (currentStatus === 'under_review' ? (hasAnonymizedFiles ? 'anonymization' : 'submitted') : currentStatus);
+    const patch: Partial<Submission> = slot === 2
+      ? { assigned_reviewer_2: reviewer?.name || '', assigned_reviewer_email_2: reviewer?.email || '', status: nextStatus as Submission['status'] }
+      : { assigned_reviewer: reviewer?.name || '', assigned_reviewer_email: reviewer?.email || '', status: nextStatus as Submission['status'] };
+    await applySubmissionUpdate(submissionId, patch, `Reviewer ${slot} actualizat`);
   };
 
   const handleSendToReview = async (submission: Submission) => {
-    const reviewerOne = (submission.assigned_reviewer_email || '').trim().toLowerCase();
-    const reviewerTwo = (submission.assigned_reviewer_email_2 || '').trim().toLowerCase();
-    if (!submission.anonymized_files || submission.anonymized_files.length === 0) {
-      toast({
-        title: 'Lipseste versiunea blind',
-        description: 'Editorul trebuie sa incarce mai intai fisierul anonimizat pentru review.',
-        variant: 'destructive',
-      });
+    if (!submission.anonymized_files?.length) {
+      toast({ title: 'Lipsește versiunea blind', description: 'Încarcă mai întâi fișierul anonimizat.', variant: 'destructive' });
       return;
     }
-    if (!reviewerOne || !reviewerTwo) {
-      toast({
-        title: 'Selecteaza doi revieweri',
-        description: 'Pentru double-blind peer review trebuie sa alegi doi revieweri diferiti.',
-        variant: 'destructive',
-      });
+    const r1 = (submission.assigned_reviewer_email || '').trim().toLowerCase();
+    const r2 = (submission.assigned_reviewer_email_2 || '').trim().toLowerCase();
+    if (!r1 || !r2) {
+      toast({ title: 'Selectează doi revieweri', description: 'Evaluare double-blind necesită doi revieweri.', variant: 'destructive' });
       return;
     }
-    if (reviewerOne === reviewerTwo) {
-      toast({
-        title: 'Revieweri duplicati',
-        description: 'Alege doi revieweri diferiti pentru aceeasi submisie.',
-        variant: 'destructive',
-      });
+    if (r1 === r2) {
+      toast({ title: 'Revieweri duplicați', variant: 'destructive' });
       return;
     }
-
-    await applySubmissionUpdate(
-      submission.id,
-      { status: 'under_review' },
-      'Trimis la review',
-      'Ambii revieweri si autorul au fost notificati prin email.',
-    );
+    await applySubmissionUpdate(submission.id, { status: 'under_review' }, 'Trimis la review', 'Reviewerii și autorul au fost notificați.');
   };
 
-  const handleSetDecisionPending = async (submissionId: string) => {
-    await applySubmissionUpdate(
-      submissionId,
-      { status: 'decision_pending' },
-      'Setat ca decizie pendinta',
-      'Submisia asteapta decizia editoriala finala.',
-    );
-  };
-
-  const handleDecisionAction = async (
-    submissionId: string,
-    status: Submission['status'],
-    defaultDecision: string,
-    successTitle: string,
-  ) => {
+  const handleDecisionAction = async (submissionId: string, status: Submission['status'], defaultDecision: string, successTitle: string) => {
     const draft = (decisionDrafts[submissionId] || '').trim();
     const finalDecision = draft || defaultDecision;
-    const ok = await applySubmissionUpdate(
-      submissionId,
-      { status, decision: finalDecision },
-      successTitle,
-      'Autorul va primi notificarea de decizie.',
-    );
-    if (ok) {
-      setDecisionDrafts((prev) => ({ ...prev, [submissionId]: finalDecision }));
-    }
-  };
-
-  const handleSaveDecisionDraft = async (submissionId: string) => {
-    const draft = (decisionDrafts[submissionId] || '').trim();
-    if (!draft) {
-      toast({
-        title: 'Decizie lipsa',
-        description: 'Introdu textul deciziei inainte de salvare.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    await applySubmissionUpdate(
-      submissionId,
-      { decision: draft },
-      'Decizie salvata',
-      'Textul deciziei a fost salvat.',
-    );
+    const ok = await applySubmissionUpdate(submissionId, { status, decision: finalDecision }, successTitle, 'Autorul va primi notificarea.');
+    if (ok) setDecisionDrafts((prev) => ({ ...prev, [submissionId]: finalDecision }));
   };
 
   const handleDownload = async (submissionId: string, fileId: string, fileName: string) => {
     const result = await downloadSubmissionFile(submissionId, fileId, fileName);
-    if (!result.ok) {
-      toast({
-        title: 'Nu am putut descarca fisierul',
-        description: result.error || 'Incearca din nou.',
-        variant: 'destructive',
-      });
-    }
+    if (!result.ok) toast({ title: 'Descărcare eșuată', description: result.error, variant: 'destructive' });
   };
 
+  // Status counts for filter badges
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of submissions) counts[s.status] = (counts[s.status] || 0) + 1;
+    return counts;
+  }, [submissions]);
+
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="font-serif text-2xl font-bold">Submisii</h1>
-        <p className="text-sm text-muted-foreground mt-1">{submissions.length} manuscrise trimise</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="font-serif text-2xl font-bold">Articole trimise</h1>
+        <p className="text-sm text-muted-foreground mt-1">{submissions.length} manuscrise în sistem</p>
       </div>
 
-      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-secondary">
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">ID</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Titlu</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Autor</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Status</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Revieweri</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Termene review</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Stare revieweri</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Decizie</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Flow evaluare</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {sortedSubmissions.map((submission) => {
-                const status = statusConfig[submission.status] || statusConfig.submitted;
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setFilterStatus('all')}
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filterStatus === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-accent'}`}
+        >
+          Toate ({submissions.length})
+        </button>
+        {statusOptions.map((key) => {
+          const count = statusCounts[key] || 0;
+          if (count === 0) return null;
+          const cfg = statusConfig[key];
+          return (
+            <button
+              key={key}
+              onClick={() => setFilterStatus(key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filterStatus === key ? cfg.cls + ' ring-2 ring-primary/30' : 'bg-secondary text-secondary-foreground hover:bg-accent'}`}
+            >
+              {cfg.label} ({count})
+            </button>
+          );
+        })}
+      </div>
 
-                return (
-                  <tr key={submission.id} className="hover:bg-accent/30 transition-colors align-top">
-                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{submission.id}</td>
-                    <td className="px-4 py-3 text-sm max-w-[260px]">
-                      <div className="font-medium truncate">{submission.title}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{submission.date_submitted}</div>
-                      {submission.files && submission.files.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {submission.files.map((file) => (
-                            <Button
-                              key={file.id}
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                              onClick={() => handleDownload(submission.id, file.id, file.filename)}
-                            >
-                              <Download className="mr-1 h-3 w-3" /> {file.filename}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                      {submission.anonymized_files && submission.anonymized_files.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {submission.anonymized_files.map((file) => (
-                            <Button
-                              key={file.id}
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs border-emerald-300 text-emerald-800"
-                              onClick={() => handleDownload(submission.id, file.id, file.filename)}
-                            >
-                              <Download className="mr-1 h-3 w-3" /> Blind: {file.filename}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      <div>{submission.authors}</div>
-                      <div className="text-xs mt-1">{submission.email}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] uppercase tracking-[0.05em] font-semibold mb-2 ${status.cls}`}>
-                        {status.label}
-                      </div>
+      {/* Submissions list */}
+      <div className="space-y-3">
+        {filteredSubmissions.map((submission) => {
+          const status = statusConfig[submission.status] || statusConfig.submitted;
+          const expanded = expandedIds.has(submission.id);
+
+          return (
+            <div key={submission.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
+              {/* Compact header row */}
+              <div
+                className="flex items-center gap-3 p-4 cursor-pointer hover:bg-accent/30 transition-colors"
+                onClick={() => toggleExpanded(submission.id)}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold ${status.cls}`}>
+                      {status.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono">#{submission.id}</span>
+                  </div>
+                  <h3 className="font-medium text-sm mt-1 truncate">{submission.title}</h3>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><User className="h-3 w-3" />{submission.authors}</span>
+                    <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{submission.date_submitted}</span>
+                    {submission.assigned_reviewer && (
+                      <span className="hidden sm:flex items-center gap-1">R1: {submission.assigned_reviewer}</span>
+                    )}
+                    {submission.assigned_reviewer_2 && (
+                      <span className="hidden sm:flex items-center gap-1">R2: {submission.assigned_reviewer_2}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={(e) => { e.stopPropagation(); setActiveSubmissionId(submission.id); }}>
+                    <Eye className="mr-1 h-3 w-3" /> Detalii
+                  </Button>
+                  {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </div>
+
+              {/* Expandable section */}
+              {expanded && (
+                <div className="border-t px-4 py-4 space-y-4 bg-muted/30">
+                  {/* Row 1: Status + Reviewers */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Status */}
+                    <div className="space-y-1.5">
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Status</label>
                       <select
-                        className="w-full h-8 rounded-md border bg-background px-2 text-xs"
+                        className="w-full h-9 rounded-md border bg-background px-2 text-sm"
                         value={submission.status}
-                        onChange={(event) => void applySubmissionUpdate(
-                          submission.id,
-                          { status: event.target.value as typeof submission.status },
-                          'Status actualizat',
-                        )}
+                        onChange={(e) => void applySubmissionUpdate(submission.id, { status: e.target.value as Submission['status'] }, 'Status actualizat')}
                       >
-                        {statusOptions.map((option) => (
-                          <option key={option} value={option}>{statusConfig[option].label}</option>
+                        {statusOptions.map((opt) => (
+                          <option key={opt} value={opt}>{statusConfig[opt].label}</option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 text-[0.65rem] font-semibold text-muted-foreground">R1</span>
-                          <select
-                            className="w-[170px] h-8 rounded-md border bg-background px-2 text-xs"
-                            value={submission.assigned_reviewer_email || ''}
-                            onChange={(event) => void handleAssignReviewer(
-                              submission.id,
-                              1,
-                              event.target.value,
-                              submission.assigned_reviewer_email_2 || '',
-                              submission.status,
-                              Boolean(submission.anonymized_files?.length),
-                            )}
-                          >
-                            <option value="">Nealocat</option>
-                            {reviewers.map((reviewer) => (
-                              <option key={reviewer.email} value={reviewer.email}>{reviewer.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 text-[0.65rem] font-semibold text-muted-foreground">R2</span>
-                          <select
-                            className="w-[170px] h-8 rounded-md border bg-background px-2 text-xs"
-                            value={submission.assigned_reviewer_email_2 || ''}
-                            onChange={(event) => void handleAssignReviewer(
-                              submission.id,
-                              2,
-                              event.target.value,
-                              submission.assigned_reviewer_email || '',
-                              submission.status,
-                              Boolean(submission.anonymized_files?.length),
-                            )}
-                          >
-                            <option value="">Nealocat</option>
-                            {reviewers.map((reviewer) => (
-                              <option key={reviewer.email} value={reviewer.email}>{reviewer.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 text-[0.65rem] font-semibold text-muted-foreground">R1</span>
-                          <input
-                            type="date"
-                            className="h-8 rounded-md border bg-background px-2 text-xs"
-                            value={submission.reviewer_deadline || ''}
-                            onChange={(event) => void applySubmissionUpdate(
-                              submission.id,
-                              { reviewer_deadline: event.target.value },
-                              'Termen reviewer 1 actualizat',
-                            )}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-5 text-[0.65rem] font-semibold text-muted-foreground">R2</span>
-                          <input
-                            type="date"
-                            className="h-8 rounded-md border bg-background px-2 text-xs"
-                            value={submission.reviewer_deadline_2 || ''}
-                            onChange={(event) => void applySubmissionUpdate(
-                              submission.id,
-                              { reviewer_deadline_2: event.target.value },
-                              'Termen reviewer 2 actualizat',
-                            )}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground max-w-[170px]">
-                      <div className="space-y-2">
-                        <div>
-                          <div className="font-semibold text-[0.65rem] uppercase tracking-[0.05em] text-muted-foreground">R1</div>
-                          <div className="font-medium text-foreground">{submission.recommendation || '-'}</div>
-                          {submission.reviewed_at && <div className="mt-1">Evaluat: {submission.reviewed_at}</div>}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-[0.65rem] uppercase tracking-[0.05em] text-muted-foreground">R2</div>
-                          <div className="font-medium text-foreground">{submission.recommendation_2 || '-'}</div>
-                          {submission.reviewed_at_2 && <div className="mt-1">Evaluat: {submission.reviewed_at_2}</div>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
+                    </div>
+
+                    {/* Reviewer 1 */}
+                    <div className="space-y-1.5">
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Reviewer 1</label>
+                      <select
+                        className="w-full h-9 rounded-md border bg-background px-2 text-sm"
+                        value={submission.assigned_reviewer_email || ''}
+                        onChange={(e) => void handleAssignReviewer(submission.id, 1, e.target.value, submission.assigned_reviewer_email_2 || '', submission.status, Boolean(submission.anonymized_files?.length))}
+                      >
+                        <option value="">Nealocat</option>
+                        {reviewers.map((r) => <option key={r.email} value={r.email}>{r.name}</option>)}
+                      </select>
                       <div className="flex items-center gap-2">
-                      <input
-                        className="h-8 w-[170px] rounded-md border bg-background px-2 text-xs"
-                        value={decisionDrafts[submission.id] ?? submission.decision ?? ''}
-                        onChange={(event) => setDecisionDrafts((prev) => ({ ...prev, [submission.id]: event.target.value }))}
-                        placeholder="acceptat / respins"
-                      />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs"
-                          onClick={() => void handleSaveDecisionDraft(submission.id)}
-                        >
-                          Salveaza
-                        </Button>
+                        <input
+                          type="date"
+                          className="flex-1 h-8 rounded-md border bg-background px-2 text-xs"
+                          value={submission.reviewer_deadline || ''}
+                          onChange={(e) => void applySubmissionUpdate(submission.id, { reviewer_deadline: e.target.value }, 'Termen R1 actualizat')}
+                        />
+                        {submission.recommendation && (
+                          <span className="text-xs font-medium text-foreground">{submission.recommendation}</span>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
+                    </div>
+
+                    {/* Reviewer 2 */}
+                    <div className="space-y-1.5">
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Reviewer 2</label>
+                      <select
+                        className="w-full h-9 rounded-md border bg-background px-2 text-sm"
+                        value={submission.assigned_reviewer_email_2 || ''}
+                        onChange={(e) => void handleAssignReviewer(submission.id, 2, e.target.value, submission.assigned_reviewer_email || '', submission.status, Boolean(submission.anonymized_files?.length))}
+                      >
+                        <option value="">Nealocat</option>
+                        {reviewers.map((r) => <option key={r.email} value={r.email}>{r.name}</option>)}
+                      </select>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          className="flex-1 h-8 rounded-md border bg-background px-2 text-xs"
+                          value={submission.reviewer_deadline_2 || ''}
+                          onChange={(e) => void applySubmissionUpdate(submission.id, { reviewer_deadline_2: e.target.value }, 'Termen R2 actualizat')}
+                        />
+                        {submission.recommendation_2 && (
+                          <span className="text-xs font-medium text-foreground">{submission.recommendation_2}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Files */}
+                  {((submission.files?.length || 0) > 0 || (submission.anonymized_files?.length || 0) > 0) && (
+                    <div className="space-y-1.5">
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Fișiere</label>
                       <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setActiveSubmissionId(submission.id)}>
-                          Metadate & anonimizare
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => void handleSendToReview(submission)}
-                          disabled={!submission.anonymized_files || submission.anonymized_files.length === 0}
-                          title={!submission.anonymized_files || submission.anonymized_files.length === 0
-                            ? 'Incarca mai intai versiunea anonimizata.'
-                            : 'Trimite manuscrisul la review'}
-                        >
-                          <Send className="mr-1 h-3 w-3" /> Trimite la review
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleSetDecisionPending(submission.id)}>
-                          Decizie pendinta
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'accepted', 'acceptat', 'Articol acceptat')}>
-                          <CheckCircle2 className="mr-1 h-3 w-3" /> Accepta
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'revision_requested', 'revizuire solicitata', 'Revizuire solicitata')}>
-                          <RotateCcw className="mr-1 h-3 w-3" /> Revizuire
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'rejected', 'respins', 'Articol respins')}>
-                          <XCircle className="mr-1 h-3 w-3" /> Respinge
-                        </Button>
+                        {submission.files?.map((file) => (
+                          <Button key={file.id} size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleDownload(submission.id, file.id, file.filename)}>
+                            <Download className="mr-1 h-3 w-3" /> {file.filename}
+                          </Button>
+                        ))}
+                        {submission.anonymized_files?.map((file) => (
+                          <Button key={file.id} size="sm" variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-800" onClick={() => handleDownload(submission.id, file.id, file.filename)}>
+                            <FileText className="mr-1 h-3 w-3" /> Blind: {file.filename}
+                          </Button>
+                        ))}
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  )}
+
+                  {/* Row 3: Decision + Actions */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 pt-2 border-t border-border/50">
+                    <div className="flex-1 space-y-1.5">
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Decizie editorială</label>
+                      <input
+                        className="h-9 w-full max-w-md rounded-md border bg-background px-3 text-sm"
+                        value={decisionDrafts[submission.id] ?? submission.decision ?? ''}
+                        onChange={(e) => setDecisionDrafts((prev) => ({ ...prev, [submission.id]: e.target.value }))}
+                        placeholder="Notează decizia..."
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => void handleSendToReview(submission)}
+                        disabled={!submission.anonymized_files?.length}
+                      >
+                        <Send className="mr-1 h-3 w-3" /> La review
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'accepted', 'acceptat', 'Articol acceptat')}>
+                        <CheckCircle2 className="mr-1 h-3 w-3" /> Acceptă
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'revision_requested', 'revizuire solicitată', 'Revizuire solicitată')}>
+                        <RotateCcw className="mr-1 h-3 w-3" /> Revizuire
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'rejected', 'respins', 'Articol respins')}>
+                        <XCircle className="mr-1 h-3 w-3" /> Respinge
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {filteredSubmissions.length === 0 && (
+          <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+            Nu există articole cu acest status.
+          </div>
+        )}
       </div>
+
       <SubmissionWorkflowDrawer
         submission={activeSubmission}
         open={!!activeSubmission}
-        onOpenChange={(open) => {
-          if (!open) setActiveSubmissionId(null);
-        }}
+        onOpenChange={(open) => { if (!open) setActiveSubmissionId(null); }}
       />
     </div>
   );
