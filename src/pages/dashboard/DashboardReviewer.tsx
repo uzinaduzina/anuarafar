@@ -34,6 +34,9 @@ const DEMO_SUBMISSIONS: Submission[] = [
     assigned_reviewer: '', assigned_reviewer_email: '',
     reviewer_deadline: '2026-04-15',
     recommendation: '', decision: '',
+    anonymized_files: [
+      { id: 'demo-file-1', filename: 'manuscris_blind_001.docx', size: 245000 },
+    ],
   },
   {
     id: 'demo-rev-2',
@@ -49,6 +52,10 @@ const DEMO_SUBMISSIONS: Submission[] = [
     assigned_reviewer: '', assigned_reviewer_email: '',
     reviewer_deadline: '2026-04-20',
     recommendation: '', decision: '',
+    anonymized_files: [
+      { id: 'demo-file-2', filename: 'manuscris_blind_002.docx', size: 312000 },
+      { id: 'demo-file-2b', filename: 'manuscris_blind_002_layout.pdf', size: 580000 },
+    ],
   },
   {
     id: 'demo-rev-3',
@@ -64,6 +71,9 @@ const DEMO_SUBMISSIONS: Submission[] = [
     assigned_reviewer: '', assigned_reviewer_email: '',
     reviewer_deadline: '2026-04-30',
     recommendation: '', decision: '',
+    anonymized_files: [
+      { id: 'demo-file-3', filename: 'manuscris_blind_003.docx', size: 198000 },
+    ],
   },
 ];
 
@@ -244,9 +254,44 @@ export default function DashboardReviewer() {
                     </div>
                   </div>
 
+                  {/* Anonymized files for review */}
+                  {(submission.anonymized_files?.length || 0) > 0 && (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-emerald-800 font-semibold flex items-center gap-1.5">
+                        <Download className="h-3.5 w-3.5" />
+                        Manuscris anonimizat — descarcă pentru evaluare
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {submission.anonymized_files!.map((file) => {
+                          const sizeKB = Math.round(file.size / 1024);
+                          return (
+                            <Button
+                              key={file.id}
+                              variant="outline"
+                              size="sm"
+                              className="border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+                              onClick={() => {
+                                if (isDemo) {
+                                  toast({ title: 'Demo', description: `Fișierul „${file.filename}" nu este disponibil în modul demo.` });
+                                } else {
+                                  void handleDownload(submission.id, file.id, file.filename);
+                                }
+                              }}
+                            >
+                              <FileText className="mr-1.5 h-3.5 w-3.5" />
+                              {file.filename}
+                              <span className="ml-1.5 text-emerald-600/70 text-[0.65rem]">({sizeKB} KB)</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Original files (only for real submissions, non-anonymized) */}
                   {!isDemo && submission.files && submission.files.length > 0 && (
                     <div className="space-y-1">
-                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Fișiere atașate</div>
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Fișiere originale</div>
                       <div className="flex flex-wrap gap-2">
                         {submission.files.map((file) => (
                           <Button key={file.id} variant="outline" size="sm" onClick={() => handleDownload(submission.id, file.id, file.filename)}>
