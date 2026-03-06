@@ -31,7 +31,7 @@ const roleNavigation = {
   admin: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
     { title: 'Numere (CSV)', url: '/dashboard/issues', icon: BookOpen },
-    { title: 'Submisii', url: '/dashboard/submissions', icon: FileText },
+    { title: 'Articole trimise', url: '/dashboard/submissions', icon: FileText },
     { title: 'Recenzii (reviewer)', url: '/dashboard/reviewer', icon: ClipboardCheck },
     { title: 'Zona autor', url: '/dashboard/author', icon: FileUp },
     { title: 'Utilizatori', url: '/dashboard/users', icon: Users },
@@ -39,7 +39,7 @@ const roleNavigation = {
   editor: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
     { title: 'Numere', url: '/dashboard/issues', icon: BookOpen },
-    { title: 'Submisii', url: '/dashboard/submissions', icon: FileText },
+    { title: 'Articole trimise', url: '/dashboard/submissions', icon: FileText },
   ],
   reviewer: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },

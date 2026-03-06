@@ -95,7 +95,7 @@ export default function DashboardAuthor() {
     <div className="space-y-8">
       <div>
         <h1 className="font-serif text-2xl font-bold">Panou autor</h1>
-        <p className="text-sm text-muted-foreground mt-1">Trimite manuscrise noi si urmareste statusul submisiilor tale.</p>
+        <p className="text-sm text-muted-foreground mt-1">Trimite manuscrise noi si urmareste statusul articolelor tale.</p>
       </div>
 
       <section className="rounded-lg border bg-card shadow-sm overflow-hidden">
@@ -152,11 +152,11 @@ export default function DashboardAuthor() {
 
       <section className="rounded-lg border bg-card shadow-sm overflow-hidden">
         <div className="p-4 border-b">
-          <h2 className="font-serif text-lg font-bold">Submisiile mele</h2>
+          <h2 className="font-serif text-lg font-bold">Articolele mele trimise</h2>
         </div>
 
         {authorSubmissions.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">Nu exista submisii pentru contul curent.</div>
+          <div className="p-6 text-sm text-muted-foreground">Nu exista articole trimise pentru contul curent.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
