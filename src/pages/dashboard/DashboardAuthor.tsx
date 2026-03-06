@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FileUp, Send } from 'lucide-react';
+import { FileUp, Send, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmissionData } from '@/data/SubmissionDataProvider';
 import { Button } from '@/components/ui/button';
@@ -8,14 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
-const statusLabels: Record<string, string> = {
-  submitted: 'Trimis',
-  anonymization: 'In anonimizare',
-  under_review: 'In evaluare',
-  decision_pending: 'Decizie pendinte',
-  accepted: 'Acceptat',
-  rejected: 'Respins',
-  revision_requested: 'Revizuire solicitata',
+const statusConfig: Record<string, { label: string; cls: string }> = {
+  submitted: { label: 'Trimis', cls: 'bg-primary/10 text-primary' },
+  anonymization: { label: 'În anonimizare', cls: 'bg-amber-100 text-amber-900' },
+  under_review: { label: 'În evaluare', cls: 'bg-series-2-bg text-series-2-foreground' },
+  decision_pending: { label: 'Decizie pendintă', cls: 'bg-series-3-bg text-series-3-foreground' },
+  accepted: { label: 'Acceptat', cls: 'bg-series-1-bg text-series-1-foreground' },
+  rejected: { label: 'Respins', cls: 'bg-destructive/10 text-destructive' },
+  revision_requested: { label: 'Revizuire', cls: 'bg-series-3-bg text-series-3-foreground' },
 };
 
 interface FormState {
@@ -42,11 +42,21 @@ export default function DashboardAuthor() {
   const { toast } = useToast();
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const authorSubmissions = useMemo(
     () => getSubmissionsForAuthor(user?.email || ''),
     [getSubmissionsForAuthor, user?.email],
   );
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -56,20 +66,12 @@ export default function DashboardAuthor() {
     event.preventDefault();
 
     if (!user?.email) {
-      toast({
-        title: 'Eroare autentificare',
-        description: 'Contul nu are email asociat.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Eroare autentificare', description: 'Contul nu are email asociat.', variant: 'destructive' });
       return;
     }
 
     if (!form.title.trim() || !form.abstract.trim()) {
-      toast({
-        title: 'Date incomplete',
-        description: 'Completeaza cel putin titlul si rezumatul.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Date incomplete', description: 'Completează cel puțin titlul și rezumatul.', variant: 'destructive' });
       return;
     }
 
@@ -84,61 +86,53 @@ export default function DashboardAuthor() {
     });
 
     setForm({ ...EMPTY_FORM, authors: user.name });
-
-    toast({
-      title: 'Manuscris trimis',
-      description: 'Submisia a fost inregistrata in fluxul editorial.',
-    });
+    toast({ title: 'Manuscris trimis', description: 'Articolul a fost înregistrat în fluxul editorial.' });
   };
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="font-serif text-2xl font-bold">Panou autor</h1>
-        <p className="text-sm text-muted-foreground mt-1">Trimite manuscrise noi si urmareste statusul articolelor tale.</p>
+        <p className="text-sm text-muted-foreground mt-1">Trimite manuscrise noi și urmărește statusul articolelor tale.</p>
       </div>
 
+      {/* Submission form */}
       <section className="rounded-lg border bg-card shadow-sm overflow-hidden">
         <div className="p-4 border-b flex items-center gap-2">
           <FileUp className="h-4 w-4 text-primary" />
-          <h2 className="font-serif text-lg font-bold">Submisie noua</h2>
+          <h2 className="font-serif text-lg font-bold">Articol nou</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="author-title">Titlu manuscris *</Label>
-            <Input id="author-title" value={form.title} onChange={(event) => updateField('title', event.target.value)} required />
+            <Input id="author-title" value={form.title} onChange={(e) => updateField('title', e.target.value)} required />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="author-authors">Autori</Label>
-              <Input
-                id="author-authors"
-                value={form.authors}
-                onChange={(event) => updateField('authors', event.target.value)}
-                placeholder={user?.name || 'Nume autori'}
-              />
+              <Input id="author-authors" value={form.authors} onChange={(e) => updateField('authors', e.target.value)} placeholder={user?.name || 'Nume autori'} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="author-affiliation">Afiliere</Label>
-              <Input id="author-affiliation" value={form.affiliation} onChange={(event) => updateField('affiliation', event.target.value)} />
+              <Input id="author-affiliation" value={form.affiliation} onChange={(e) => updateField('affiliation', e.target.value)} />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="author-abstract">Rezumat *</Label>
-            <Textarea id="author-abstract" rows={5} value={form.abstract} onChange={(event) => updateField('abstract', event.target.value)} required />
+            <Textarea id="author-abstract" rows={5} value={form.abstract} onChange={(e) => updateField('abstract', e.target.value)} required />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="author-keywords-ro">Cuvinte cheie (RO)</Label>
-              <Input id="author-keywords-ro" value={form.keywords_ro} onChange={(event) => updateField('keywords_ro', event.target.value)} />
+              <Input id="author-keywords-ro" value={form.keywords_ro} onChange={(e) => updateField('keywords_ro', e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="author-keywords-en">Keywords (EN)</Label>
-              <Input id="author-keywords-en" value={form.keywords_en} onChange={(event) => updateField('keywords_en', event.target.value)} />
+              <Input id="author-keywords-en" value={form.keywords_en} onChange={(e) => updateField('keywords_en', e.target.value)} />
             </div>
           </div>
 
@@ -150,38 +144,77 @@ export default function DashboardAuthor() {
         </form>
       </section>
 
-      <section className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <div className="p-4 border-b">
-          <h2 className="font-serif text-lg font-bold">Articolele mele trimise</h2>
-        </div>
+      {/* Submissions list - card layout */}
+      <section className="space-y-3">
+        <h2 className="font-serif text-lg font-bold">Articolele mele trimise</h2>
 
         {authorSubmissions.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">Nu exista articole trimise pentru contul curent.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-secondary">
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">ID</th>
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Titlu</th>
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Data</th>
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Status</th>
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Decizie</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {authorSubmissions.map((submission) => (
-                  <tr key={submission.id} className="hover:bg-accent/30 transition-colors">
-                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{submission.id}</td>
-                    <td className="px-4 py-3 text-sm font-medium max-w-[320px] truncate">{submission.title}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{submission.date_submitted}</td>
-                    <td className="px-4 py-3 text-sm">{statusLabels[submission.status] || submission.status}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{submission.decision || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+            Nu există articole trimise pentru contul curent.
           </div>
+        ) : (
+          authorSubmissions.map((submission) => {
+            const status = statusConfig[submission.status] || statusConfig.submitted;
+            const expanded = expandedIds.has(submission.id);
+
+            return (
+              <div key={submission.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                {/* Card header */}
+                <div
+                  className="flex items-center gap-3 p-4 cursor-pointer hover:bg-accent/30 transition-colors"
+                  onClick={() => toggleExpanded(submission.id)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold ${status.cls}`}>
+                        {status.label}
+                      </span>
+                      {submission.decision && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold bg-secondary text-secondary-foreground">
+                          {submission.decision}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground font-mono">#{submission.id}</span>
+                    </div>
+                    <h3 className="font-medium text-sm mt-1 truncate">{submission.title}</h3>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{submission.date_submitted}</span>
+                      <span>{submission.authors}</span>
+                    </div>
+                  </div>
+                  {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+
+                {/* Expanded details */}
+                {expanded && (
+                  <div className="border-t px-4 py-4 space-y-3 bg-muted/30">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Status & Decizie</div>
+                        <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold ${status.cls}`}>
+                          {status.label}
+                        </div>
+                        {submission.decision && (
+                          <div className="text-sm font-medium mt-1">Decizie: {submission.decision}</div>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Detalii</div>
+                        <div className="text-sm text-muted-foreground">Afiliere: {submission.affiliation || '—'}</div>
+                        <div className="text-sm text-muted-foreground">Email: {submission.email}</div>
+                      </div>
+                    </div>
+                    {submission.abstract && (
+                      <div className="space-y-1">
+                        <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Rezumat</div>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{submission.abstract}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </section>
     </div>
