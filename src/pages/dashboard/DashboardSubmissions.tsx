@@ -264,7 +264,16 @@ export default function DashboardSubmissions() {
                         onChange={(e) => void applySubmissionUpdate(submission.id, { reviewer_deadline: e.target.value }, 'Termen R1 actualizat')}
                       />
                       {submission.recommendation && (
-                        <div className="text-xs font-medium text-foreground">Recomandare: {submission.recommendation}</div>
+                        <div className="rounded-md border border-primary/20 bg-primary/5 p-2 space-y-1">
+                          <div className="text-[0.6rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recomandare R1</div>
+                          <div className="text-xs font-semibold text-primary">{submission.recommendation}</div>
+                          {submission.review_notes && (
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{submission.review_notes}</p>
+                          )}
+                          {submission.reviewed_at && (
+                            <div className="text-[0.6rem] text-muted-foreground">Evaluat: {submission.reviewed_at}</div>
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -286,7 +295,16 @@ export default function DashboardSubmissions() {
                         onChange={(e) => void applySubmissionUpdate(submission.id, { reviewer_deadline_2: e.target.value }, 'Termen R2 actualizat')}
                       />
                       {submission.recommendation_2 && (
-                        <div className="text-xs font-medium text-foreground">Recomandare: {submission.recommendation_2}</div>
+                        <div className="rounded-md border border-primary/20 bg-primary/5 p-2 space-y-1">
+                          <div className="text-[0.6rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recomandare R2</div>
+                          <div className="text-xs font-semibold text-primary">{submission.recommendation_2}</div>
+                          {submission.review_notes_2 && (
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">{submission.review_notes_2}</p>
+                          )}
+                          {submission.reviewed_at_2 && (
+                            <div className="text-[0.6rem] text-muted-foreground">Evaluat: {submission.reviewed_at_2}</div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
