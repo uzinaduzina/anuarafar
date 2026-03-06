@@ -96,53 +96,58 @@ export default function DashboardAuthor() {
         <p className="text-sm text-muted-foreground mt-1">Trimite manuscrise noi și urmărește statusul articolelor tale.</p>
       </div>
 
-      {/* Submission form */}
-      <section className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-2">
-          <FileUp className="h-4 w-4 text-primary" />
-          <h2 className="font-serif text-lg font-bold">Articol nou</h2>
-        </div>
+      {/* Submission form – matches /submit page style */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="rounded-lg border bg-card p-6 shadow-sm space-y-4">
+          <h2 className="font-serif text-lg font-bold">Informații manuscris</h2>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="author-title">Titlu manuscris *</Label>
-            <Input id="author-title" value={form.title} onChange={(e) => updateField('title', e.target.value)} required />
+            <Label htmlFor="author-title">Titlu *</Label>
+            <Input id="author-title" required placeholder="Titlul manuscrisului" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="author-authors">Autori</Label>
-              <Input id="author-authors" value={form.authors} onChange={(e) => updateField('authors', e.target.value)} placeholder={user?.name || 'Nume autori'} />
+              <Label htmlFor="author-authors">Autori *</Label>
+              <Input id="author-authors" required placeholder="Nume autori (separați prin virgulă)" value={form.authors} onChange={(e) => updateField('authors', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="author-affiliation">Afiliere</Label>
-              <Input id="author-affiliation" value={form.affiliation} onChange={(e) => updateField('affiliation', e.target.value)} />
+              <Label htmlFor="author-affiliation">Afiliere instituțională</Label>
+              <Input id="author-affiliation" placeholder="Universitatea / Institutul" value={form.affiliation} onChange={(e) => updateField('affiliation', e.target.value)} />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="author-abstract">Rezumat *</Label>
-            <Textarea id="author-abstract" rows={5} value={form.abstract} onChange={(e) => updateField('abstract', e.target.value)} required />
+            <Textarea id="author-abstract" required placeholder="Rezumatul manuscrisului (max. 200 cuvinte)" rows={5} value={form.abstract} onChange={(e) => updateField('abstract', e.target.value)} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="author-keywords-ro">Cuvinte cheie (RO)</Label>
-              <Input id="author-keywords-ro" value={form.keywords_ro} onChange={(e) => updateField('keywords_ro', e.target.value)} />
+              <Input id="author-keywords-ro" placeholder="5 termeni, separați prin virgulă" value={form.keywords_ro} onChange={(e) => updateField('keywords_ro', e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="author-keywords-en">Keywords (EN)</Label>
-              <Input id="author-keywords-en" value={form.keywords_en} onChange={(e) => updateField('keywords_en', e.target.value)} />
+              <Input id="author-keywords-en" placeholder="5 terms, comma separated" value={form.keywords_en} onChange={(e) => updateField('keywords_en', e.target.value)} />
             </div>
           </div>
+        </div>
 
-          <div className="flex justify-end">
-            <Button type="submit">
-              <Send className="mr-2 h-4 w-4" /> Trimite manuscris
-            </Button>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <h2 className="font-serif text-lg font-bold mb-3">Fișier manuscris</h2>
+          <div className="border-2 border-dashed rounded-lg p-8 text-center bg-background">
+            <Send className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+            <p className="font-medium mb-1">Încarcă manuscrisul</p>
+            <p className="text-sm text-muted-foreground">Max. 20 MB · Format: DOC, DOCX (+ opțional PDF pentru layout)</p>
+            <input type="file" className="mt-3" accept=".pdf,.doc,.docx" multiple />
           </div>
-        </form>
-      </section>
+        </div>
+
+        <Button type="submit" size="lg" className="w-full font-semibold">
+          <Send className="mr-2 h-4 w-4" /> Trimite manuscrisul
+        </Button>
+      </form>
 
       {/* Submissions list - card layout */}
       <section className="space-y-3">
