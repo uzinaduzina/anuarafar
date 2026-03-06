@@ -1,8 +1,9 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2 } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const NAV_ITEMS = [
   { label: 'Acasă', path: '/', icon: BookOpen },
@@ -20,6 +21,7 @@ const DESPRE_ITEMS = [
 
 export default function PublicLayout() {
   const location = useLocation();
+  const { user } = useAuth();
   const [despreOpen, setDespreOpen] = useState(false);
   const despreRef = useRef<HTMLDivElement>(null);
 
@@ -109,13 +111,23 @@ export default function PublicLayout() {
               )}
             </div>
 
-            <Link
-              to="/login"
-              className="ml-2 flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <LogIn className="h-4 w-4" />
-              <span className="hidden md:inline">Login</span>
-            </Link>
+            {user ? (
+              <Link
+                to="/dashboard"
+                className="ml-2 flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Dashboard</span>
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="ml-2 flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <LogIn className="h-4 w-4" />
+                <span className="hidden md:inline">Login</span>
+              </Link>
+            )}
           </nav>
         </div>
       </header>
