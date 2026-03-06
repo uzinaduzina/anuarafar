@@ -10,7 +10,8 @@ export interface AuthAccount {
 export const AUTH_ACCOUNTS: AuthAccount[] = [
   { username: 'admin', name: 'Liviu Pop', role: 'admin', email: 'liviu.o.pop@gmail.com' },
   { username: 'editor', name: 'Editor Principal', role: 'editor', email: 'editor@iafar.ro' },
-  { username: 'reviewer', name: 'Reviewer Demo', role: 'reviewer', email: 'reviewer@iafar.ro' },
+  { username: 'reviewer1', name: 'Reviewer 1', role: 'reviewer', email: 'reviewer1@iafar.ro' },
+  { username: 'reviewer2', name: 'Reviewer 2', role: 'reviewer', email: 'reviewer2@iafar.ro' },
   { username: 'author', name: 'Autor Demo', role: 'author', email: 'author@iafar.ro' },
 ];
 

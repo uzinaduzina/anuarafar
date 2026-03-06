@@ -54,28 +54,57 @@ export default function DashboardSubmissions() {
 
   const handleAssignReviewer = async (
     submissionId: string,
+    slot: 1 | 2,
     reviewerEmail: string,
+    otherReviewerEmail: string,
     currentStatus: string,
   ) => {
+    if (reviewerEmail && reviewerEmail === otherReviewerEmail) {
+      toast({
+        title: 'Reviewer duplicat',
+        description: 'Alege doi revieweri diferiti pentru evaluare double-blind.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const reviewer = reviewers.find((account) => account.email === reviewerEmail);
     const nextStatus = reviewer
       ? currentStatus
       : (currentStatus === 'under_review' ? 'submitted' : currentStatus);
 
-    await applySubmissionUpdate(submissionId, {
-      assigned_reviewer: reviewer?.name || '',
-      assigned_reviewer_email: reviewer?.email || '',
-      status: nextStatus as Submission['status'],
-    }, 'Reviewer actualizat', reviewer
+    const reviewerPatch: Partial<Submission> = slot === 2
+      ? {
+          assigned_reviewer_2: reviewer?.name || '',
+          assigned_reviewer_email_2: reviewer?.email || '',
+          status: nextStatus as Submission['status'],
+        }
+      : {
+          assigned_reviewer: reviewer?.name || '',
+          assigned_reviewer_email: reviewer?.email || '',
+          status: nextStatus as Submission['status'],
+        };
+
+    await applySubmissionUpdate(submissionId, reviewerPatch, `Reviewer ${slot} actualizat`, reviewer
       ? 'Submisia a fost redistribuita catre reviewer si au fost trimise notificarile.'
       : 'Reviewer eliminat din submisie.');
   };
 
   const handleSendToReview = async (submission: Submission) => {
-    if (!submission.assigned_reviewer_email) {
+    const reviewerOne = (submission.assigned_reviewer_email || '').trim().toLowerCase();
+    const reviewerTwo = (submission.assigned_reviewer_email_2 || '').trim().toLowerCase();
+    if (!reviewerOne || !reviewerTwo) {
       toast({
-        title: 'Selecteaza reviewer',
-        description: 'Alege mai intai un reviewer pentru aceasta submisie.',
+        title: 'Selecteaza doi revieweri',
+        description: 'Pentru double-blind peer review trebuie sa alegi doi revieweri diferiti.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (reviewerOne === reviewerTwo) {
+      toast({
+        title: 'Revieweri duplicati',
+        description: 'Alege doi revieweri diferiti pentru aceeasi submisie.',
         variant: 'destructive',
       });
       return;
@@ -85,7 +114,7 @@ export default function DashboardSubmissions() {
       submission.id,
       { status: 'under_review' },
       'Trimis la review',
-      'Reviewerul si autorul au fost notificati prin email.',
+      'Ambii revieweri si autorul au fost notificati prin email.',
     );
   };
 
@@ -163,9 +192,9 @@ export default function DashboardSubmissions() {
                 <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Titlu</th>
                 <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Autor</th>
                 <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Status</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Reviewer</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Termen</th>
-                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recomandare</th>
+                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Revieweri</th>
+                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Termene review</th>
+                <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Stare revieweri</th>
                 <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Decizie</th>
                 <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Flow evaluare</th>
               </tr>
@@ -219,32 +248,90 @@ export default function DashboardSubmissions() {
                       </select>
                     </td>
                     <td className="px-4 py-3">
-                      <select
-                        className="w-[170px] h-8 rounded-md border bg-background px-2 text-xs"
-                        value={submission.assigned_reviewer_email || ''}
-                        onChange={(event) => void handleAssignReviewer(submission.id, event.target.value, submission.status)}
-                      >
-                        <option value="">Nealocat</option>
-                        {reviewers.map((reviewer) => (
-                          <option key={reviewer.email} value={reviewer.email}>{reviewer.name}</option>
-                        ))}
-                      </select>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 text-[0.65rem] font-semibold text-muted-foreground">R1</span>
+                          <select
+                            className="w-[170px] h-8 rounded-md border bg-background px-2 text-xs"
+                            value={submission.assigned_reviewer_email || ''}
+                            onChange={(event) => void handleAssignReviewer(
+                              submission.id,
+                              1,
+                              event.target.value,
+                              submission.assigned_reviewer_email_2 || '',
+                              submission.status,
+                            )}
+                          >
+                            <option value="">Nealocat</option>
+                            {reviewers.map((reviewer) => (
+                              <option key={reviewer.email} value={reviewer.email}>{reviewer.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 text-[0.65rem] font-semibold text-muted-foreground">R2</span>
+                          <select
+                            className="w-[170px] h-8 rounded-md border bg-background px-2 text-xs"
+                            value={submission.assigned_reviewer_email_2 || ''}
+                            onChange={(event) => void handleAssignReviewer(
+                              submission.id,
+                              2,
+                              event.target.value,
+                              submission.assigned_reviewer_email || '',
+                              submission.status,
+                            )}
+                          >
+                            <option value="">Nealocat</option>
+                            {reviewers.map((reviewer) => (
+                              <option key={reviewer.email} value={reviewer.email}>{reviewer.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
-                      <input
-                        type="date"
-                        className="h-8 rounded-md border bg-background px-2 text-xs"
-                        value={submission.reviewer_deadline || ''}
-                        onChange={(event) => void applySubmissionUpdate(
-                          submission.id,
-                          { reviewer_deadline: event.target.value },
-                          'Termen actualizat',
-                        )}
-                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 text-[0.65rem] font-semibold text-muted-foreground">R1</span>
+                          <input
+                            type="date"
+                            className="h-8 rounded-md border bg-background px-2 text-xs"
+                            value={submission.reviewer_deadline || ''}
+                            onChange={(event) => void applySubmissionUpdate(
+                              submission.id,
+                              { reviewer_deadline: event.target.value },
+                              'Termen reviewer 1 actualizat',
+                            )}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 text-[0.65rem] font-semibold text-muted-foreground">R2</span>
+                          <input
+                            type="date"
+                            className="h-8 rounded-md border bg-background px-2 text-xs"
+                            value={submission.reviewer_deadline_2 || ''}
+                            onChange={(event) => void applySubmissionUpdate(
+                              submission.id,
+                              { reviewer_deadline_2: event.target.value },
+                              'Termen reviewer 2 actualizat',
+                            )}
+                          />
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground max-w-[170px]">
-                      <div className="font-medium text-foreground">{submission.recommendation || '-'}</div>
-                      {submission.reviewed_at && <div className="mt-1">Evaluat: {submission.reviewed_at}</div>}
+                      <div className="space-y-2">
+                        <div>
+                          <div className="font-semibold text-[0.65rem] uppercase tracking-[0.05em] text-muted-foreground">R1</div>
+                          <div className="font-medium text-foreground">{submission.recommendation || '-'}</div>
+                          {submission.reviewed_at && <div className="mt-1">Evaluat: {submission.reviewed_at}</div>}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-[0.65rem] uppercase tracking-[0.05em] text-muted-foreground">R2</div>
+                          <div className="font-medium text-foreground">{submission.recommendation_2 || '-'}</div>
+                          {submission.reviewed_at_2 && <div className="mt-1">Evaluat: {submission.reviewed_at_2}</div>}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

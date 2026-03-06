@@ -64,10 +64,16 @@ export interface Submission {
   status: 'submitted' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
   assigned_reviewer: string;
   assigned_reviewer_email?: string;
+  assigned_reviewer_2?: string;
+  assigned_reviewer_email_2?: string;
   reviewer_deadline: string;
+  reviewer_deadline_2?: string;
   recommendation: string;
+  recommendation_2?: string;
   review_notes?: string;
+  review_notes_2?: string;
   reviewed_at?: string;
+  reviewed_at_2?: string;
   decision: string;
   files?: Array<{
     id: string;

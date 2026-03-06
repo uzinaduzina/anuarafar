@@ -76,10 +76,16 @@ interface StoredSubmission {
   status: SubmissionStatus;
   assigned_reviewer: string;
   assigned_reviewer_email: string;
+  assigned_reviewer_2: string;
+  assigned_reviewer_email_2: string;
   reviewer_deadline: string;
+  reviewer_deadline_2: string;
   recommendation: string;
+  recommendation_2: string;
   review_notes: string;
+  review_notes_2: string;
   reviewed_at: string;
+  reviewed_at_2: string;
   decision: string;
   files: StoredSubmissionFile[];
   createdAt: number;
@@ -114,6 +120,9 @@ const MAX_SUBMISSION_TOTAL_BYTES = 25 * 1024 * 1024;
 
 const DEFAULT_ACCOUNTS: AuthAccount[] = [
   { username: 'admin', name: 'Liviu Pop', role: 'admin', email: 'liviu.o.pop@gmail.com' },
+  { username: 'editor', name: 'Editor Principal', role: 'editor', email: 'editor@iafar.ro' },
+  { username: 'reviewer1', name: 'Reviewer 1', role: 'reviewer', email: 'reviewer1@iafar.ro' },
+  { username: 'reviewer2', name: 'Reviewer 2', role: 'reviewer', email: 'reviewer2@iafar.ro' },
 ];
 
 function normalizeEmail(value: string) {
@@ -215,10 +224,23 @@ function base64ToUint8Array(value: string): Uint8Array {
 }
 
 function parseAccounts(env: Env): AuthAccount[] {
-  if (typeof env.AUTH_ACCOUNTS_JSON !== 'string' || env.AUTH_ACCOUNTS_JSON.length === 0) return DEFAULT_ACCOUNTS;
+  const mergeWithDefaults = (accounts: AuthAccount[]): AuthAccount[] => {
+    const byEmail = new Map<string, AuthAccount>();
+    for (const account of DEFAULT_ACCOUNTS) {
+      byEmail.set(normalizeEmail(account.email), account);
+    }
+    for (const account of accounts) {
+      byEmail.set(normalizeEmail(account.email), account);
+    }
+    return [...byEmail.values()];
+  };
+
+  if (typeof env.AUTH_ACCOUNTS_JSON !== 'string' || env.AUTH_ACCOUNTS_JSON.length === 0) {
+    return mergeWithDefaults([]);
+  }
   try {
     const parsed = JSON.parse(env.AUTH_ACCOUNTS_JSON) as Array<Partial<AuthAccount>>;
-    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_ACCOUNTS;
+    if (!Array.isArray(parsed) || parsed.length === 0) return mergeWithDefaults([]);
     const cleaned = parsed
       .filter((entry) => {
         if (!entry.email || !entry.role || !entry.username || !entry.name) return false;
@@ -230,9 +252,9 @@ function parseAccounts(env: Env): AuthAccount[] {
         role: asString(entry.role) as UserRole,
         email: normalizeEmail(asString(entry.email)),
       }));
-    return cleaned.length > 0 ? cleaned : DEFAULT_ACCOUNTS;
+    return mergeWithDefaults(cleaned);
   } catch {
-    return DEFAULT_ACCOUNTS;
+    return mergeWithDefaults([]);
   }
 }
 
@@ -285,12 +307,29 @@ async function writeUsers(env: Env, users: StoredUser[]) {
 async function readUsers(env: Env): Promise<StoredUser[]> {
   const rawUsers = await env.AUTH_KV.get(USERS_KEY);
   const parsedUsers = parseStoredUsers(rawUsers);
+  const expectedAccounts = parseAccounts(env);
 
   if (parsedUsers.length > 0) {
-    return parsedUsers;
+    const usersByEmail = new Map(parsedUsers.map((entry) => [normalizeEmail(entry.email), entry]));
+    let changed = false;
+    for (const account of expectedAccounts) {
+      const accountEmail = normalizeEmail(account.email);
+      if (usersByEmail.has(accountEmail)) continue;
+      usersByEmail.set(accountEmail, {
+        ...account,
+        email: accountEmail,
+        createdAt: Date.now(),
+      });
+      changed = true;
+    }
+    const mergedUsers = [...usersByEmail.values()];
+    if (changed) {
+      await writeUsers(env, mergedUsers);
+    }
+    return mergedUsers;
   }
 
-  const seededUsers: StoredUser[] = parseAccounts(env).map((account) => ({
+  const seededUsers: StoredUser[] = expectedAccounts.map((account) => ({
     ...account,
     email: normalizeEmail(account.email),
     createdAt: Date.now(),
@@ -341,10 +380,16 @@ function parseStoredSubmissions(raw: string | null): StoredSubmission[] {
           status: isSubmissionStatus(statusRaw) ? statusRaw : 'submitted',
           assigned_reviewer: asString(entry.assigned_reviewer).trim(),
           assigned_reviewer_email: normalizeEmail(asString(entry.assigned_reviewer_email)),
+          assigned_reviewer_2: asString(entry.assigned_reviewer_2).trim(),
+          assigned_reviewer_email_2: normalizeEmail(asString(entry.assigned_reviewer_email_2)),
           reviewer_deadline: asString(entry.reviewer_deadline),
+          reviewer_deadline_2: asString(entry.reviewer_deadline_2),
           recommendation: asString(entry.recommendation).trim(),
+          recommendation_2: asString(entry.recommendation_2).trim(),
           review_notes: asString(entry.review_notes).trim(),
+          review_notes_2: asString(entry.review_notes_2).trim(),
           reviewed_at: asString(entry.reviewed_at),
+          reviewed_at_2: asString(entry.reviewed_at_2),
           decision: asString(entry.decision).trim(),
           files,
           createdAt: Number(entry.createdAt) || Date.now(),
@@ -378,10 +423,16 @@ function toPublicSubmission(submission: StoredSubmission) {
     status: submission.status,
     assigned_reviewer: submission.assigned_reviewer,
     assigned_reviewer_email: submission.assigned_reviewer_email,
+    assigned_reviewer_2: submission.assigned_reviewer_2,
+    assigned_reviewer_email_2: submission.assigned_reviewer_email_2,
     reviewer_deadline: submission.reviewer_deadline,
+    reviewer_deadline_2: submission.reviewer_deadline_2,
     recommendation: submission.recommendation,
+    recommendation_2: submission.recommendation_2,
     review_notes: submission.review_notes,
+    review_notes_2: submission.review_notes_2,
     reviewed_at: submission.reviewed_at,
+    reviewed_at_2: submission.reviewed_at_2,
     decision: submission.decision,
     files: submission.files.map((file) => ({
       id: file.id,
@@ -389,6 +440,18 @@ function toPublicSubmission(submission: StoredSubmission) {
       size: file.size,
       content_type: file.contentType || '',
     })),
+  };
+}
+
+function toPublicSubmissionForSession(submission: StoredSubmission, session: SessionPayload) {
+  const base = toPublicSubmission(submission);
+  if (session.role !== 'reviewer') return base;
+  return {
+    ...base,
+    // Double-blind: reviewerul nu vede identitatea autorului in platforma.
+    authors: 'Autor anonim',
+    email: '',
+    affiliation: '',
   };
 }
 
@@ -696,25 +759,31 @@ function buildAuthorSubmissionConfirmationEmail(env: Env, submission: StoredSubm
   });
 }
 
-function buildReviewerAssignedEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+function buildReviewerAssignedEmail(
+  env: Env,
+  submission: StoredSubmission,
+  reviewerName: string,
+  reviewerDeadline: string,
+): EmailTemplate {
   return buildWorkflowEmailTemplate({
     subject: `${getAppName(env)} - submisie asignata pentru review`,
     heading: 'Submisie asignata',
-    greeting: submission.assigned_reviewer || 'reviewer',
+    greeting: reviewerName || 'reviewer',
     intro: `Ti-a fost alocata o submisie pentru evaluare in ${getAppName(env)}.`,
     details: [
       { label: 'ID', value: submission.id },
       { label: 'Titlu', value: submission.title },
-      { label: 'Termen recomandat', value: submission.reviewer_deadline || '-' },
+      { label: 'Termen recomandat', value: reviewerDeadline || '-' },
     ],
     action: 'Conecteaza-te in platforma pentru a analiza manuscrisul si a trimite recomandarea.',
   });
 }
 
-function buildReviewerUnassignedEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+function buildReviewerUnassignedEmail(env: Env, submission: StoredSubmission, reviewerName: string): EmailTemplate {
   return buildWorkflowEmailTemplate({
     subject: `${getAppName(env)} - submisie retrasa din alocare`,
     heading: 'Submisie realocata',
+    greeting: reviewerName || 'reviewer',
     intro: `Submisia de mai jos a fost retrasa din alocarea ta in ${getAppName(env)}.`,
     details: [
       { label: 'ID', value: submission.id },
@@ -725,6 +794,9 @@ function buildReviewerUnassignedEmail(env: Env, submission: StoredSubmission): E
 }
 
 function buildAuthorSentToReviewEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+  const reviewers = [submission.assigned_reviewer, submission.assigned_reviewer_2]
+    .map((value) => value.trim())
+    .filter(Boolean);
   return buildWorkflowEmailTemplate({
     subject: `${getAppName(env)} - manuscris trimis spre review`,
     heading: 'Manuscris in evaluare',
@@ -733,13 +805,18 @@ function buildAuthorSentToReviewEmail(env: Env, submission: StoredSubmission): E
       { label: 'ID submisie', value: submission.id },
       { label: 'Titlu', value: submission.title },
       { label: 'Status', value: submissionStatusLabel(submission.status) },
-      { label: 'Reviewer', value: submission.assigned_reviewer || 'alocat de editor' },
+      { label: 'Revieweri', value: reviewers.length > 0 ? reviewers.join(', ') : 'alocati de editor' },
     ],
     action: 'Vei primi o notificare dupa finalizarea evaluarii editoriale.',
   });
 }
 
-function buildReviewCompletedEditorialEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+function buildReviewCompletedEditorialEmail(
+  env: Env,
+  submission: StoredSubmission,
+  reviewerName: string,
+  reviewerRecommendation: string,
+): EmailTemplate {
   return buildWorkflowEmailTemplate({
     subject: `${getAppName(env)} - recenzie noua primita`,
     heading: 'Recenzie noua',
@@ -747,8 +824,8 @@ function buildReviewCompletedEditorialEmail(env: Env, submission: StoredSubmissi
     details: [
       { label: 'ID', value: submission.id },
       { label: 'Titlu', value: submission.title },
-      { label: 'Reviewer', value: submission.assigned_reviewer || submission.assigned_reviewer_email || '-' },
-      { label: 'Recomandare', value: recommendationLabel(submission.recommendation) },
+      { label: 'Reviewer', value: reviewerName || '-' },
+      { label: 'Recomandare', value: recommendationLabel(reviewerRecommendation) },
       { label: 'Status curent', value: submissionStatusLabel(submission.status) },
     ],
     action: 'Verifica observatiile in dashboard si finalizeaza decizia editoriala.',
@@ -814,8 +891,16 @@ async function checkAccountPassword(account: StoredUser, password: string, env: 
   const hasAdminSecretPassword = adminPassword.length > 0
     && normalizeEmail(account.email) === adminPasswordEmail
     && !account.passwordHash;
+  const hasSharedEditorialPassword = adminPassword.length > 0
+    && !account.passwordHash
+    && account.role !== 'author';
 
   if (hasAdminSecretPassword) {
+    if (!password) return 'missing';
+    return password === adminPassword ? 'ok' : 'wrong';
+  }
+
+  if (hasSharedEditorialPassword) {
     if (!password) return 'missing';
     return password === adminPassword ? 'ok' : 'wrong';
   }
@@ -1150,7 +1235,9 @@ async function handleNotifyRole(request: Request, env: Env): Promise<Response> {
 function canReadSubmission(session: SessionPayload, submission: StoredSubmission): boolean {
   if (session.role === 'admin' || session.role === 'editor') return true;
   if (session.role === 'reviewer') {
-    return normalizeEmail(submission.assigned_reviewer_email) === normalizeEmail(session.email);
+    const reviewerEmail = normalizeEmail(session.email);
+    return normalizeEmail(submission.assigned_reviewer_email) === reviewerEmail
+      || normalizeEmail(submission.assigned_reviewer_email_2) === reviewerEmail;
   }
   return normalizeEmail(submission.email) === normalizeEmail(session.email);
 }
@@ -1254,10 +1341,16 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
     status: 'submitted',
     assigned_reviewer: '',
     assigned_reviewer_email: '',
+    assigned_reviewer_2: '',
+    assigned_reviewer_email_2: '',
     reviewer_deadline: '',
+    reviewer_deadline_2: '',
     recommendation: '',
+    recommendation_2: '',
     review_notes: '',
+    review_notes_2: '',
     reviewed_at: '',
+    reviewed_at_2: '',
     decision: '',
     files: storedFiles,
     createdAt: receivedAt.getTime(),
@@ -1317,7 +1410,7 @@ async function handleListSubmissions(request: Request, env: Env): Promise<Respon
 
   return jsonResponse(request, env, 200, {
     ok: true,
-    submissions: visibleSubmissions.map((entry) => toPublicSubmission(entry)),
+    submissions: visibleSubmissions.map((entry) => toPublicSubmissionForSession(entry, session)),
   });
 }
 
@@ -1343,7 +1436,12 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
 
   const current = submissions[index];
   const canAdminEdit = session.role === 'admin' || session.role === 'editor';
-  const canReviewerEdit = session.role === 'reviewer' && normalizeEmail(current.assigned_reviewer_email) === normalizeEmail(session.email);
+  const reviewerEmail = normalizeEmail(session.email);
+  const reviewerSlot = session.role === 'reviewer'
+    ? (normalizeEmail(current.assigned_reviewer_email) === reviewerEmail ? 1
+      : (normalizeEmail(current.assigned_reviewer_email_2) === reviewerEmail ? 2 : 0))
+    : 0;
+  const canReviewerEdit = reviewerSlot !== 0;
 
   if (!canAdminEdit && !canReviewerEdit) {
     return jsonResponse(request, env, 403, { ok: false, error: 'Nu ai drepturi pentru actualizarea acestei submisii.' });
@@ -1365,32 +1463,107 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
       next.assigned_reviewer_email = normalizeEmail(changes.assigned_reviewer_email);
       changed = true;
     }
+    if (typeof changes.assigned_reviewer_2 === 'string') {
+      next.assigned_reviewer_2 = changes.assigned_reviewer_2.trim();
+      changed = true;
+    }
+    if (typeof changes.assigned_reviewer_email_2 === 'string') {
+      next.assigned_reviewer_email_2 = normalizeEmail(changes.assigned_reviewer_email_2);
+      changed = true;
+    }
     if (typeof changes.reviewer_deadline === 'string') {
       next.reviewer_deadline = changes.reviewer_deadline.trim();
+      changed = true;
+    }
+    if (typeof changes.reviewer_deadline_2 === 'string') {
+      next.reviewer_deadline_2 = changes.reviewer_deadline_2.trim();
       changed = true;
     }
     if (typeof changes.decision === 'string') {
       next.decision = changes.decision.trim();
       changed = true;
     }
-  }
-
-  if (canAdminEdit || canReviewerEdit) {
     if (typeof changes.recommendation === 'string') {
       next.recommendation = changes.recommendation.trim();
+      changed = true;
+    }
+    if (typeof changes.recommendation_2 === 'string') {
+      next.recommendation_2 = changes.recommendation_2.trim();
       changed = true;
     }
     if (typeof changes.review_notes === 'string') {
       next.review_notes = changes.review_notes.trim();
       changed = true;
     }
+    if (typeof changes.review_notes_2 === 'string') {
+      next.review_notes_2 = changes.review_notes_2.trim();
+      changed = true;
+    }
     if (typeof changes.reviewed_at === 'string') {
       next.reviewed_at = changes.reviewed_at.trim();
       changed = true;
     }
-    if (canReviewerEdit && typeof changes.status === 'string' && isSubmissionStatus(changes.status)) {
-      next.status = changes.status;
+    if (typeof changes.reviewed_at_2 === 'string') {
+      next.reviewed_at_2 = changes.reviewed_at_2.trim();
       changed = true;
+    }
+  }
+
+  if (canReviewerEdit) {
+    if (typeof changes.recommendation === 'string') {
+      if (reviewerSlot === 2) {
+        next.recommendation_2 = changes.recommendation.trim();
+      } else {
+        next.recommendation = changes.recommendation.trim();
+      }
+      changed = true;
+    }
+    if (typeof changes.review_notes === 'string') {
+      if (reviewerSlot === 2) {
+        next.review_notes_2 = changes.review_notes.trim();
+      } else {
+        next.review_notes = changes.review_notes.trim();
+      }
+      changed = true;
+    }
+    if (typeof changes.reviewed_at === 'string') {
+      if (reviewerSlot === 2) {
+        next.reviewed_at_2 = changes.reviewed_at.trim();
+      } else {
+        next.reviewed_at = changes.reviewed_at.trim();
+      }
+      changed = true;
+    }
+    if (typeof changes.recommendation_2 === 'string' && reviewerSlot === 2) {
+      next.recommendation_2 = changes.recommendation_2.trim();
+      changed = true;
+    }
+    if (typeof changes.review_notes_2 === 'string' && reviewerSlot === 2) {
+      next.review_notes_2 = changes.review_notes_2.trim();
+      changed = true;
+    }
+    if (typeof changes.reviewed_at_2 === 'string' && reviewerSlot === 2) {
+      next.reviewed_at_2 = changes.reviewed_at_2.trim();
+      changed = true;
+    }
+  }
+
+  if (canAdminEdit) {
+    if (next.assigned_reviewer_email && next.assigned_reviewer_email === next.assigned_reviewer_email_2) {
+      return jsonResponse(request, env, 400, { ok: false, error: 'Acelasi reviewer nu poate fi asignat in ambele sloturi.' });
+    }
+    if (next.status === 'under_review') {
+      const reviewerOneEmail = normalizeEmail(next.assigned_reviewer_email);
+      const reviewerTwoEmail = normalizeEmail(next.assigned_reviewer_email_2);
+      const validDoubleBlindAssignment = isValidEmail(reviewerOneEmail)
+        && isValidEmail(reviewerTwoEmail)
+        && reviewerOneEmail !== reviewerTwoEmail;
+      if (!validDoubleBlindAssignment) {
+        return jsonResponse(request, env, 400, {
+          ok: false,
+          error: 'Pentru trimiterea la review trebuie asignati doi revieweri diferiti.',
+        });
+      }
     }
   }
 
@@ -1398,27 +1571,68 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
     return jsonResponse(request, env, 400, { ok: false, error: 'Nu exista modificari valide pentru aceasta submisie.' });
   }
 
+  if (canReviewerEdit) {
+    const firstCompleted = Boolean(next.recommendation && next.reviewed_at);
+    const secondCompleted = Boolean(next.recommendation_2 && next.reviewed_at_2);
+    const hasAnyReview = firstCompleted || secondCompleted;
+    const isFinalDecision = next.status === 'accepted' || next.status === 'rejected' || next.status === 'revision_requested';
+    if (!isFinalDecision) {
+      next.status = firstCompleted && secondCompleted ? 'decision_pending' : (hasAnyReview ? 'under_review' : next.status);
+    }
+  }
+
   submissions[index] = next;
   await writeSubmissions(env, submissions);
 
   const currentReviewerEmail = normalizeEmail(current.assigned_reviewer_email);
+  const currentReviewerEmail2 = normalizeEmail(current.assigned_reviewer_email_2);
   const nextReviewerEmail = normalizeEmail(next.assigned_reviewer_email);
+  const nextReviewerEmail2 = normalizeEmail(next.assigned_reviewer_email_2);
+
   const reviewerAssignmentChanged = canAdminEdit && currentReviewerEmail !== nextReviewerEmail;
+  const reviewerAssignmentChanged2 = canAdminEdit && currentReviewerEmail2 !== nextReviewerEmail2;
+
   const reviewerAssigned = reviewerAssignmentChanged && nextReviewerEmail !== '' && isValidEmail(nextReviewerEmail);
+  const reviewerAssigned2 = reviewerAssignmentChanged2 && nextReviewerEmail2 !== '' && isValidEmail(nextReviewerEmail2);
   const reviewerUnassigned = reviewerAssignmentChanged && currentReviewerEmail !== '' && isValidEmail(currentReviewerEmail);
+  const reviewerUnassigned2 = reviewerAssignmentChanged2 && currentReviewerEmail2 !== '' && isValidEmail(currentReviewerEmail2);
+
   const sentToReview = canAdminEdit && current.status !== 'under_review' && next.status === 'under_review';
-  const reviewerSubmittedReview = canReviewerEdit && (
-    current.recommendation !== next.recommendation
-    || current.review_notes !== next.review_notes
-    || current.reviewed_at !== next.reviewed_at
-    || (current.status !== 'decision_pending' && next.status === 'decision_pending')
-  );
+  const reviewerSubmittedReview = canReviewerEdit
+    && (reviewerSlot === 2
+      ? (
+          current.recommendation_2 !== next.recommendation_2
+          || current.review_notes_2 !== next.review_notes_2
+          || current.reviewed_at_2 !== next.reviewed_at_2
+        )
+      : (
+          current.recommendation !== next.recommendation
+          || current.review_notes !== next.review_notes
+          || current.reviewed_at !== next.reviewed_at
+        ));
   const finalDecisionSet = canAdminEdit
     && current.status !== next.status
     && (next.status === 'accepted' || next.status === 'rejected' || next.status === 'revision_requested');
 
+  let cachedUsers: StoredUser[] | null = null;
+  const getUsers = async (): Promise<StoredUser[]> => {
+    if (cachedUsers) return cachedUsers;
+    cachedUsers = await readUsers(env);
+    return cachedUsers;
+  };
+
+  const resolveReviewerName = async (candidateName: string, candidateEmail: string): Promise<string> => {
+    const trimmedName = candidateName.trim();
+    if (trimmedName) return trimmedName;
+    if (!isValidEmail(candidateEmail)) return 'reviewer';
+    const users = await getUsers();
+    const found = users.find((entry) => normalizeEmail(entry.email) === normalizeEmail(candidateEmail));
+    return found?.name || candidateEmail;
+  };
+
   if (reviewerAssigned) {
-    const template = buildReviewerAssignedEmail(env, next);
+    const reviewerName = await resolveReviewerName(next.assigned_reviewer, nextReviewerEmail);
+    const template = buildReviewerAssignedEmail(env, next, reviewerName, next.reviewer_deadline);
     const notifyResult = await sendEmail(
       env,
       [nextReviewerEmail],
@@ -1433,7 +1647,8 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
   }
 
   if (reviewerUnassigned) {
-    const template = buildReviewerUnassignedEmail(env, next);
+    const reviewerName = await resolveReviewerName(current.assigned_reviewer, currentReviewerEmail);
+    const template = buildReviewerUnassignedEmail(env, next, reviewerName);
     const notifyResult = await sendEmail(
       env,
       [currentReviewerEmail],
@@ -1444,6 +1659,38 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
     if (!notifyResult.ok) {
       const errorBody = await notifyResult.text();
       console.error('Resend reviewer unassignment failed', notifyResult.status, errorBody);
+    }
+  }
+
+  if (reviewerAssigned2) {
+    const reviewerName = await resolveReviewerName(next.assigned_reviewer_2, nextReviewerEmail2);
+    const template = buildReviewerAssignedEmail(env, next, reviewerName, next.reviewer_deadline_2);
+    const notifyResult = await sendEmail(
+      env,
+      [nextReviewerEmail2],
+      template.subject,
+      template.html,
+      template.text,
+    );
+    if (!notifyResult.ok) {
+      const errorBody = await notifyResult.text();
+      console.error('Resend reviewer assignment slot2 failed', notifyResult.status, errorBody);
+    }
+  }
+
+  if (reviewerUnassigned2) {
+    const reviewerName = await resolveReviewerName(current.assigned_reviewer_2, currentReviewerEmail2);
+    const template = buildReviewerUnassignedEmail(env, next, reviewerName);
+    const notifyResult = await sendEmail(
+      env,
+      [currentReviewerEmail2],
+      template.subject,
+      template.html,
+      template.text,
+    );
+    if (!notifyResult.ok) {
+      const errorBody = await notifyResult.text();
+      console.error('Resend reviewer unassignment slot2 failed', notifyResult.status, errorBody);
     }
   }
 
@@ -1463,10 +1710,14 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
   }
 
   if (reviewerSubmittedReview) {
-    const users = await readUsers(env);
+    const users = await getUsers();
     const recipients = getEditorialNotificationRecipients(env, users);
     if (recipients.length > 0) {
-      const template = buildReviewCompletedEditorialEmail(env, next);
+      const reviewerName = reviewerSlot === 2
+        ? await resolveReviewerName(next.assigned_reviewer_2, nextReviewerEmail2)
+        : await resolveReviewerName(next.assigned_reviewer, nextReviewerEmail);
+      const reviewerRecommendation = reviewerSlot === 2 ? next.recommendation_2 : next.recommendation;
+      const template = buildReviewCompletedEditorialEmail(env, next, reviewerName, reviewerRecommendation);
       const notifyResult = await sendEmail(
         env,
         recipients,
@@ -1499,7 +1750,7 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
   return jsonResponse(request, env, 200, {
     ok: true,
     message: 'Submisia a fost actualizata.',
-    submission: toPublicSubmission(next),
+    submission: toPublicSubmissionForSession(next, session),
   });
 }
 

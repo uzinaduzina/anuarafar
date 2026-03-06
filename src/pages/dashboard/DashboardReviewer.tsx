@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import type { Submission } from '@/data/types';
 
 const recommendationLabels: Record<string, string> = {
   accept: 'Acceptat',
@@ -33,21 +34,34 @@ export default function DashboardReviewer() {
     [getSubmissionsForReviewer, user?.email],
   );
 
-  const reviewedCount = assignedSubmissions.filter((submission) => Boolean(submission.reviewed_at)).length;
+  const getReviewerSlot = (submission: Submission): 1 | 2 => {
+    const reviewerEmail = (user?.email || '').trim().toLowerCase();
+    if (submission.assigned_reviewer_email_2?.toLowerCase() === reviewerEmail) return 2;
+    return 1;
+  };
 
-  const updateForm = (id: string, key: 'recommendation' | 'notes', value: string) => {
+  const getFormKey = (submissionId: string, slot: 1 | 2) => `${submissionId}-${slot}`;
+
+  const reviewedCount = assignedSubmissions.filter((submission) => {
+    const slot = getReviewerSlot(submission);
+    return slot === 2 ? Boolean(submission.reviewed_at_2) : Boolean(submission.reviewed_at);
+  }).length;
+
+  const updateForm = (id: string, slot: 1 | 2, key: 'recommendation' | 'notes', value: string) => {
+    const formKey = getFormKey(id, slot);
     setFormState((prev) => ({
       ...prev,
-      [id]: {
-        recommendation: prev[id]?.recommendation || '',
-        notes: prev[id]?.notes || '',
+      [formKey]: {
+        recommendation: prev[formKey]?.recommendation || '',
+        notes: prev[formKey]?.notes || '',
         [key]: value,
       },
     }));
   };
 
-  const submitReview = async (id: string) => {
-    const entry = formState[id];
+  const submitReview = async (submission: Submission, slot: 1 | 2) => {
+    const formKey = getFormKey(submission.id, slot);
+    const entry = formState[formKey];
     if (!entry?.recommendation) {
       toast({
         title: 'Selecteaza recomandarea',
@@ -57,12 +71,19 @@ export default function DashboardReviewer() {
       return;
     }
 
-    const result = await updateSubmission(id, {
-      recommendation: entry.recommendation,
-      review_notes: entry.notes,
-      reviewed_at: todayIsoDate(),
-      status: 'decision_pending',
-    });
+    const reviewerChanges: Partial<Submission> = slot === 2
+      ? {
+          recommendation_2: entry.recommendation,
+          review_notes_2: entry.notes,
+          reviewed_at_2: todayIsoDate(),
+        }
+      : {
+          recommendation: entry.recommendation,
+          review_notes: entry.notes,
+          reviewed_at: todayIsoDate(),
+        };
+
+    const result = await updateSubmission(submission.id, reviewerChanges);
 
     if (!result.ok) {
       toast({
@@ -125,8 +146,14 @@ export default function DashboardReviewer() {
         ) : (
           <div className="divide-y">
             {assignedSubmissions.map((submission) => {
-              const recommendation = formState[submission.id]?.recommendation || submission.recommendation || '';
-              const notes = formState[submission.id]?.notes ?? submission.review_notes ?? '';
+              const reviewerSlot = getReviewerSlot(submission);
+              const formKey = getFormKey(submission.id, reviewerSlot);
+              const recommendation = formState[formKey]?.recommendation
+                || (reviewerSlot === 2 ? submission.recommendation_2 : submission.recommendation)
+                || '';
+              const notes = formState[formKey]?.notes
+                ?? (reviewerSlot === 2 ? submission.review_notes_2 : submission.review_notes)
+                ?? '';
 
               return (
                 <div key={submission.id} className="p-4 space-y-3">
@@ -134,7 +161,7 @@ export default function DashboardReviewer() {
                     <div>
                       <div className="font-medium text-sm">{submission.title}</div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {submission.authors} · {submission.date_submitted}
+                        Manuscris in evaluare double-blind · {submission.date_submitted}
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -148,7 +175,7 @@ export default function DashboardReviewer() {
                       <select
                         className="mt-1 w-full h-9 rounded-md border bg-background px-3 text-sm"
                         value={recommendation}
-                        onChange={(event) => updateForm(submission.id, 'recommendation', event.target.value)}
+                        onChange={(event) => updateForm(submission.id, reviewerSlot, 'recommendation', event.target.value)}
                       >
                         <option value="">Selecteaza...</option>
                         {Object.entries(recommendationLabels).map(([value, label]) => (
@@ -163,7 +190,7 @@ export default function DashboardReviewer() {
                         className="mt-1"
                         rows={3}
                         value={notes}
-                        onChange={(event) => updateForm(submission.id, 'notes', event.target.value)}
+                        onChange={(event) => updateForm(submission.id, reviewerSlot, 'notes', event.target.value)}
                       />
                     </div>
                   </div>
@@ -184,7 +211,7 @@ export default function DashboardReviewer() {
                   )}
 
                   <div className="flex justify-end">
-                    <Button size="sm" onClick={() => void submitReview(submission.id)}>Trimite recomandare</Button>
+                    <Button size="sm" onClick={() => void submitReview(submission, reviewerSlot)}>Trimite recomandare</Button>
                   </div>
                 </div>
               );

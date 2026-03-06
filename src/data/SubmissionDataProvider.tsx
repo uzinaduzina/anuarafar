@@ -49,10 +49,16 @@ const SubmissionDataContext = createContext<SubmissionDataContextValue>({
     status: 'submitted',
     assigned_reviewer: '',
     assigned_reviewer_email: '',
+    assigned_reviewer_2: '',
+    assigned_reviewer_email_2: '',
     reviewer_deadline: '',
+    reviewer_deadline_2: '',
     recommendation: '',
+    recommendation_2: '',
     review_notes: '',
+    review_notes_2: '',
     reviewed_at: '',
+    reviewed_at_2: '',
     decision: '',
     files: [],
   }),
@@ -67,8 +73,14 @@ function normalizeSubmission(submission: Submission): Submission {
   return {
     ...submission,
     assigned_reviewer_email: submission.assigned_reviewer_email || '',
+    assigned_reviewer_2: submission.assigned_reviewer_2 || '',
+    assigned_reviewer_email_2: submission.assigned_reviewer_email_2 || '',
+    reviewer_deadline_2: submission.reviewer_deadline_2 || '',
+    recommendation_2: submission.recommendation_2 || '',
     review_notes: submission.review_notes || '',
+    review_notes_2: submission.review_notes_2 || '',
     reviewed_at: submission.reviewed_at || '',
+    reviewed_at_2: submission.reviewed_at_2 || '',
     files: Array.isArray(submission.files) ? submission.files : [],
   };
 }
@@ -251,10 +263,16 @@ export function SubmissionDataProvider({ children }: { children: ReactNode }) {
       status: 'submitted',
       assigned_reviewer: '',
       assigned_reviewer_email: '',
+      assigned_reviewer_2: '',
+      assigned_reviewer_email_2: '',
       reviewer_deadline: '',
+      reviewer_deadline_2: '',
       recommendation: '',
+      recommendation_2: '',
       review_notes: '',
+      review_notes_2: '',
       reviewed_at: '',
+      reviewed_at_2: '',
       decision: '',
       files: [],
     };
@@ -270,7 +288,10 @@ export function SubmissionDataProvider({ children }: { children: ReactNode }) {
 
   const getSubmissionsForReviewer = useCallback((email: string) => {
     const normalizedEmail = email.trim().toLowerCase();
-    return submissions.filter((submission) => submission.assigned_reviewer_email?.toLowerCase() === normalizedEmail);
+    return submissions.filter((submission) => (
+      submission.assigned_reviewer_email?.toLowerCase() === normalizedEmail
+      || submission.assigned_reviewer_email_2?.toLowerCase() === normalizedEmail
+    ));
   }, [submissions]);
 
   const downloadSubmissionFile = useCallback(async (
