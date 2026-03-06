@@ -1,24 +1,9 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
-import { AUTH_ACCOUNTS, getAccountByEmail, type AuthAccount, type UserRole } from '@/data/authUsers';
+import { AUTH_ACCOUNTS, type AuthAccount, type UserRole } from '@/data/authUsers';
 
 type AuthUser = AuthAccount;
 type AuthTransport = 'local' | 'remote';
 type NotificationRole = UserRole | 'all';
-
-interface EmailCodeInboxItem {
-  email: string;
-  code: string;
-  role: UserRole;
-  name: string;
-  sentAt: number;
-  expiresAt: number;
-}
-
-interface StoredLoginCode {
-  email: string;
-  code: string;
-  expiresAt: number;
-}
 
 interface CreateAccountInput {
   name: string;
@@ -71,7 +56,6 @@ interface AuthContextType {
   isReviewer: boolean;
   isAuthor: boolean;
   canAccess: (roles: UserRole[]) => boolean;
-  devInbox: EmailCodeInboxItem[];
   authTransport: AuthTransport;
   authToken: string | null;
   accounts: AuthAccount[];
@@ -80,10 +64,6 @@ interface AuthContextType {
 const SESSION_USER_KEY = 'auth_user';
 const SESSION_TOKEN_KEY = 'auth_session_token';
 const AUTH_SESSION_KEY = 'auth_session_v2';
-const LOGIN_CODES_KEY = 'auth_login_codes_v1';
-const DEV_INBOX_KEY = 'auth_dev_inbox_v1';
-const CODE_TTL_MS = 10 * 60 * 1000;
-const DEV_INBOX_LIMIT = 20;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const AUTH_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
 const REMOTE_AUTH_ENABLED = AUTH_API_BASE.length > 0;
@@ -97,28 +77,8 @@ function safeJsonParse<T>(value: string | null, fallback: T): T {
   }
 }
 
-function readStoredCodes(): StoredLoginCode[] {
-  return safeJsonParse<StoredLoginCode[]>(localStorage.getItem(LOGIN_CODES_KEY), []);
-}
-
-function writeStoredCodes(codes: StoredLoginCode[]) {
-  localStorage.setItem(LOGIN_CODES_KEY, JSON.stringify(codes));
-}
-
-function readDevInbox(): EmailCodeInboxItem[] {
-  return safeJsonParse<EmailCodeInboxItem[]>(localStorage.getItem(DEV_INBOX_KEY), []);
-}
-
-function writeDevInbox(items: EmailCodeInboxItem[]) {
-  localStorage.setItem(DEV_INBOX_KEY, JSON.stringify(items));
-}
-
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
-}
-
-function generateCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function buildAction(ok: boolean, message?: string, error?: string): ActionResult {
@@ -230,7 +190,6 @@ const AuthContext = createContext<AuthContextType>({
   isReviewer: false,
   isAuthor: false,
   canAccess: () => false,
-  devInbox: [],
   authTransport: 'local',
   authToken: null,
   accounts: AUTH_ACCOUNTS,
@@ -246,7 +205,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authToken, setAuthToken] = useState<string | null>(() => initialSession?.token || null);
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(() => initialSession?.expiresAt || null);
   const [accounts, setAccounts] = useState<AuthAccount[]>(() => (REMOTE_AUTH_ENABLED ? [] : AUTH_ACCOUNTS));
-  const [devInbox, setDevInbox] = useState<EmailCodeInboxItem[]>(() => (REMOTE_AUTH_ENABLED ? [] : readDevInbox()));
 
   const login = useCallback((nextUser: AuthUser, token?: string | null) => {
     const now = Date.now();
@@ -282,32 +240,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const account = getAccountByEmail(normalizedEmail);
-    if (!account) {
-      return buildAction(false, undefined, 'Nu exista un cont asociat acestui email.');
-    }
-
-    const now = Date.now();
-    const code = generateCode();
-    const expiresAt = now + CODE_TTL_MS;
-    const activeCodes = readStoredCodes().filter((entry) => entry.expiresAt > now && entry.email !== normalizedEmail);
-    activeCodes.push({ email: normalizedEmail, code, expiresAt });
-    writeStoredCodes(activeCodes);
-
-    const nextInboxEntry: EmailCodeInboxItem = {
-      email: normalizedEmail,
-      code,
-      role: account.role,
-      name: account.name,
-      sentAt: now,
-      expiresAt,
-    };
-
-    const nextInbox = [nextInboxEntry, ...readDevInbox()].slice(0, DEV_INBOX_LIMIT);
-    writeDevInbox(nextInbox);
-    setDevInbox(nextInbox);
-
-    return buildAction(true, `Codul de autentificare a fost trimis catre ${normalizedEmail}.`);
+    return buildAction(
+      false,
+      undefined,
+      'Autentificarea cu cod necesita serviciul email-auth (VITE_AUTH_API_BASE configurat).',
+    );
   }, []);
 
   const loginWithPassword = useCallback(async (identifier: string, password: string): Promise<ActionResult> => {
@@ -382,35 +319,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const account = getAccountByEmail(normalizedEmail);
-    if (!account) {
-      return buildAction(false, undefined, 'Contul nu exista.');
-    }
-
-    const now = Date.now();
-    const activeCodes = readStoredCodes().filter((entry) => entry.expiresAt > now);
-    const entry = activeCodes.find((item) => item.email === normalizedEmail);
-
-    if (!entry) {
-      writeStoredCodes(activeCodes);
-      return buildAction(false, undefined, 'Codul a expirat. Solicita un cod nou.');
-    }
-
-    if (entry.code !== normalizedCode) {
-      return buildAction(false, undefined, 'Cod invalid. Verifica emailul si incearca din nou.');
-    }
-
-    const nextUser: AuthUser = {
-      username: account.username,
-      name: account.name,
-      role: account.role,
-      email: account.email,
-    };
-
-    login(nextUser, null);
-    writeStoredCodes(activeCodes.filter((item) => item.email !== normalizedEmail));
-
-    return buildAction(true, 'Autentificare reusita.');
+    return buildAction(
+      false,
+      undefined,
+      'Verificarea codului necesita serviciul email-auth (VITE_AUTH_API_BASE configurat).',
+    );
   }, [login]);
 
   const refreshAccounts = useCallback(async (): Promise<ActionResult> => {
@@ -559,7 +472,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isReviewer,
     isAuthor,
     canAccess,
-    devInbox,
     authTransport: REMOTE_AUTH_ENABLED ? 'remote' as const : 'local' as const,
     authToken,
     accounts,
@@ -578,7 +490,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isReviewer,
     isAuthor,
     canAccess,
-    devInbox,
     authToken,
     accounts,
   ]);

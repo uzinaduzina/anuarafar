@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Mail, LogIn, KeyRound } from 'lucide-react';
+import { ArrowLeft, Mail, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,14 +10,13 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [codeRequested, setCodeRequested] = useState(false);
   const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, requestLoginCode, verifyLoginCode, devInbox, authTransport } = useAuth();
+  const { user, requestLoginCode, verifyLoginCode } = useAuth();
 
   const redirectTarget = useMemo(() => {
     const state = location.state as { from?: string } | null;
@@ -41,7 +40,6 @@ export default function Login() {
       return;
     }
 
-    setCodeRequested(true);
     toast({ title: 'Cod trimis', description: result.message });
   };
 
@@ -59,10 +57,6 @@ export default function Login() {
     toast({ title: 'Autentificare reusita' });
     navigate(redirectTarget, { replace: true });
   };
-
-  const latestCodeForEmail = authTransport === 'local'
-    ? devInbox.find((entry) => entry.email === email.trim().toLowerCase())
-    : undefined;
 
   return (
     <div className="min-h-screen grid place-items-center bg-background p-4">
@@ -114,26 +108,15 @@ export default function Login() {
                 type="submit"
                 className="w-full font-semibold"
                 size="lg"
-                disabled={isVerifyingCode || (authTransport === 'remote' ? code.trim().length !== 6 : (!codeRequested && !latestCodeForEmail))}
+                disabled={isVerifyingCode || code.trim().length !== 6}
               >
                 <LogIn className="mr-2 h-4 w-4" /> Conectare cu cod
               </Button>
             </form>
 
             <div className="rounded-md border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-              {authTransport === 'remote'
-                ? 'Codul este trimis pe emailul autorului si este valabil 30 de zile.'
-                : 'In mediu local, codurile sunt afisate si in inbox-ul local de dezvoltare.'}
+              Codul este trimis pe emailul autorului si este valabil 30 de zile.
             </div>
-
-            {latestCodeForEmail && (
-              <div className="rounded-md border px-3 py-2 text-xs">
-                <div className="font-semibold text-muted-foreground mb-1">Ultimul cod pentru acest email</div>
-                <div className="font-mono text-sm inline-flex items-center gap-2">
-                  <KeyRound className="h-3 w-3 text-primary" /> {latestCodeForEmail.code}
-                </div>
-              </div>
-            )}
 
             <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
               Pentru admin/editor/reviewer foloseste pagina separata:

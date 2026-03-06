@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck, Mail, KeyRound, UserPlus, Send } from 'lucide-react';
+import { ShieldCheck, Mail, UserPlus, Send } from 'lucide-react';
 import { ROLE_LABELS, type UserRole } from '@/data/authUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -10,14 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 
 const ROLE_OPTIONS: UserRole[] = ['admin', 'editor', 'reviewer', 'author'];
 
-function formatDateTime(value: number) {
-  return new Date(value).toLocaleString('ro-RO');
-}
-
 export default function DashboardUsers() {
   const { toast } = useToast();
   const {
-    devInbox,
     authTransport,
     accounts,
     refreshAccounts,
@@ -280,45 +275,11 @@ export default function DashboardUsers() {
       <section className="rounded-lg border bg-card shadow-sm overflow-hidden">
         <div className="p-4 border-b flex items-center gap-2">
           <Mail className="h-4 w-4 text-primary" />
-          <h2 className="font-serif text-lg font-bold">
-            {authTransport === 'remote' ? 'Autentificare email (productie)' : 'Inbox coduri email (local dev)'}
-          </h2>
+          <h2 className="font-serif text-lg font-bold">Autentificare email</h2>
         </div>
-
-        {authTransport === 'remote' ? (
-          <div className="p-6 text-sm text-muted-foreground">
-            In productie, codurile nu sunt afisate local. Fiecare utilizator primeste codul pe email, valabil 30 de zile.
-          </div>
-        ) : devInbox.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">Nu exista coduri trimise inca.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-secondary">
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Email</th>
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Rol</th>
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Cod</th>
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Trimis la</th>
-                  <th className="text-left px-4 py-2.5 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Expira la</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {devInbox.map((entry) => (
-                  <tr key={`${entry.email}-${entry.sentAt}`} className="hover:bg-accent/40 transition-colors">
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{entry.email}</td>
-                    <td className="px-4 py-3 text-sm">{ROLE_LABELS[entry.role]}</td>
-                    <td className="px-4 py-3 text-sm font-mono inline-flex items-center gap-2">
-                      <KeyRound className="h-3 w-3 text-primary" /> {entry.code}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{formatDateTime(entry.sentAt)}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{formatDateTime(entry.expiresAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="p-6 text-sm text-muted-foreground">
+          Codurile de autentificare nu sunt afisate local. Fiecare utilizator primeste codul pe email, valabil 30 de zile.
+        </div>
       </section>
     </div>
   );
