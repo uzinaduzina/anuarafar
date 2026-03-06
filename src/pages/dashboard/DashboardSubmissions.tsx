@@ -3,11 +3,13 @@ import { CheckCircle2, Download, RotateCcw, Send, XCircle } from 'lucide-react';
 import { getAccountsByRole } from '@/data/authUsers';
 import { useSubmissionData } from '@/data/SubmissionDataProvider';
 import { Button } from '@/components/ui/button';
+import SubmissionWorkflowDrawer from '@/components/SubmissionWorkflowDrawer';
 import { useToast } from '@/hooks/use-toast';
 import type { Submission } from '@/data/types';
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
   submitted: { label: 'Trimis', cls: 'bg-primary/10 text-primary' },
+  anonymization: { label: 'In anonimizare', cls: 'bg-amber-100 text-amber-900' },
   under_review: { label: 'In evaluare', cls: 'bg-series-2-bg text-series-2-foreground' },
   decision_pending: { label: 'Decizie pendinte', cls: 'bg-series-3-bg text-series-3-foreground' },
   accepted: { label: 'Acceptat', cls: 'bg-series-1-bg text-series-1-foreground' },
@@ -22,10 +24,15 @@ export default function DashboardSubmissions() {
   const { toast } = useToast();
   const reviewers = useMemo(() => getAccountsByRole('reviewer'), []);
   const [decisionDrafts, setDecisionDrafts] = useState<Record<string, string>>({});
+  const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(null);
 
   const sortedSubmissions = useMemo(
     () => [...submissions].sort((a, b) => b.date_submitted.localeCompare(a.date_submitted)),
     [submissions],
+  );
+  const activeSubmission = useMemo(
+    () => sortedSubmissions.find((submission) => submission.id === activeSubmissionId) || null,
+    [activeSubmissionId, sortedSubmissions],
   );
 
   const applySubmissionUpdate = async (
@@ -58,6 +65,7 @@ export default function DashboardSubmissions() {
     reviewerEmail: string,
     otherReviewerEmail: string,
     currentStatus: string,
+    hasAnonymizedFiles: boolean,
   ) => {
     if (reviewerEmail && reviewerEmail === otherReviewerEmail) {
       toast({
@@ -71,7 +79,7 @@ export default function DashboardSubmissions() {
     const reviewer = reviewers.find((account) => account.email === reviewerEmail);
     const nextStatus = reviewer
       ? currentStatus
-      : (currentStatus === 'under_review' ? 'submitted' : currentStatus);
+      : (currentStatus === 'under_review' ? (hasAnonymizedFiles ? 'anonymization' : 'submitted') : currentStatus);
 
     const reviewerPatch: Partial<Submission> = slot === 2
       ? {
@@ -93,6 +101,14 @@ export default function DashboardSubmissions() {
   const handleSendToReview = async (submission: Submission) => {
     const reviewerOne = (submission.assigned_reviewer_email || '').trim().toLowerCase();
     const reviewerTwo = (submission.assigned_reviewer_email_2 || '').trim().toLowerCase();
+    if (!submission.anonymized_files || submission.anonymized_files.length === 0) {
+      toast({
+        title: 'Lipseste versiunea blind',
+        description: 'Editorul trebuie sa incarce mai intai fisierul anonimizat pentru review.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!reviewerOne || !reviewerTwo) {
       toast({
         title: 'Selecteaza doi revieweri',
@@ -224,6 +240,21 @@ export default function DashboardSubmissions() {
                           ))}
                         </div>
                       )}
+                      {submission.anonymized_files && submission.anonymized_files.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {submission.anonymized_files.map((file) => (
+                            <Button
+                              key={file.id}
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs border-emerald-300 text-emerald-800"
+                              onClick={() => handleDownload(submission.id, file.id, file.filename)}
+                            >
+                              <Download className="mr-1 h-3 w-3" /> Blind: {file.filename}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       <div>{submission.authors}</div>
@@ -260,6 +291,7 @@ export default function DashboardSubmissions() {
                               event.target.value,
                               submission.assigned_reviewer_email_2 || '',
                               submission.status,
+                              Boolean(submission.anonymized_files?.length),
                             )}
                           >
                             <option value="">Nealocat</option>
@@ -279,6 +311,7 @@ export default function DashboardSubmissions() {
                               event.target.value,
                               submission.assigned_reviewer_email || '',
                               submission.status,
+                              Boolean(submission.anonymized_files?.length),
                             )}
                           >
                             <option value="">Nealocat</option>
@@ -353,7 +386,18 @@ export default function DashboardSubmissions() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <Button size="sm" className="h-8 text-xs" onClick={() => void handleSendToReview(submission)}>
+                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setActiveSubmissionId(submission.id)}>
+                          Metadate & anonimizare
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => void handleSendToReview(submission)}
+                          disabled={!submission.anonymized_files || submission.anonymized_files.length === 0}
+                          title={!submission.anonymized_files || submission.anonymized_files.length === 0
+                            ? 'Incarca mai intai versiunea anonimizata.'
+                            : 'Trimite manuscrisul la review'}
+                        >
                           <Send className="mr-1 h-3 w-3" /> Trimite la review
                         </Button>
                         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleSetDecisionPending(submission.id)}>
@@ -377,6 +421,13 @@ export default function DashboardSubmissions() {
           </table>
         </div>
       </div>
+      <SubmissionWorkflowDrawer
+        submission={activeSubmission}
+        open={!!activeSubmission}
+        onOpenChange={(open) => {
+          if (!open) setActiveSubmissionId(null);
+        }}
+      />
     </div>
   );
 }

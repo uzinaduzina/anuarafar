@@ -53,7 +53,7 @@ interface BuildEmailTemplateInput {
   footer?: string;
 }
 
-type SubmissionStatus = 'submitted' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
+type SubmissionStatus = 'submitted' | 'anonymization' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
 
 interface StoredSubmissionFile {
   id: string;
@@ -88,6 +88,8 @@ interface StoredSubmission {
   reviewed_at_2: string;
   decision: string;
   files: StoredSubmissionFile[];
+  anonymized_files: StoredSubmissionFile[];
+  anonymized_at: string;
   createdAt: number;
 }
 
@@ -178,6 +180,7 @@ function hasAllowedSubmissionFileExtension(fileName: string): boolean {
 
 function isSubmissionStatus(value: string): value is SubmissionStatus {
   return value === 'submitted'
+    || value === 'anonymization'
     || value === 'under_review'
     || value === 'decision_pending'
     || value === 'accepted'
@@ -350,7 +353,24 @@ function parseStoredSubmissions(raw: string | null): StoredSubmission[] {
       .map((entry) => {
         const statusRaw = asString(entry.status);
         const filesRaw = Array.isArray(entry.files) ? entry.files : [];
+        const anonymizedFilesRaw = Array.isArray(entry.anonymized_files) ? entry.anonymized_files : [];
         const files: StoredSubmissionFile[] = filesRaw
+          .filter((item) => {
+            if (!item || typeof item !== 'object') return false;
+            const candidate = item as Partial<StoredSubmissionFile>;
+            return Boolean(candidate.id && candidate.filename && candidate.storageKey);
+          })
+          .map((item) => {
+            const candidate = item as Partial<StoredSubmissionFile>;
+            return {
+              id: asString(candidate.id),
+              filename: sanitizeFileName(asString(candidate.filename)),
+              size: Number(candidate.size) || 0,
+              contentType: asString(candidate.contentType) || undefined,
+              storageKey: asString(candidate.storageKey),
+            };
+          });
+        const anonymizedFiles: StoredSubmissionFile[] = anonymizedFilesRaw
           .filter((item) => {
             if (!item || typeof item !== 'object') return false;
             const candidate = item as Partial<StoredSubmissionFile>;
@@ -392,6 +412,8 @@ function parseStoredSubmissions(raw: string | null): StoredSubmission[] {
           reviewed_at_2: asString(entry.reviewed_at_2),
           decision: asString(entry.decision).trim(),
           files,
+          anonymized_files: anonymizedFiles,
+          anonymized_at: asString(entry.anonymized_at),
           createdAt: Number(entry.createdAt) || Date.now(),
         };
       });
@@ -407,6 +429,48 @@ async function readSubmissions(env: Env): Promise<StoredSubmission[]> {
 
 async function writeSubmissions(env: Env, submissions: StoredSubmission[]) {
   await env.AUTH_KV.put(SUBMISSIONS_KEY, JSON.stringify(submissions));
+}
+
+async function storeSubmissionFiles(
+  env: Env,
+  submissionId: string,
+  uploadedFiles: File[],
+  keyPrefix: string,
+): Promise<StoredSubmissionFile[]> {
+  let totalSize = 0;
+  const storedFiles: StoredSubmissionFile[] = [];
+
+  for (const file of uploadedFiles) {
+    const safeFileName = sanitizeFileName(file.name || 'attachment.bin');
+    if (!hasAllowedSubmissionFileExtension(safeFileName)) {
+      throw new Error(`Fisierul ${safeFileName} nu este acceptat. Formate permise: DOC, DOCX, PDF.`);
+    }
+
+    if (file.size > MAX_SUBMISSION_FILE_BYTES) {
+      throw new Error(`Fisierul ${safeFileName} depaseste limita de 20 MB.`);
+    }
+
+    totalSize += file.size;
+    if (totalSize > MAX_SUBMISSION_TOTAL_BYTES) {
+      throw new Error('Dimensiunea totala a atasamentelor depaseste limita de 25 MB.');
+    }
+
+    const buffer = await file.arrayBuffer();
+    const fileId = crypto.randomUUID();
+    const storageKey = `${SUBMISSION_FILE_KEY_PREFIX}${submissionId}:${keyPrefix}:${fileId}`;
+    const contentBase64 = arrayBufferToBase64(buffer);
+    await env.AUTH_KV.put(storageKey, JSON.stringify({ contentBase64 }));
+
+    storedFiles.push({
+      id: fileId,
+      filename: safeFileName,
+      size: file.size,
+      contentType: guessContentType(safeFileName, file.type),
+      storageKey,
+    });
+  }
+
+  return storedFiles;
 }
 
 function toPublicSubmission(submission: StoredSubmission) {
@@ -440,6 +504,13 @@ function toPublicSubmission(submission: StoredSubmission) {
       size: file.size,
       content_type: file.contentType || '',
     })),
+    anonymized_files: submission.anonymized_files.map((file) => ({
+      id: file.id,
+      filename: file.filename,
+      size: file.size,
+      content_type: file.contentType || '',
+    })),
+    anonymized_at: submission.anonymized_at,
   };
 }
 
@@ -452,6 +523,8 @@ function toPublicSubmissionForSession(submission: StoredSubmission, session: Ses
     authors: 'Autor anonim',
     email: '',
     affiliation: '',
+    files: base.anonymized_files,
+    anonymized_files: [],
   };
 }
 
@@ -653,6 +726,7 @@ function uniqueEmailList(entries: string[]): string[] {
 
 function submissionStatusLabel(status: SubmissionStatus): string {
   if (status === 'submitted') return 'Trimis';
+  if (status === 'anonymization') return 'In anonimizare';
   if (status === 'under_review') return 'In evaluare';
   if (status === 'decision_pending') return 'Decizie pendinte';
   if (status === 'accepted') return 'Acceptat';
@@ -1284,47 +1358,15 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
     });
   }
 
-  let totalSize = 0;
   const submissionId = crypto.randomUUID();
   const receivedAt = new Date();
-  const storedFiles: StoredSubmissionFile[] = [];
-
-  for (const file of uploadedFiles) {
-    const safeFileName = sanitizeFileName(file.name || 'attachment.bin');
-    if (!hasAllowedSubmissionFileExtension(safeFileName)) {
-      return jsonResponse(request, env, 400, {
-        ok: false,
-        error: `Fisierul ${safeFileName} nu este acceptat. Formate permise: DOC, DOCX, PDF.`,
-      });
-    }
-
-    if (file.size > MAX_SUBMISSION_FILE_BYTES) {
-      return jsonResponse(request, env, 400, {
-        ok: false,
-        error: `Fisierul ${safeFileName} depaseste limita de 20 MB.`,
-      });
-    }
-
-    totalSize += file.size;
-    if (totalSize > MAX_SUBMISSION_TOTAL_BYTES) {
-      return jsonResponse(request, env, 400, {
-        ok: false,
-        error: 'Dimensiunea totala a atasamentelor depaseste limita de 25 MB.',
-      });
-    }
-
-    const buffer = await file.arrayBuffer();
-    const fileId = crypto.randomUUID();
-    const storageKey = `${SUBMISSION_FILE_KEY_PREFIX}${submissionId}:${fileId}`;
-    const contentBase64 = arrayBufferToBase64(buffer);
-    await env.AUTH_KV.put(storageKey, JSON.stringify({ contentBase64 }));
-
-    storedFiles.push({
-      id: fileId,
-      filename: safeFileName,
-      size: file.size,
-      contentType: guessContentType(safeFileName, file.type),
-      storageKey,
+  let storedFiles: StoredSubmissionFile[] = [];
+  try {
+    storedFiles = await storeSubmissionFiles(env, submissionId, uploadedFiles, 'original');
+  } catch (error) {
+    return jsonResponse(request, env, 400, {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Nu am putut procesa fisierele trimise.',
     });
   }
 
@@ -1353,6 +1395,8 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
     reviewed_at_2: '',
     decision: '',
     files: storedFiles,
+    anonymized_files: [],
+    anonymized_at: '',
     createdAt: receivedAt.getTime(),
   };
 
@@ -1395,6 +1439,81 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
     ok: true,
     message: 'Manuscrisul a fost trimis cu succes catre redactia revistei.',
     submissionId,
+  });
+}
+
+async function handleUploadAnonymizedFiles(request: Request, env: Env): Promise<Response> {
+  const session = await readSessionFromRequest(request, env);
+  if (!session || (session.role !== 'admin' && session.role !== 'editor')) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.toLowerCase().includes('multipart/form-data')) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Request invalid. Foloseste multipart/form-data.' });
+  }
+
+  const form = await request.formData();
+  const submissionId = asString(form.get('submissionId')).trim();
+  if (!submissionId) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'ID submisie lipsa.' });
+  }
+
+  const uploadedFiles = form
+    .getAll('files')
+    .filter((entry): entry is File => entry instanceof File)
+    .filter((entry) => entry.size > 0);
+
+  if (uploadedFiles.length === 0) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Ataseaza cel putin un fisier anonimizat.' });
+  }
+
+  if (uploadedFiles.length > MAX_SUBMISSION_FILES) {
+    return jsonResponse(request, env, 400, {
+      ok: false,
+      error: `Poti trimite maximum ${MAX_SUBMISSION_FILES} fisiere la o submisie.`,
+    });
+  }
+
+  const submissions = await readSubmissions(env);
+  const index = submissions.findIndex((entry) => entry.id === submissionId);
+  if (index < 0) {
+    return jsonResponse(request, env, 404, { ok: false, error: 'Submisia nu exista.' });
+  }
+
+  const current = submissions[index];
+  let storedFiles: StoredSubmissionFile[] = [];
+  try {
+    storedFiles = await storeSubmissionFiles(env, submissionId, uploadedFiles, 'anonymized');
+  } catch (error) {
+    return jsonResponse(request, env, 400, {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Nu am putut procesa fisierele anonimizate.',
+    });
+  }
+
+  for (const file of current.anonymized_files) {
+    try {
+      await env.AUTH_KV.delete(file.storageKey);
+    } catch (error) {
+      console.error('Failed to delete previous anonymized file', file.storageKey, error);
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const next: StoredSubmission = {
+    ...current,
+    status: current.status === 'submitted' ? 'anonymization' : current.status,
+    anonymized_files: storedFiles,
+    anonymized_at: nowIso,
+  };
+  submissions[index] = next;
+  await writeSubmissions(env, submissions);
+
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    message: 'Fisierele anonimizate au fost incarcate.',
+    submission: toPublicSubmissionForSession(next, session),
   });
 }
 
@@ -1451,6 +1570,34 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
   let changed = false;
 
   if (canAdminEdit) {
+    if (typeof changes.title === 'string') {
+      next.title = changes.title.trim();
+      changed = true;
+    }
+    if (typeof changes.authors === 'string') {
+      next.authors = changes.authors.trim();
+      changed = true;
+    }
+    if (typeof changes.email === 'string') {
+      next.email = normalizeEmail(changes.email);
+      changed = true;
+    }
+    if (typeof changes.affiliation === 'string') {
+      next.affiliation = changes.affiliation.trim();
+      changed = true;
+    }
+    if (typeof changes.abstract === 'string') {
+      next.abstract = changes.abstract.trim();
+      changed = true;
+    }
+    if (typeof changes.keywords_ro === 'string') {
+      next.keywords_ro = changes.keywords_ro.trim();
+      changed = true;
+    }
+    if (typeof changes.keywords_en === 'string') {
+      next.keywords_en = changes.keywords_en.trim();
+      changed = true;
+    }
     if (typeof changes.status === 'string' && isSubmissionStatus(changes.status)) {
       next.status = changes.status;
       changed = true;
@@ -1549,6 +1696,18 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
   }
 
   if (canAdminEdit) {
+    if (!next.title || !next.abstract) {
+      return jsonResponse(request, env, 400, {
+        ok: false,
+        error: 'Titlul si rezumatul sunt obligatorii pentru submisie.',
+      });
+    }
+    if (!isValidEmail(next.email)) {
+      return jsonResponse(request, env, 400, {
+        ok: false,
+        error: 'Emailul de contact trebuie sa fie valid.',
+      });
+    }
     if (next.assigned_reviewer_email && next.assigned_reviewer_email === next.assigned_reviewer_email_2) {
       return jsonResponse(request, env, 400, { ok: false, error: 'Acelasi reviewer nu poate fi asignat in ambele sloturi.' });
     }
@@ -1562,6 +1721,12 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
         return jsonResponse(request, env, 400, {
           ok: false,
           error: 'Pentru trimiterea la review trebuie asignati doi revieweri diferiti.',
+        });
+      }
+      if (next.anonymized_files.length === 0) {
+        return jsonResponse(request, env, 400, {
+          ok: false,
+          error: 'Incarca mai intai versiunea anonimizata a manuscrisului.',
         });
       }
     }
@@ -1775,9 +1940,17 @@ async function handleDownloadSubmissionFile(
     return jsonResponse(request, env, 403, { ok: false, error: 'Nu ai acces la acest fisier.' });
   }
 
-  const targetFile = submission.files.find((entry) => entry.id === fileId);
+  const availableFiles = session.role === 'reviewer'
+    ? submission.anonymized_files
+    : [...submission.files, ...submission.anonymized_files];
+  const targetFile = availableFiles.find((entry) => entry.id === fileId);
   if (!targetFile) {
-    return jsonResponse(request, env, 404, { ok: false, error: 'Fisierul nu exista pentru aceasta submisie.' });
+    return jsonResponse(request, env, 404, {
+      ok: false,
+      error: session.role === 'reviewer'
+        ? 'Versiunea anonimizata nu este disponibila pentru aceasta submisie.'
+        : 'Fisierul nu exista pentru aceasta submisie.',
+    });
   }
 
   const rawFile = await env.AUTH_KV.get(targetFile.storageKey);
@@ -1853,6 +2026,10 @@ export default {
 
       if (request.method === 'POST' && url.pathname === '/submissions/update') {
         return handleUpdateSubmission(request, env);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/submissions/anonymized-upload') {
+        return handleUploadAnonymizedFiles(request, env);
       }
 
       const filePathMatch = url.pathname.match(/^\/submissions\/([^/]+)\/files\/([^/]+)$/);

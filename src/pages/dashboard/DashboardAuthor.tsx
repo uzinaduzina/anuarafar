@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const statusLabels: Record<string, string> = {
   submitted: 'Trimis',
+  anonymization: 'In anonimizare',
   under_review: 'In evaluare',
   decision_pending: 'Decizie pendinte',
   accepted: 'Acceptat',

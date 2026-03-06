@@ -61,7 +61,7 @@ export interface Submission {
   keywords_ro: string;
   keywords_en: string;
   date_submitted: string;
-  status: 'submitted' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
+  status: 'submitted' | 'anonymization' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
   assigned_reviewer: string;
   assigned_reviewer_email?: string;
   assigned_reviewer_2?: string;
@@ -81,6 +81,13 @@ export interface Submission {
     size: number;
     content_type?: string;
   }>;
+  anonymized_files?: Array<{
+    id: string;
+    filename: string;
+    size: number;
+    content_type?: string;
+  }>;
+  anonymized_at?: string;
 }
 
 export type UserRole = 'admin' | 'editor' | 'reviewer' | 'author' | 'public';

@@ -27,6 +27,7 @@ interface SubmissionDataContextValue {
   loading: boolean;
   createSubmission: (input: NewSubmissionInput) => Submission;
   updateSubmission: (id: string, changes: Partial<Submission>) => Promise<ActionResult>;
+  uploadAnonymizedFiles: (submissionId: string, files: File[]) => Promise<ActionResult>;
   getSubmissionsForAuthor: (email: string) => Submission[];
   getSubmissionsForReviewer: (email: string) => Submission[];
   refreshSubmissions: () => Promise<ActionResult>;
@@ -61,8 +62,11 @@ const SubmissionDataContext = createContext<SubmissionDataContextValue>({
     reviewed_at_2: '',
     decision: '',
     files: [],
+    anonymized_files: [],
+    anonymized_at: '',
   }),
   updateSubmission: async () => ({ ok: false }),
+  uploadAnonymizedFiles: async () => ({ ok: false }),
   getSubmissionsForAuthor: () => [],
   getSubmissionsForReviewer: () => [],
   refreshSubmissions: async () => ({ ok: false }),
@@ -82,6 +86,8 @@ function normalizeSubmission(submission: Submission): Submission {
     reviewed_at: submission.reviewed_at || '',
     reviewed_at_2: submission.reviewed_at_2 || '',
     files: Array.isArray(submission.files) ? submission.files : [],
+    anonymized_files: Array.isArray(submission.anonymized_files) ? submission.anonymized_files : [],
+    anonymized_at: submission.anonymized_at || '',
   };
 }
 
@@ -248,6 +254,50 @@ export function SubmissionDataProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   }, [authToken, authTransport, refreshSubmissions]);
 
+  const uploadAnonymizedFiles = useCallback(async (submissionId: string, files: File[]): Promise<ActionResult> => {
+    if (!REMOTE_SUBMISSIONS_ENABLED || authTransport !== 'remote' || !authToken) {
+      return { ok: false, error: 'Uploadul de fisiere anonimizate este disponibil doar in modul remote.' };
+    }
+    if (files.length === 0) {
+      return { ok: false, error: 'Selecteaza cel putin un fisier anonimizat.' };
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('submissionId', submissionId);
+      for (const file of files) {
+        formData.append('files', file);
+      }
+
+      const response = await fetch(`${SUBMISSION_API_BASE}/submissions/anonymized-upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: formData,
+      });
+
+      const payload = parseApiResponse(await response.text());
+      if (!response.ok || payload.ok === false) {
+        return { ok: false, error: String(payload.error || 'Nu am putut incarca fisierele anonimizate.') };
+      }
+
+      if (payload.submission && typeof payload.submission === 'object') {
+        const normalized = normalizeSubmission(payload.submission as Submission);
+        setSubmissions((prev) => prev.map((submission) => (
+          submission.id === normalized.id ? normalized : submission
+        )));
+        return { ok: true };
+      }
+
+      const refresh = await refreshSubmissions();
+      return refresh.ok ? { ok: true } : refresh;
+    } catch (error) {
+      console.error('Submission anonymized upload failed', error);
+      return { ok: false, error: 'Serviciul de submisii nu raspunde momentan.' };
+    }
+  }, [authToken, authTransport, refreshSubmissions]);
+
   const createSubmission = useCallback((input: NewSubmissionInput): Submission => {
     const nextId = nextSubmissionId(submissions);
     const newSubmission: Submission = {
@@ -275,6 +325,8 @@ export function SubmissionDataProvider({ children }: { children: ReactNode }) {
       reviewed_at_2: '',
       decision: '',
       files: [],
+      anonymized_files: [],
+      anonymized_at: '',
     };
 
     setSubmissions((prev) => [newSubmission, ...prev]);
@@ -332,6 +384,7 @@ export function SubmissionDataProvider({ children }: { children: ReactNode }) {
     loading,
     createSubmission,
     updateSubmission,
+    uploadAnonymizedFiles,
     getSubmissionsForAuthor,
     getSubmissionsForReviewer,
     refreshSubmissions,
@@ -341,6 +394,7 @@ export function SubmissionDataProvider({ children }: { children: ReactNode }) {
     loading,
     createSubmission,
     updateSubmission,
+    uploadAnonymizedFiles,
     getSubmissionsForAuthor,
     getSubmissionsForReviewer,
     refreshSubmissions,
