@@ -454,6 +454,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canAccess = useCallback((roles: UserRole[]) => {
     if (!user) return false;
+    if (user.role === 'admin') return true;
     return roles.includes(user.role);
   }, [user]);
 

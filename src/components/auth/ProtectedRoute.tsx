@@ -33,7 +33,8 @@ export function RequireRole({ roles, children }: RequireRoleProps) {
     return <Navigate to={needsAuthorLogin ? '/login' : '/admin-login'} replace state={{ from: location.pathname }} />;
   }
 
-  if (!roles.includes(user.role)) {
+  const isAllowed = user.role === 'admin' || roles.includes(user.role);
+  if (!isAllowed) {
     if (user.role === 'author') {
       return <Navigate to="/dashboard/author" replace />;
     }

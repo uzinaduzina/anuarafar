@@ -32,6 +32,8 @@ const roleNavigation = {
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
     { title: 'Numere (CSV)', url: '/dashboard/issues', icon: BookOpen },
     { title: 'Submisii', url: '/dashboard/submissions', icon: FileText },
+    { title: 'Recenzii (reviewer)', url: '/dashboard/reviewer', icon: ClipboardCheck },
+    { title: 'Zona autor', url: '/dashboard/author', icon: FileUp },
     { title: 'Utilizatori', url: '/dashboard/users', icon: Users },
   ],
   editor: [
