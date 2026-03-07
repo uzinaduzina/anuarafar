@@ -7,6 +7,7 @@ import {
   LogOut,
   ClipboardCheck,
   FileUp,
+  Mail,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useNavigate } from 'react-router-dom';
@@ -35,6 +36,7 @@ const roleNavigation = {
     { title: 'Recenzii (reviewer)', url: '/dashboard/reviewer', icon: ClipboardCheck },
     { title: 'Zona autor', url: '/dashboard/author', icon: FileUp },
     { title: 'Utilizatori', url: '/dashboard/users', icon: Users },
+    { title: 'Template-uri email', url: '/dashboard/email-templates', icon: Mail },
   ],
   editor: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },

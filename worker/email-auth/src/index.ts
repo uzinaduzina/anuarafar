@@ -53,6 +53,38 @@ interface BuildEmailTemplateInput {
   footer?: string;
 }
 
+type EmailTemplateId =
+  | 'login_code'
+  | 'submission_new_editorial'
+  | 'submission_confirmation_author'
+  | 'reviewer_assigned'
+  | 'reviewer_unassigned'
+  | 'author_sent_to_review'
+  | 'review_completed_editorial'
+  | 'author_decision';
+
+type EditableEmailTemplateFields = {
+  subject: string;
+  heading: string;
+  greeting: string;
+  intro: string;
+  note: string;
+  action: string;
+  footer: string;
+};
+
+type PartialEditableEmailTemplateFields = Partial<EditableEmailTemplateFields>;
+
+interface EmailTemplateDescriptor {
+  id: EmailTemplateId;
+  label: string;
+  description: string;
+  placeholders: string[];
+  defaults: EditableEmailTemplateFields;
+}
+
+type StoredEmailTemplateMap = Partial<Record<EmailTemplateId, PartialEditableEmailTemplateFields>>;
+
 type SubmissionStatus = 'submitted' | 'anonymization' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
 type ReviewAnswer = 'yes' | 'partial' | 'no';
 type ReviewCriterionId =
@@ -128,6 +160,7 @@ interface Env {
 
 const USERS_KEY = 'auth_users_v1';
 const SUBMISSIONS_KEY = 'submissions_v1';
+const EMAIL_TEMPLATES_KEY = 'email_templates_v1';
 const SUBMISSION_FILE_KEY_PREFIX = 'submission_file_v1:';
 const DEFAULT_OTP_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -136,6 +169,140 @@ const MAX_SUBMISSION_FILES = 5;
 const MAX_SUBMISSION_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_SUBMISSION_TOTAL_BYTES = 25 * 1024 * 1024;
 const REVIEW_CRITERIA_IDS: ReviewCriterionId[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11'];
+const EDITABLE_EMAIL_TEMPLATE_FIELDS: (keyof EditableEmailTemplateFields)[] = [
+  'subject',
+  'heading',
+  'greeting',
+  'intro',
+  'note',
+  'action',
+  'footer',
+];
+const TEMPLATE_SUBJECT_LIMIT = 240;
+const TEMPLATE_FIELD_LIMIT = 4000;
+const DEFAULT_PLACEHOLDERS = ['app_name', 'submission_id', 'title', 'status', 'decision'];
+const EMAIL_TEMPLATE_DESCRIPTORS: EmailTemplateDescriptor[] = [
+  {
+    id: 'login_code',
+    label: 'Cod de autentificare',
+    description: 'Email trimis pentru autentificare prin cod.',
+    placeholders: ['app_name', 'recipient_name', 'code', 'validity'],
+    defaults: {
+      subject: '{{app_name}} - cod de autentificare',
+      heading: 'Cod de autentificare',
+      greeting: '{{recipient_name}}',
+      intro: 'Ai solicitat autentificarea in {{app_name}}. Codul tau este mai jos.',
+      note: 'Codul este valabil {{validity}}.',
+      action: 'Daca nu ai cerut acest cod, ignora mesajul.',
+      footer: '',
+    },
+  },
+  {
+    id: 'submission_new_editorial',
+    label: 'Submisie noua (editorial)',
+    description: 'Notificare catre admin/editor cand intra un manuscris nou.',
+    placeholders: [...DEFAULT_PLACEHOLDERS, 'authors', 'email', 'received_at'],
+    defaults: {
+      subject: '[Manuscris nou] {{title}}',
+      heading: 'Notificare submisie noua',
+      greeting: '',
+      intro: 'A fost inregistrata o submisie noua in {{app_name}}.',
+      note: 'Acesta este doar un email de notificare. Manuscrisul complet si fisierele sunt disponibile doar in panoul admin.',
+      action: 'Redistribuie submisia catre un reviewer din dashboard-ul de administrare.',
+      footer: 'Primita la: {{received_at}}',
+    },
+  },
+  {
+    id: 'submission_confirmation_author',
+    label: 'Confirmare primire (autor)',
+    description: 'Confirmare catre autor dupa trimiterea manuscrisului.',
+    placeholders: [...DEFAULT_PLACEHOLDERS],
+    defaults: {
+      subject: '{{app_name}} - confirmare primire manuscris',
+      heading: 'Manuscris primit',
+      greeting: '',
+      intro: 'Am primit manuscrisul tau pentru {{app_name}}.',
+      note: '',
+      action: 'Vei primi o notificare cand manuscrisul este trimis catre review si la decizia editoriala.',
+      footer: '',
+    },
+  },
+  {
+    id: 'reviewer_assigned',
+    label: 'Asignare reviewer',
+    description: 'Notificare catre reviewer cand ii este asignata o submisie.',
+    placeholders: [...DEFAULT_PLACEHOLDERS, 'reviewer_name', 'reviewer_deadline'],
+    defaults: {
+      subject: '{{app_name}} - submisie asignata pentru review',
+      heading: 'Submisie asignata',
+      greeting: '{{reviewer_name}}',
+      intro: 'Ti-a fost alocata o submisie pentru evaluare in {{app_name}}.',
+      note: '',
+      action: 'Conecteaza-te in platforma pentru a analiza manuscrisul si a trimite recomandarea.',
+      footer: '',
+    },
+  },
+  {
+    id: 'reviewer_unassigned',
+    label: 'Retragere alocare reviewer',
+    description: 'Notificare catre reviewer cand submisia este retrasa din alocare.',
+    placeholders: [...DEFAULT_PLACEHOLDERS, 'reviewer_name'],
+    defaults: {
+      subject: '{{app_name}} - submisie retrasa din alocare',
+      heading: 'Submisie realocata',
+      greeting: '{{reviewer_name}}',
+      intro: 'Submisia de mai jos a fost retrasa din alocarea ta in {{app_name}}.',
+      note: '',
+      action: 'Nu mai este necesara evaluarea pentru acest manuscris.',
+      footer: '',
+    },
+  },
+  {
+    id: 'author_sent_to_review',
+    label: 'Autor: trimis spre review',
+    description: 'Notificare catre autor cand manuscrisul intra in evaluare.',
+    placeholders: [...DEFAULT_PLACEHOLDERS, 'reviewers'],
+    defaults: {
+      subject: '{{app_name}} - manuscris trimis spre review',
+      heading: 'Manuscris in evaluare',
+      greeting: '',
+      intro: 'Manuscrisul tau a fost trimis catre evaluare in {{app_name}}.',
+      note: '',
+      action: 'Vei primi o notificare dupa finalizarea evaluarii editoriale.',
+      footer: '',
+    },
+  },
+  {
+    id: 'review_completed_editorial',
+    label: 'Recenzie noua (editorial)',
+    description: 'Notificare catre admin/editor cand reviewerul trimite evaluarea.',
+    placeholders: [...DEFAULT_PLACEHOLDERS, 'reviewer_name', 'reviewer_recommendation'],
+    defaults: {
+      subject: '{{app_name}} - recenzie noua primita',
+      heading: 'Recenzie noua',
+      greeting: '',
+      intro: 'Un reviewer a trimis recomandarea pentru o submisie din {{app_name}}.',
+      note: '',
+      action: 'Verifica observatiile in dashboard si finalizeaza decizia editoriala.',
+      footer: '',
+    },
+  },
+  {
+    id: 'author_decision',
+    label: 'Autor: decizie editoriala',
+    description: 'Notificare catre autor dupa decizia finala.',
+    placeholders: [...DEFAULT_PLACEHOLDERS],
+    defaults: {
+      subject: '{{app_name}} - decizie editoriala',
+      heading: 'Decizie editoriala',
+      greeting: '',
+      intro: 'A fost inregistrata o decizie pentru manuscrisul tau in {{app_name}}.',
+      note: '',
+      action: '',
+      footer: '',
+    },
+  },
+];
 
 const DEFAULT_ACCOUNTS: AuthAccount[] = [
   { username: 'admin', name: 'Liviu Pop', role: 'admin', email: 'liviu.o.pop@gmail.com' },
@@ -150,6 +317,101 @@ function normalizeEmail(value: string) {
 
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+function isEmailTemplateId(value: string): value is EmailTemplateId {
+  return EMAIL_TEMPLATE_DESCRIPTORS.some((descriptor) => descriptor.id === value);
+}
+
+function templateDescriptorById(templateId: EmailTemplateId): EmailTemplateDescriptor {
+  const descriptor = EMAIL_TEMPLATE_DESCRIPTORS.find((entry) => entry.id === templateId);
+  if (!descriptor) {
+    throw new Error(`Unsupported email template id: ${templateId}`);
+  }
+  return descriptor;
+}
+
+function clampTemplateField(field: keyof EditableEmailTemplateFields, rawValue: unknown): string {
+  const value = asString(rawValue);
+  if (field === 'subject') return value.slice(0, TEMPLATE_SUBJECT_LIMIT);
+  return value.slice(0, TEMPLATE_FIELD_LIMIT);
+}
+
+function parseStoredEmailTemplates(raw: string | null): StoredEmailTemplateMap {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const next: StoredEmailTemplateMap = {};
+
+    for (const [templateId, value] of Object.entries(parsed)) {
+      if (!isEmailTemplateId(templateId)) continue;
+      if (!value || typeof value !== 'object') continue;
+      const candidate = value as Record<string, unknown>;
+      const cleaned: PartialEditableEmailTemplateFields = {};
+
+      for (const field of EDITABLE_EMAIL_TEMPLATE_FIELDS) {
+        if (field in candidate) {
+          cleaned[field] = clampTemplateField(field, candidate[field]);
+        }
+      }
+
+      if (Object.keys(cleaned).length > 0) {
+        next[templateId] = cleaned;
+      }
+    }
+
+    return next;
+  } catch {
+    return {};
+  }
+}
+
+async function readEmailTemplates(env: Env): Promise<StoredEmailTemplateMap> {
+  const raw = await env.AUTH_KV.get(EMAIL_TEMPLATES_KEY);
+  return parseStoredEmailTemplates(raw);
+}
+
+async function writeEmailTemplates(env: Env, templates: StoredEmailTemplateMap) {
+  await env.AUTH_KV.put(EMAIL_TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+function mergeTemplateFields(
+  templateId: EmailTemplateId,
+  templates: StoredEmailTemplateMap,
+): EditableEmailTemplateFields {
+  const descriptor = templateDescriptorById(templateId);
+  const custom = templates[templateId] || {};
+  return {
+    subject: custom.subject !== undefined ? custom.subject : descriptor.defaults.subject,
+    heading: custom.heading !== undefined ? custom.heading : descriptor.defaults.heading,
+    greeting: custom.greeting !== undefined ? custom.greeting : descriptor.defaults.greeting,
+    intro: custom.intro !== undefined ? custom.intro : descriptor.defaults.intro,
+    note: custom.note !== undefined ? custom.note : descriptor.defaults.note,
+    action: custom.action !== undefined ? custom.action : descriptor.defaults.action,
+    footer: custom.footer !== undefined ? custom.footer : descriptor.defaults.footer,
+  };
+}
+
+function renderTemplateString(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => asString(vars[key]));
+}
+
+function resolveTemplateFields(
+  templateId: EmailTemplateId,
+  templates: StoredEmailTemplateMap,
+  vars: Record<string, string>,
+): EditableEmailTemplateFields {
+  const merged = mergeTemplateFields(templateId, templates);
+  return {
+    subject: renderTemplateString(merged.subject, vars),
+    heading: renderTemplateString(merged.heading, vars),
+    greeting: renderTemplateString(merged.greeting, vars),
+    intro: renderTemplateString(merged.intro, vars),
+    note: renderTemplateString(merged.note, vars),
+    action: renderTemplateString(merged.action, vars),
+    footer: renderTemplateString(merged.footer, vars),
+  };
 }
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
@@ -852,33 +1114,65 @@ function getEditorialNotificationRecipients(env: Env, users: StoredUser[]): stri
   return uniqueEmailList([...parseSubmissionRecipients(env), ...accountRecipients]);
 }
 
-function buildNewSubmissionEditorialEmail(env: Env, submission: StoredSubmission, receivedAtIso: string): EmailTemplate {
+function buildNewSubmissionEditorialEmail(
+  env: Env,
+  submission: StoredSubmission,
+  receivedAtIso: string,
+  emailTemplates: StoredEmailTemplateMap,
+): EmailTemplate {
+  const appName = getAppName(env);
+  const templateFields = resolveTemplateFields('submission_new_editorial', emailTemplates, {
+    app_name: appName,
+    submission_id: submission.id,
+    title: submission.title,
+    authors: submission.authors,
+    email: submission.email,
+    status: submissionStatusLabel(submission.status),
+    decision: submission.decision || '-',
+    received_at: receivedAtIso,
+  });
   const details = [
     ...buildSubmissionDetails(submission),
     { label: 'Fisiere primite', value: String(submission.files.length) },
   ];
   return buildWorkflowEmailTemplate({
-    subject: `[Manuscris nou] ${submission.title}`,
-    heading: 'Notificare submisie noua',
-    intro: `A fost inregistrata o submisie noua in ${getAppName(env)}.`,
+    subject: templateFields.subject,
+    heading: templateFields.heading,
+    greeting: templateFields.greeting || undefined,
+    intro: templateFields.intro,
     details,
-    note: 'Acesta este doar un email de notificare. Manuscrisul complet si fisierele sunt disponibile doar in panoul admin.',
-    action: 'Redistribuie submisia catre un reviewer din dashboard-ul de administrare.',
-    footer: `Primita la: ${receivedAtIso}`,
+    note: templateFields.note || undefined,
+    action: templateFields.action || undefined,
+    footer: templateFields.footer || undefined,
   });
 }
 
-function buildAuthorSubmissionConfirmationEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+function buildAuthorSubmissionConfirmationEmail(
+  env: Env,
+  submission: StoredSubmission,
+  emailTemplates: StoredEmailTemplateMap,
+): EmailTemplate {
+  const appName = getAppName(env);
+  const templateFields = resolveTemplateFields('submission_confirmation_author', emailTemplates, {
+    app_name: appName,
+    submission_id: submission.id,
+    title: submission.title,
+    status: submissionStatusLabel(submission.status),
+    decision: submission.decision || '-',
+  });
   return buildWorkflowEmailTemplate({
-    subject: `${getAppName(env)} - confirmare primire manuscris`,
-    heading: 'Manuscris primit',
-    intro: `Am primit manuscrisul tau pentru ${getAppName(env)}.`,
+    subject: templateFields.subject,
+    heading: templateFields.heading,
+    greeting: templateFields.greeting || undefined,
+    intro: templateFields.intro,
     details: [
       { label: 'ID submisie', value: submission.id },
       { label: 'Titlu', value: submission.title },
       { label: 'Status', value: submissionStatusLabel(submission.status) },
     ],
-    action: 'Vei primi o notificare cand manuscrisul este trimis catre review si la decizia editoriala.',
+    note: templateFields.note || undefined,
+    action: templateFields.action || undefined,
+    footer: templateFields.footer || undefined,
   });
 }
 
@@ -887,50 +1181,95 @@ function buildReviewerAssignedEmail(
   submission: StoredSubmission,
   reviewerName: string,
   reviewerDeadline: string,
+  emailTemplates: StoredEmailTemplateMap,
 ): EmailTemplate {
+  const appName = getAppName(env);
+  const templateFields = resolveTemplateFields('reviewer_assigned', emailTemplates, {
+    app_name: appName,
+    submission_id: submission.id,
+    title: submission.title,
+    status: submissionStatusLabel(submission.status),
+    reviewer_name: reviewerName || 'reviewer',
+    reviewer_deadline: reviewerDeadline || '-',
+    decision: submission.decision || '-',
+  });
   return buildWorkflowEmailTemplate({
-    subject: `${getAppName(env)} - submisie asignata pentru review`,
-    heading: 'Submisie asignata',
-    greeting: reviewerName || 'reviewer',
-    intro: `Ti-a fost alocata o submisie pentru evaluare in ${getAppName(env)}.`,
+    subject: templateFields.subject,
+    heading: templateFields.heading,
+    greeting: templateFields.greeting || undefined,
+    intro: templateFields.intro,
     details: [
       { label: 'ID', value: submission.id },
       { label: 'Titlu', value: submission.title },
       { label: 'Termen recomandat', value: reviewerDeadline || '-' },
     ],
-    action: 'Conecteaza-te in platforma pentru a analiza manuscrisul si a trimite recomandarea.',
+    note: templateFields.note || undefined,
+    action: templateFields.action || undefined,
+    footer: templateFields.footer || undefined,
   });
 }
 
-function buildReviewerUnassignedEmail(env: Env, submission: StoredSubmission, reviewerName: string): EmailTemplate {
+function buildReviewerUnassignedEmail(
+  env: Env,
+  submission: StoredSubmission,
+  reviewerName: string,
+  emailTemplates: StoredEmailTemplateMap,
+): EmailTemplate {
+  const appName = getAppName(env);
+  const templateFields = resolveTemplateFields('reviewer_unassigned', emailTemplates, {
+    app_name: appName,
+    submission_id: submission.id,
+    title: submission.title,
+    status: submissionStatusLabel(submission.status),
+    reviewer_name: reviewerName || 'reviewer',
+    decision: submission.decision || '-',
+  });
   return buildWorkflowEmailTemplate({
-    subject: `${getAppName(env)} - submisie retrasa din alocare`,
-    heading: 'Submisie realocata',
-    greeting: reviewerName || 'reviewer',
-    intro: `Submisia de mai jos a fost retrasa din alocarea ta in ${getAppName(env)}.`,
+    subject: templateFields.subject,
+    heading: templateFields.heading,
+    greeting: templateFields.greeting || undefined,
+    intro: templateFields.intro,
     details: [
       { label: 'ID', value: submission.id },
       { label: 'Titlu', value: submission.title },
     ],
-    action: 'Nu mai este necesara evaluarea pentru acest manuscris.',
+    note: templateFields.note || undefined,
+    action: templateFields.action || undefined,
+    footer: templateFields.footer || undefined,
   });
 }
 
-function buildAuthorSentToReviewEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+function buildAuthorSentToReviewEmail(
+  env: Env,
+  submission: StoredSubmission,
+  emailTemplates: StoredEmailTemplateMap,
+): EmailTemplate {
   const reviewers = [submission.assigned_reviewer, submission.assigned_reviewer_2]
     .map((value) => value.trim())
     .filter(Boolean);
+  const appName = getAppName(env);
+  const templateFields = resolveTemplateFields('author_sent_to_review', emailTemplates, {
+    app_name: appName,
+    submission_id: submission.id,
+    title: submission.title,
+    status: submissionStatusLabel(submission.status),
+    reviewers: reviewers.length > 0 ? reviewers.join(', ') : 'alocati de editor',
+    decision: submission.decision || '-',
+  });
   return buildWorkflowEmailTemplate({
-    subject: `${getAppName(env)} - manuscris trimis spre review`,
-    heading: 'Manuscris in evaluare',
-    intro: `Manuscrisul tau a fost trimis catre evaluare in ${getAppName(env)}.`,
+    subject: templateFields.subject,
+    heading: templateFields.heading,
+    greeting: templateFields.greeting || undefined,
+    intro: templateFields.intro,
     details: [
       { label: 'ID submisie', value: submission.id },
       { label: 'Titlu', value: submission.title },
       { label: 'Status', value: submissionStatusLabel(submission.status) },
       { label: 'Revieweri', value: reviewers.length > 0 ? reviewers.join(', ') : 'alocati de editor' },
     ],
-    action: 'Vei primi o notificare dupa finalizarea evaluarii editoriale.',
+    note: templateFields.note || undefined,
+    action: templateFields.action || undefined,
+    footer: templateFields.footer || undefined,
   });
 }
 
@@ -939,11 +1278,23 @@ function buildReviewCompletedEditorialEmail(
   submission: StoredSubmission,
   reviewerName: string,
   reviewerRecommendation: string,
+  emailTemplates: StoredEmailTemplateMap,
 ): EmailTemplate {
+  const appName = getAppName(env);
+  const templateFields = resolveTemplateFields('review_completed_editorial', emailTemplates, {
+    app_name: appName,
+    submission_id: submission.id,
+    title: submission.title,
+    status: submissionStatusLabel(submission.status),
+    reviewer_name: reviewerName || '-',
+    reviewer_recommendation: recommendationLabel(reviewerRecommendation),
+    decision: submission.decision || '-',
+  });
   return buildWorkflowEmailTemplate({
-    subject: `${getAppName(env)} - recenzie noua primita`,
-    heading: 'Recenzie noua',
-    intro: `Un reviewer a trimis recomandarea pentru o submisie din ${getAppName(env)}.`,
+    subject: templateFields.subject,
+    heading: templateFields.heading,
+    greeting: templateFields.greeting || undefined,
+    intro: templateFields.intro,
     details: [
       { label: 'ID', value: submission.id },
       { label: 'Titlu', value: submission.title },
@@ -951,21 +1302,39 @@ function buildReviewCompletedEditorialEmail(
       { label: 'Recomandare', value: recommendationLabel(reviewerRecommendation) },
       { label: 'Status curent', value: submissionStatusLabel(submission.status) },
     ],
-    action: 'Verifica observatiile in dashboard si finalizeaza decizia editoriala.',
+    note: templateFields.note || undefined,
+    action: templateFields.action || undefined,
+    footer: templateFields.footer || undefined,
   });
 }
 
-function buildAuthorDecisionEmail(env: Env, submission: StoredSubmission): EmailTemplate {
+function buildAuthorDecisionEmail(
+  env: Env,
+  submission: StoredSubmission,
+  emailTemplates: StoredEmailTemplateMap,
+): EmailTemplate {
+  const appName = getAppName(env);
+  const templateFields = resolveTemplateFields('author_decision', emailTemplates, {
+    app_name: appName,
+    submission_id: submission.id,
+    title: submission.title,
+    status: submissionStatusLabel(submission.status),
+    decision: submission.decision || '-',
+  });
   return buildWorkflowEmailTemplate({
-    subject: `${getAppName(env)} - decizie editoriala`,
-    heading: 'Decizie editoriala',
-    intro: `A fost inregistrata o decizie pentru manuscrisul tau in ${getAppName(env)}.`,
+    subject: templateFields.subject,
+    heading: templateFields.heading,
+    greeting: templateFields.greeting || undefined,
+    intro: templateFields.intro,
     details: [
       { label: 'ID submisie', value: submission.id },
       { label: 'Titlu', value: submission.title },
       { label: 'Decizie', value: submissionStatusLabel(submission.status) },
       { label: 'Mesaj editor', value: submission.decision || '-' },
     ],
+    note: templateFields.note || undefined,
+    action: templateFields.action || undefined,
+    footer: templateFields.footer || undefined,
   });
 }
 
@@ -984,25 +1353,43 @@ async function sendLoginCodeEmail(
   name: string,
   code: string,
   ttlSeconds: number,
+  emailTemplates: StoredEmailTemplateMap,
 ): Promise<Response> {
-  const appName = env.APP_NAME || 'IAFAR Journal';
+  const appName = getAppName(env);
   const validity = ttlLabel(ttlSeconds);
+  const templateFields = resolveTemplateFields('login_code', emailTemplates, {
+    app_name: appName,
+    recipient_name: name,
+    code,
+    validity,
+  });
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-      <p>Salut, ${escapeHtml(name)}.</p>
-      <p>Codul tau de autentificare pentru <strong>${escapeHtml(appName)}</strong> este:</p>
+      <h2 style="margin:0 0 12px 0">${escapeHtml(templateFields.heading)}</h2>
+      <p>Salut${templateFields.greeting ? `, ${escapeHtml(templateFields.greeting)}` : ''}.</p>
+      <p>${escapeHtml(templateFields.intro)}</p>
       <p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:8px 0">${escapeHtml(code)}</p>
-      <p>Codul este valabil ${escapeHtml(validity)}.</p>
-      <p style="color:#6b7280;font-size:12px">Daca nu ai cerut acest cod, ignora mesajul.</p>
+      ${templateFields.note ? `<p>${escapeHtml(templateFields.note)}</p>` : ''}
+      ${templateFields.action ? `<p>${escapeHtml(templateFields.action)}</p>` : ''}
+      ${templateFields.footer ? `<p style="color:#6b7280;font-size:12px">${escapeHtml(templateFields.footer)}</p>` : ''}
     </div>
   `.trim();
+
+  const textLines = [
+    `Salut${templateFields.greeting ? `, ${templateFields.greeting}` : ''}.`,
+    templateFields.intro,
+    `Cod: ${code}`,
+    templateFields.note,
+    templateFields.action,
+    templateFields.footer,
+  ].filter((line) => Boolean(line));
 
   return sendEmail(
     env,
     [email],
-    `${appName} - cod de autentificare`,
+    templateFields.subject,
     html,
-    `Codul tau de autentificare este ${code}. Codul este valabil ${validity}.`,
+    textLines.join('\n'),
   );
 }
 
@@ -1087,7 +1474,8 @@ async function handleRequestCode(request: Request, env: Env): Promise<Response> 
   await env.AUTH_KV.put(rateKey, '1', { expirationTtl: rateLimitSeconds });
 
   const recipientName = storedAccount?.name || 'Autor';
-  const sendResult = await sendLoginCodeEmail(env, email, recipientName, loginCode.code, ttlSeconds);
+  const emailTemplates = await readEmailTemplates(env);
+  const sendResult = await sendLoginCodeEmail(env, email, recipientName, loginCode.code, ttlSeconds, emailTemplates);
   if (!sendResult.ok) {
     const errorBody = await sendResult.text();
     console.error('Resend send failed', sendResult.status, errorBody);
@@ -1283,7 +1671,8 @@ async function handleCreateUser(request: Request, env: Env): Promise<Response> {
 
   const ttlSeconds = parsePositiveInt(env.OTP_TTL_SECONDS, DEFAULT_OTP_TTL_SECONDS);
   const loginCode = await issueLoginCode(env, email, ttlSeconds);
-  const sendResult = await sendLoginCodeEmail(env, email, name, loginCode.code, ttlSeconds);
+  const emailTemplates = await readEmailTemplates(env);
+  const sendResult = await sendLoginCodeEmail(env, email, name, loginCode.code, ttlSeconds, emailTemplates);
   if (!sendResult.ok) {
     const errorBody = await sendResult.text();
     console.error('Resend create-user send failed', sendResult.status, errorBody);
@@ -1299,6 +1688,112 @@ async function handleCreateUser(request: Request, env: Env): Promise<Response> {
     ok: true,
     message: `Utilizator creat. Codul de logare a fost trimis si este valabil ${ttlLabel(ttlSeconds)}.`,
     account: toAccount(newUser),
+  });
+}
+
+async function handleListEmailTemplates(request: Request, env: Env): Promise<Response> {
+  const isAllowed = await isAdminAuthorized(request, env);
+  if (!isAllowed) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  const templates = await readEmailTemplates(env);
+  const payload = EMAIL_TEMPLATE_DESCRIPTORS.map((descriptor) => ({
+    id: descriptor.id,
+    label: descriptor.label,
+    description: descriptor.description,
+    placeholders: descriptor.placeholders,
+    defaults: descriptor.defaults,
+    custom: templates[descriptor.id] || {},
+    effective: mergeTemplateFields(descriptor.id, templates),
+  }));
+
+  return jsonResponse(request, env, 200, { ok: true, templates: payload });
+}
+
+async function handleUpdateEmailTemplate(request: Request, env: Env): Promise<Response> {
+  const isAllowed = await isAdminAuthorized(request, env);
+  if (!isAllowed) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  const body = await readJson(request);
+  const templateIdRaw = asString(body.id).trim();
+  if (!isEmailTemplateId(templateIdRaw)) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Template email invalid.' });
+  }
+
+  const templateId = templateIdRaw;
+  const descriptor = templateDescriptorById(templateId);
+  const templates = await readEmailTemplates(env);
+
+  if (body.reset === true) {
+    if (templates[templateId]) {
+      delete templates[templateId];
+      await writeEmailTemplates(env, templates);
+    }
+    return jsonResponse(request, env, 200, {
+      ok: true,
+      message: 'Template resetat la varianta implicita.',
+      template: {
+        id: descriptor.id,
+        label: descriptor.label,
+        description: descriptor.description,
+        placeholders: descriptor.placeholders,
+        defaults: descriptor.defaults,
+        custom: {},
+        effective: mergeTemplateFields(templateId, templates),
+      },
+    });
+  }
+
+  const source = (body.template && typeof body.template === 'object')
+    ? body.template as Record<string, unknown>
+    : body;
+
+  const nextCustom: PartialEditableEmailTemplateFields = { ...(templates[templateId] || {}) };
+  let changed = false;
+  for (const field of EDITABLE_EMAIL_TEMPLATE_FIELDS) {
+    if (!(field in source)) continue;
+    nextCustom[field] = clampTemplateField(field, source[field]);
+    changed = true;
+  }
+
+  if (!changed) {
+    return jsonResponse(request, env, 400, {
+      ok: false,
+      error: 'Nu exista campuri valide pentru actualizarea template-ului.',
+    });
+  }
+
+  const normalizedCustom: PartialEditableEmailTemplateFields = {};
+  for (const field of EDITABLE_EMAIL_TEMPLATE_FIELDS) {
+    const customValue = nextCustom[field];
+    if (customValue === undefined) continue;
+    if (customValue !== descriptor.defaults[field]) {
+      normalizedCustom[field] = customValue;
+    }
+  }
+
+  if (Object.keys(normalizedCustom).length === 0) {
+    delete templates[templateId];
+  } else {
+    templates[templateId] = normalizedCustom;
+  }
+  await writeEmailTemplates(env, templates);
+
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    message: 'Template email actualizat.',
+    template: {
+      id: descriptor.id,
+      label: descriptor.label,
+      description: descriptor.description,
+      placeholders: descriptor.placeholders,
+      defaults: descriptor.defaults,
+      custom: templates[templateId] || {},
+      effective: mergeTemplateFields(templateId, templates),
+    },
   });
 }
 
@@ -1455,7 +1950,8 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
   await writeSubmissions(env, [submission, ...existingSubmissions]);
 
   const recipients = parseSubmissionRecipients(env);
-  const editorialTemplate = buildNewSubmissionEditorialEmail(env, submission, receivedAt.toISOString());
+  const emailTemplates = await readEmailTemplates(env);
+  const editorialTemplate = buildNewSubmissionEditorialEmail(env, submission, receivedAt.toISOString(), emailTemplates);
   const sendResult = await sendEmail(
     env,
     recipients,
@@ -1472,7 +1968,7 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
     });
   }
 
-  const confirmationTemplate = buildAuthorSubmissionConfirmationEmail(env, submission);
+  const confirmationTemplate = buildAuthorSubmissionConfirmationEmail(env, submission, emailTemplates);
   const confirmationResult = await sendEmail(
     env,
     [email],
@@ -1885,10 +2381,11 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
     const found = users.find((entry) => normalizeEmail(entry.email) === normalizeEmail(candidateEmail));
     return found?.name || candidateEmail;
   };
+  const emailTemplates = await readEmailTemplates(env);
 
   if (reviewerAssigned) {
     const reviewerName = await resolveReviewerName(next.assigned_reviewer, nextReviewerEmail);
-    const template = buildReviewerAssignedEmail(env, next, reviewerName, next.reviewer_deadline);
+    const template = buildReviewerAssignedEmail(env, next, reviewerName, next.reviewer_deadline, emailTemplates);
     const notifyResult = await sendEmail(
       env,
       [nextReviewerEmail],
@@ -1904,7 +2401,7 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
 
   if (reviewerUnassigned) {
     const reviewerName = await resolveReviewerName(current.assigned_reviewer, currentReviewerEmail);
-    const template = buildReviewerUnassignedEmail(env, next, reviewerName);
+    const template = buildReviewerUnassignedEmail(env, next, reviewerName, emailTemplates);
     const notifyResult = await sendEmail(
       env,
       [currentReviewerEmail],
@@ -1920,7 +2417,7 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
 
   if (reviewerAssigned2) {
     const reviewerName = await resolveReviewerName(next.assigned_reviewer_2, nextReviewerEmail2);
-    const template = buildReviewerAssignedEmail(env, next, reviewerName, next.reviewer_deadline_2);
+    const template = buildReviewerAssignedEmail(env, next, reviewerName, next.reviewer_deadline_2, emailTemplates);
     const notifyResult = await sendEmail(
       env,
       [nextReviewerEmail2],
@@ -1936,7 +2433,7 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
 
   if (reviewerUnassigned2) {
     const reviewerName = await resolveReviewerName(current.assigned_reviewer_2, currentReviewerEmail2);
-    const template = buildReviewerUnassignedEmail(env, next, reviewerName);
+    const template = buildReviewerUnassignedEmail(env, next, reviewerName, emailTemplates);
     const notifyResult = await sendEmail(
       env,
       [currentReviewerEmail2],
@@ -1951,7 +2448,7 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
   }
 
   if (sentToReview && isValidEmail(next.email)) {
-    const template = buildAuthorSentToReviewEmail(env, next);
+    const template = buildAuthorSentToReviewEmail(env, next, emailTemplates);
     const notifyResult = await sendEmail(
       env,
       [next.email],
@@ -1973,7 +2470,7 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
         ? await resolveReviewerName(next.assigned_reviewer_2, nextReviewerEmail2)
         : await resolveReviewerName(next.assigned_reviewer, nextReviewerEmail);
       const reviewerRecommendation = reviewerSlot === 2 ? next.recommendation_2 : next.recommendation;
-      const template = buildReviewCompletedEditorialEmail(env, next, reviewerName, reviewerRecommendation);
+      const template = buildReviewCompletedEditorialEmail(env, next, reviewerName, reviewerRecommendation, emailTemplates);
       const notifyResult = await sendEmail(
         env,
         recipients,
@@ -1989,7 +2486,7 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
   }
 
   if (finalDecisionSet && isValidEmail(next.email)) {
-    const template = buildAuthorDecisionEmail(env, next);
+    const template = buildAuthorDecisionEmail(env, next, emailTemplates);
     const notifyResult = await sendEmail(
       env,
       [next.email],
@@ -2101,6 +2598,14 @@ export default {
 
       if (request.method === 'POST' && url.pathname === '/admin/users') {
         return handleCreateUser(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/admin/email-templates') {
+        return handleListEmailTemplates(request, env);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/admin/email-templates') {
+        return handleUpdateEmailTemplate(request, env);
       }
 
       if (request.method === 'POST' && url.pathname === '/notify/role') {

@@ -27,6 +27,7 @@ import DashboardSubmissions from './pages/dashboard/DashboardSubmissions';
 import DashboardReviewer from './pages/dashboard/DashboardReviewer';
 import DashboardAuthor from './pages/dashboard/DashboardAuthor';
 import DashboardUsers from './pages/dashboard/DashboardUsers';
+import DashboardEmailTemplates from './pages/dashboard/DashboardEmailTemplates';
 import DashboardPlaceholder from './pages/dashboard/DashboardPlaceholder';
 import NotFound from './pages/NotFound';
 
@@ -112,6 +113,15 @@ const App = () => (
                     element={(
                       <RequireRole roles={['admin']}>
                         <DashboardUsers />
+                      </RequireRole>
+                    )}
+                  />
+
+                  <Route
+                    path="email-templates"
+                    element={(
+                      <RequireRole roles={['admin']}>
+                        <DashboardEmailTemplates />
                       </RequireRole>
                     )}
                   />

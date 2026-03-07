@@ -19,6 +19,26 @@ interface SendRoleNotificationInput {
   message: string;
 }
 
+interface EmailTemplateFields {
+  subject: string;
+  heading: string;
+  greeting: string;
+  intro: string;
+  note: string;
+  action: string;
+  footer: string;
+}
+
+interface ManagedEmailTemplate {
+  id: string;
+  label: string;
+  description: string;
+  placeholders: string[];
+  defaults: EmailTemplateFields;
+  custom: Partial<EmailTemplateFields>;
+  effective: EmailTemplateFields;
+}
+
 interface PersistedSession {
   user: AuthUser;
   token: string | null;
@@ -31,6 +51,11 @@ interface ActionResult {
   error?: string;
 }
 
+interface TemplateActionResult extends ActionResult {
+  templates?: ManagedEmailTemplate[];
+  template?: ManagedEmailTemplate;
+}
+
 interface ApiAuthResponse {
   ok?: boolean;
   message?: string;
@@ -39,6 +64,8 @@ interface ApiAuthResponse {
   user?: AuthUser;
   account?: AuthAccount;
   accounts?: AuthAccount[];
+  templates?: ManagedEmailTemplate[];
+  template?: ManagedEmailTemplate;
 }
 
 interface AuthContextType {
@@ -50,6 +77,9 @@ interface AuthContextType {
   refreshAccounts: () => Promise<ActionResult>;
   createAccount: (input: CreateAccountInput) => Promise<ActionResult>;
   sendRoleNotification: (input: SendRoleNotificationInput) => Promise<ActionResult>;
+  fetchEmailTemplates: () => Promise<TemplateActionResult>;
+  updateEmailTemplate: (id: string, template: Partial<EmailTemplateFields>) => Promise<TemplateActionResult>;
+  resetEmailTemplate: (id: string) => Promise<TemplateActionResult>;
   logout: () => void;
   isAdmin: boolean;
   isEditor: boolean;
@@ -85,6 +115,10 @@ function buildAction(ok: boolean, message?: string, error?: string): ActionResul
   return { ok, message, error };
 }
 
+function buildTemplateAction(ok: boolean, message?: string, error?: string): TemplateActionResult {
+  return { ok, message, error };
+}
+
 function isAuthUser(value: unknown): value is AuthUser {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AuthUser>;
@@ -107,6 +141,60 @@ function parseRemoteAccounts(accounts: unknown): AuthAccount[] {
         email: normalizeEmail(account.email),
       };
     });
+}
+
+function isEmailTemplateFields(value: unknown): value is EmailTemplateFields {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<EmailTemplateFields>;
+  return typeof candidate.subject === 'string'
+    && typeof candidate.heading === 'string'
+    && typeof candidate.greeting === 'string'
+    && typeof candidate.intro === 'string'
+    && typeof candidate.note === 'string'
+    && typeof candidate.action === 'string'
+    && typeof candidate.footer === 'string';
+}
+
+function parseRemoteEmailTemplates(templates: unknown): ManagedEmailTemplate[] {
+  if (!Array.isArray(templates)) return [];
+  return templates
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => {
+      const candidate = entry as Partial<ManagedEmailTemplate>;
+      const defaults = isEmailTemplateFields(candidate.defaults)
+        ? candidate.defaults
+        : {
+            subject: '',
+            heading: '',
+            greeting: '',
+            intro: '',
+            note: '',
+            action: '',
+            footer: '',
+          };
+      const effective = isEmailTemplateFields(candidate.effective)
+        ? candidate.effective
+        : defaults;
+      const customRaw = candidate.custom && typeof candidate.custom === 'object'
+        ? candidate.custom as Partial<EmailTemplateFields>
+        : {};
+      const custom: Partial<EmailTemplateFields> = {};
+      for (const key of ['subject', 'heading', 'greeting', 'intro', 'note', 'action', 'footer'] as const) {
+        if (typeof customRaw[key] === 'string') custom[key] = customRaw[key];
+      }
+      return {
+        id: typeof candidate.id === 'string' ? candidate.id : '',
+        label: typeof candidate.label === 'string' ? candidate.label : '',
+        description: typeof candidate.description === 'string' ? candidate.description : '',
+        placeholders: Array.isArray(candidate.placeholders)
+          ? candidate.placeholders.filter((item): item is string => typeof item === 'string')
+          : [],
+        defaults,
+        custom,
+        effective,
+      };
+    })
+    .filter((entry) => entry.id.length > 0);
 }
 
 function parseTokenExpiry(token: string): number | null {
@@ -184,6 +272,9 @@ const AuthContext = createContext<AuthContextType>({
   refreshAccounts: async () => buildAction(false),
   createAccount: async () => buildAction(false),
   sendRoleNotification: async () => buildAction(false),
+  fetchEmailTemplates: async () => buildTemplateAction(false),
+  updateEmailTemplate: async () => buildTemplateAction(false),
+  resetEmailTemplate: async () => buildTemplateAction(false),
   logout: () => {},
   isAdmin: false,
   isEditor: false,
@@ -433,6 +524,130 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [authToken, sessionExpiresAt]);
 
+  const fetchEmailTemplates = useCallback(async (): Promise<TemplateActionResult> => {
+    if (!REMOTE_AUTH_ENABLED) {
+      return buildTemplateAction(false, undefined, 'Template-urile sunt disponibile doar in modul remote.');
+    }
+
+    if (!authToken || !sessionExpiresAt || sessionExpiresAt <= Date.now()) {
+      setUser(null);
+      setAuthToken(null);
+      setSessionExpiresAt(null);
+      setAccounts([]);
+      clearPersistedSession();
+      return buildTemplateAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
+    }
+
+    try {
+      const response = await fetch(`${AUTH_API_BASE}/admin/email-templates`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const payload = await parseApiResponse(response);
+      const templates = parseRemoteEmailTemplates(payload.templates);
+      if (!response.ok || payload.ok === false) {
+        return buildTemplateAction(false, undefined, payload.error || 'Nu am putut incarca template-urile.');
+      }
+      return {
+        ok: true,
+        message: payload.message,
+        templates,
+      };
+    } catch {
+      return buildTemplateAction(false, undefined, 'Serviciul de template-uri nu raspunde momentan.');
+    }
+  }, [authToken, sessionExpiresAt]);
+
+  const updateEmailTemplate = useCallback(async (
+    id: string,
+    template: Partial<EmailTemplateFields>,
+  ): Promise<TemplateActionResult> => {
+    if (!REMOTE_AUTH_ENABLED) {
+      return buildTemplateAction(false, undefined, 'Template-urile sunt disponibile doar in modul remote.');
+    }
+
+    if (!authToken || !sessionExpiresAt || sessionExpiresAt <= Date.now()) {
+      setUser(null);
+      setAuthToken(null);
+      setSessionExpiresAt(null);
+      setAccounts([]);
+      clearPersistedSession();
+      return buildTemplateAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
+    }
+
+    try {
+      const response = await fetch(`${AUTH_API_BASE}/admin/email-templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ id, template }),
+      });
+      const payload = await parseApiResponse(response);
+      const parsedTemplate = payload.template && typeof payload.template === 'object'
+        ? parseRemoteEmailTemplates([payload.template])[0]
+        : undefined;
+
+      if (!response.ok || payload.ok === false) {
+        return buildTemplateAction(false, undefined, payload.error || 'Nu am putut salva template-ul.');
+      }
+
+      return {
+        ok: true,
+        message: payload.message || 'Template salvat.',
+        template: parsedTemplate,
+      };
+    } catch {
+      return buildTemplateAction(false, undefined, 'Serviciul de template-uri nu raspunde momentan.');
+    }
+  }, [authToken, sessionExpiresAt]);
+
+  const resetEmailTemplate = useCallback(async (id: string): Promise<TemplateActionResult> => {
+    if (!REMOTE_AUTH_ENABLED) {
+      return buildTemplateAction(false, undefined, 'Template-urile sunt disponibile doar in modul remote.');
+    }
+
+    if (!authToken || !sessionExpiresAt || sessionExpiresAt <= Date.now()) {
+      setUser(null);
+      setAuthToken(null);
+      setSessionExpiresAt(null);
+      setAccounts([]);
+      clearPersistedSession();
+      return buildTemplateAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
+    }
+
+    try {
+      const response = await fetch(`${AUTH_API_BASE}/admin/email-templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ id, reset: true }),
+      });
+      const payload = await parseApiResponse(response);
+      const parsedTemplate = payload.template && typeof payload.template === 'object'
+        ? parseRemoteEmailTemplates([payload.template])[0]
+        : undefined;
+
+      if (!response.ok || payload.ok === false) {
+        return buildTemplateAction(false, undefined, payload.error || 'Nu am putut reseta template-ul.');
+      }
+
+      return {
+        ok: true,
+        message: payload.message || 'Template resetat.',
+        template: parsedTemplate,
+      };
+    } catch {
+      return buildTemplateAction(false, undefined, 'Serviciul de template-uri nu raspunde momentan.');
+    }
+  }, [authToken, sessionExpiresAt]);
+
   const logout = useCallback(() => {
     setUser(null);
     setAuthToken(null);
@@ -467,6 +682,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshAccounts,
     createAccount,
     sendRoleNotification,
+    fetchEmailTemplates,
+    updateEmailTemplate,
+    resetEmailTemplate,
     logout,
     isAdmin,
     isEditor,
@@ -485,6 +703,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshAccounts,
     createAccount,
     sendRoleNotification,
+    fetchEmailTemplates,
+    updateEmailTemplate,
+    resetEmailTemplate,
     logout,
     isAdmin,
     isEditor,
@@ -498,4 +719,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export type { AuthUser, UserRole, CreateAccountInput, SendRoleNotificationInput };
+export type {
+  AuthUser,
+  UserRole,
+  CreateAccountInput,
+  SendRoleNotificationInput,
+  EmailTemplateFields,
+  ManagedEmailTemplate,
+};
