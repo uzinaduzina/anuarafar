@@ -2,8 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { ZoomIn, ZoomOut, Download, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trackAnalyticsView } from '@/lib/analytics';
-
-const GITHUB_BASE = 'https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/';
+import { resolvePdfUrl } from '@/lib/pdfUrl';
 
 interface PdfViewerProps {
   pdfPath: string;
@@ -30,7 +29,7 @@ export default function PdfViewer({
   const [renderedPages, setRenderedPages] = useState<Set<number>>(new Set());
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
 
-  const pdfUrl = pdfPath.startsWith('http') ? pdfPath : `${GITHUB_BASE}${pdfPath}`;
+  const pdfUrl = resolvePdfUrl(pdfPath);
 
   const trackDownload = useCallback(() => {
     if (!analyticsEntityId) return;

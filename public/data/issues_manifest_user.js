@@ -246,7 +246,7 @@ window.__USER_MANIFEST_OVERRIDE = {
       "doi_prefix": "",
       "publisher": "",
       "issn": "",
-      "issue_pdf_path": "ingest/series2/Anuarul_Arhivei_de_folclor_XV-XVII.pdf",
+      "issue_pdf_path": "",
       "cover_hint_path": "",
       "page_offset": "",
       "series": "seria-2",

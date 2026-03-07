@@ -9,6 +9,7 @@ import { JOURNAL } from '@/data/journal';
 import { SeriesId, Article, SERIES_CONFIG } from '@/data/types';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
 import { trackAnalyticsView } from '@/lib/analytics';
+import { resolvePdfUrl } from '@/lib/pdfUrl';
 
 const coverGradients: Record<SeriesId, string> = {
   'seria-1': 'from-[hsl(145,30%,35%)] via-[hsl(145,30%,50%)] to-[hsl(145,30%,80%)]',
@@ -123,7 +124,7 @@ export default function IssueDetail() {
             <div className="mt-4">
               <Button asChild size="lg" className="w-full">
                 <a
-                  href={`https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/${issue.issue_pdf_path}`}
+                  href={resolvePdfUrl(issue.issue_pdf_path)}
                   target="_blank"
                   rel="noreferrer"
                 >

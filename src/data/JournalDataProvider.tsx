@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode,
 import { Issue, Article, SeriesId } from './types';
 import { objectsToRows, parseCsv, rowsToObjects, toCsv } from '@/lib/csv';
 import { JOURNAL } from './journal';
+import { resolvePdfUrl } from '@/lib/pdfUrl';
 
 const MANIFEST_URL = `${import.meta.env.BASE_URL}data/issues_manifest_user.js`;
 const ISSUES_CSV_URL = `${import.meta.env.BASE_URL}data/issues.csv`;
@@ -402,13 +403,6 @@ function exportArticlesAsCsv(articles: Article[]): string {
 function getPublicSiteUrl(): string {
   const configured = String(import.meta.env.VITE_PUBLIC_SITE_URL || '').trim().replace(/\/+$/, '');
   return configured || 'https://anuar.iafar.ro';
-}
-
-function resolvePdfUrl(pdfPath: string): string {
-  if (!pdfPath) return '';
-  if (/^https?:\/\//i.test(pdfPath)) return pdfPath;
-  if (pdfPath.startsWith('/')) return `${getPublicSiteUrl()}${pdfPath}`;
-  return `https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/${pdfPath}`;
 }
 
 function singleAbstractValue(article: Article): string {
