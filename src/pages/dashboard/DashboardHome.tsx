@@ -33,7 +33,7 @@ export default function DashboardHome() {
           <p className="text-sm text-muted-foreground mt-1">Monitorizare lucrari atribuite pentru evaluare.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard icon={ClipboardCheck} value={assigned.length} label="Lucrari atribuite" />
           <StatCard icon={FileText} value={reviewed.length} label="Recenzii trimise" />
           <StatCard icon={Upload} value={assigned.length - reviewed.length} label="In asteptare" />
@@ -57,7 +57,7 @@ export default function DashboardHome() {
           <p className="text-sm text-muted-foreground mt-1">Stare articole trimise si trimitere manuscrise noi.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard icon={FileText} value={ownSubmissions.length} label="Articole trimise" />
           <StatCard icon={BookOpen} value={accepted.length} label="Articole acceptate" />
           <StatCard icon={Upload} value={ownSubmissions.filter((submission) => submission.status === 'under_review').length} label="In evaluare" />
@@ -74,29 +74,56 @@ export default function DashboardHome() {
   const underReview = submissions.filter((submission) => submission.status === 'under_review').length;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
+    <div className="space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-serif text-2xl font-bold">Dashboard editorial</h1>
           <p className="text-sm text-muted-foreground mt-1">Privire de ansamblu asupra activitatii editoriale</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={BookOpen} value={publishedIssues.length} label="Numere publicate" />
         <StatCard icon={FileText} value={totalArticles} label="Articole totale" />
         <StatCard icon={Upload} value={pendingSubmissions} label="Articole noi" />
         <StatCard icon={ClipboardCheck} value={underReview} label="In evaluare" />
       </div>
 
-      <div className="rounded-lg border bg-card shadow-sm overflow-hidden mb-8">
-        <div className="p-4 border-b flex items-center justify-between">
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-serif text-lg font-bold">Ultimele numere</h2>
-          <Button asChild variant="ghost" size="sm" className="text-primary">
+          <Button asChild variant="ghost" size="sm" className="w-full text-primary sm:w-auto">
             <Link to="/dashboard/issues">Vezi toate <ArrowRight className="ml-1 h-3 w-3" /></Link>
           </Button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="divide-y md:hidden">
+          {latestIssues.map((issue) => (
+            <div key={issue.id} className="space-y-3 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <SeriesBadge series={issue.series} />
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.05em] text-primary">
+                  Publicat
+                </span>
+              </div>
+              <div className="font-medium text-sm break-words">{issue.title}</div>
+              <div className="grid grid-cols-1 gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+                <div>
+                  <div className="text-[0.65rem] uppercase tracking-[0.08em]">An</div>
+                  <div className="mt-1 font-medium text-foreground">{issue.year}</div>
+                </div>
+                <div>
+                  <div className="text-[0.65rem] uppercase tracking-[0.08em]">Seria</div>
+                  <div className="mt-1 font-medium text-foreground">{issue.series_label}</div>
+                </div>
+                <div>
+                  <div className="text-[0.65rem] uppercase tracking-[0.08em]">Articole</div>
+                  <div className="mt-1 font-medium text-foreground">{issue.article_count}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full">
             <thead>
               <tr className="bg-secondary">
@@ -123,20 +150,23 @@ export default function DashboardHome() {
       </div>
 
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <div className="p-4 border-b flex items-center justify-between">
+        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-serif text-lg font-bold">Articole trimise recent</h2>
-          <Button asChild variant="ghost" size="sm" className="text-primary">
+          <Button asChild variant="ghost" size="sm" className="w-full text-primary sm:w-auto">
             <Link to="/dashboard/submissions">Vezi toate <ArrowRight className="ml-1 h-3 w-3" /></Link>
           </Button>
         </div>
         <div className="divide-y">
           {submissions.slice(0, 4).map((submission) => (
-            <div key={submission.id} className="p-4 flex items-center justify-between gap-4">
+            <div key={submission.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <div className="font-medium text-sm truncate">{submission.title}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{submission.authors} · {submission.date_submitted}</div>
+                <div className="font-medium text-sm break-words">{submission.title}</div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span>{submission.authors}</span>
+                  <span>{submission.date_submitted}</span>
+                </div>
               </div>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.65rem] uppercase tracking-[0.05em] font-semibold whitespace-nowrap bg-secondary text-secondary-foreground">
+              <span className="inline-flex items-center self-start rounded-full bg-secondary px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.05em] text-secondary-foreground sm:self-center">
                 {submission.status}
               </span>
             </div>

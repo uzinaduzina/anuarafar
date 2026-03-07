@@ -31,7 +31,7 @@ function ReviewCard({ label, reviewer, recommendation, reviewForm, notes, review
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm font-semibold">{label}</div>
         {hasReview ? (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
@@ -216,9 +216,9 @@ export default function SubmissionWorkflowDrawer({
         </SheetHeader>
 
         <Tabs defaultValue={hasAnyReview ? 'reviews' : 'metadata'} className="mt-2">
-          <TabsList className="w-full">
-            <TabsTrigger value="metadata" className="flex-1 text-xs">Metadate & Anonimizare</TabsTrigger>
-            <TabsTrigger value="reviews" className="flex-1 text-xs relative">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
+            <TabsTrigger value="metadata" className="text-xs">Metadate & Anonimizare</TabsTrigger>
+            <TabsTrigger value="reviews" className="relative text-xs">
               Recenzii & Decizie
               {hasAnyReview && (
                 <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[0.55rem] text-primary-foreground font-bold">
@@ -275,11 +275,11 @@ export default function SubmissionWorkflowDrawer({
                   <Input value={String(form.keywords_en || '')} onChange={(e) => setField('keywords_en', e.target.value)} />
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => void handleSaveMetadata()} disabled={saving}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button size="sm" className="w-full sm:w-auto" onClick={() => void handleSaveMetadata()} disabled={saving}>
                   <Save className="mr-2 h-4 w-4" /> {saving ? 'Salvez...' : 'Salvează metadate'}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => void handleMarkAnonymization()}>
+                <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => void handleMarkAnonymization()}>
                   <Shield className="mr-2 h-4 w-4" /> Marchează în anonimizare
                 </Button>
               </div>
@@ -317,7 +317,7 @@ export default function SubmissionWorkflowDrawer({
                   {selectedFiles.length > 0 && (
                     <p className="text-xs text-muted-foreground">Selectate: {selectedFiles.map((f) => f.name).join(', ')}</p>
                   )}
-                  <Button size="sm" onClick={() => void handleUpload()} disabled={uploading}>
+                  <Button size="sm" className="w-full sm:w-auto" onClick={() => void handleUpload()} disabled={uploading}>
                     <FileUp className="mr-2 h-4 w-4" /> {uploading ? 'Încarc...' : 'Încarcă versiunea anonimă'}
                   </Button>
                 </div>
@@ -357,7 +357,7 @@ export default function SubmissionWorkflowDrawer({
                 value={editorMessage}
                 onChange={(e) => setEditorMessage(e.target.value)}
               />
-              <Button size="sm" variant="outline" onClick={() => void handleSendToAuthor()}>
+              <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => void handleSendToAuthor()}>
                 <Send className="mr-1.5 h-3.5 w-3.5" /> Trimite feedback autorului
               </Button>
             </section>
@@ -372,14 +372,14 @@ export default function SubmissionWorkflowDrawer({
                   Decizie curentă: <span className="font-semibold text-primary">{submission.decision}</span>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => void handleDecision('accepted', 'acceptat', 'Articol acceptat')}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button size="sm" className="w-full sm:w-auto" onClick={() => void handleDecision('accepted', 'acceptat', 'Articol acceptat')}>
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Acceptă
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => void handleDecision('revision_requested', 'revizuire solicitată', 'Revizuire solicitată')}>
+                <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => void handleDecision('revision_requested', 'revizuire solicitată', 'Revizuire solicitată')}>
                   <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Solicită revizuire
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => void handleDecision('rejected', 'respins', 'Articol respins')}>
+                <Button size="sm" variant="destructive" className="w-full sm:w-auto" onClick={() => void handleDecision('rejected', 'respins', 'Articol respins')}>
                   <XCircle className="mr-1.5 h-3.5 w-3.5" /> Respinge
                 </Button>
               </div>
@@ -388,7 +388,7 @@ export default function SubmissionWorkflowDrawer({
         </Tabs>
 
         <SheetFooter className="mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Închide</Button>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Închide</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

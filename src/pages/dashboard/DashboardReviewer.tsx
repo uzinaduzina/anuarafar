@@ -252,7 +252,7 @@ export default function DashboardReviewer() {
           return (
             <div key={submission.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
               <div
-                className="flex items-center gap-3 p-4 cursor-pointer hover:bg-accent/30 transition-colors"
+                className="flex cursor-pointer flex-col gap-3 p-4 hover:bg-accent/30 transition-colors sm:flex-row sm:items-start"
                 onClick={() => toggleExpanded(submission.id)}
               >
                 <FileText className="h-5 w-5 text-primary flex-shrink-0" />
@@ -272,12 +272,14 @@ export default function DashboardReviewer() {
                       </span>
                     )}
                   </div>
-                  <h3 className="font-medium text-sm mt-1 truncate">{submission.title}</h3>
+                  <h3 className="mt-1 text-sm font-medium break-words">{submission.title}</h3>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     Manuscris blind · Termen: {reviewerSlot === 2 ? (submission.reviewer_deadline_2 || '—') : (submission.reviewer_deadline || '—')}
                   </div>
                 </div>
-                {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                <div className="flex w-full justify-end sm:w-auto">
+                  {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
               </div>
 
               {expanded && (
@@ -418,7 +420,7 @@ export default function DashboardReviewer() {
                     </div>
 
                     <div className="flex justify-end">
-                      <Button size="sm" onClick={() => void submitReview(submission, reviewerSlot)} disabled={isReviewed}>
+                      <Button size="sm" className="w-full sm:w-auto" onClick={() => void submitReview(submission, reviewerSlot)} disabled={isReviewed}>
                         {isReviewed ? 'Formular trimis' : 'Trimite evaluarea'}
                       </Button>
                     </div>

@@ -134,13 +134,13 @@ export default function DashboardAuthor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <div className="rounded-lg border bg-card p-4 shadow-sm sm:p-6">
           <h2 className="font-serif text-lg font-bold mb-3">Fișier manuscris</h2>
-          <div className="border-2 border-dashed rounded-lg p-8 text-center bg-background">
+          <div className="rounded-lg border-2 border-dashed bg-background p-5 text-center sm:p-8">
             <Send className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
             <p className="font-medium mb-1">Încarcă manuscrisul</p>
             <p className="text-sm text-muted-foreground">Max. 20 MB · Format: DOC, DOCX (+ opțional PDF pentru layout)</p>
-            <input type="file" className="mt-3" accept=".pdf,.doc,.docx" multiple />
+            <input type="file" className="mt-3 w-full text-sm" accept=".pdf,.doc,.docx" multiple />
           </div>
         </div>
 
@@ -166,7 +166,7 @@ export default function DashboardAuthor() {
               <div key={submission.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
                 {/* Card header */}
                 <div
-                  className="flex items-center gap-3 p-4 cursor-pointer hover:bg-accent/30 transition-colors"
+                  className="flex cursor-pointer flex-col gap-3 p-4 hover:bg-accent/30 transition-colors sm:flex-row sm:items-start"
                   onClick={() => toggleExpanded(submission.id)}
                 >
                   <div className="flex-1 min-w-0">
@@ -181,13 +181,15 @@ export default function DashboardAuthor() {
                       )}
                       <span className="text-xs text-muted-foreground font-mono">#{submission.id}</span>
                     </div>
-                    <h3 className="font-medium text-sm mt-1 truncate">{submission.title}</h3>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    <h3 className="mt-1 text-sm font-medium break-words">{submission.title}</h3>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{submission.date_submitted}</span>
                       <span>{submission.authors}</span>
                     </div>
                   </div>
-                  {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  <div className="flex w-full justify-end sm:w-auto">
+                    {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
                 </div>
 
                 {/* Expanded details */}

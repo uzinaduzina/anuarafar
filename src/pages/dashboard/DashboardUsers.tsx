@@ -157,7 +157,38 @@ export default function DashboardUsers() {
           <ShieldCheck className="h-4 w-4 text-primary" />
           <h2 className="font-serif text-lg font-bold">Conturi active</h2>
         </div>
-        <div className="overflow-x-auto">
+        <div className="divide-y md:hidden">
+          {(authTransport === 'remote' && isLoadingAccounts) ? (
+            <div className="px-4 py-4 text-sm text-muted-foreground">Se incarca utilizatorii...</div>
+          ) : accounts.length === 0 ? (
+            <div className="px-4 py-4 text-sm text-muted-foreground">Nu exista utilizatori configurati.</div>
+          ) : (
+            accounts.map((account) => (
+              <div key={account.email} className="space-y-3 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-primary">
+                    {ROLE_LABELS[account.role]}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <div className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Nume</div>
+                    <div className="mt-1 break-words font-medium">{account.name}</div>
+                  </div>
+                  <div>
+                    <div className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Username</div>
+                    <div className="mt-1 break-all text-muted-foreground">{account.username}</div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <div className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Email</div>
+                    <div className="mt-1 break-all text-muted-foreground">{account.email}</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full">
             <thead>
               <tr className="bg-secondary">
@@ -249,12 +280,12 @@ export default function DashboardUsers() {
 
               {generatedCredentials && (
                 <div className="rounded-lg border bg-secondary/30 p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                       <KeyRound className="h-4 w-4 text-primary" />
                       <h3 className="font-semibold text-sm">Ultimele credențiale generate</h3>
                     </div>
-                    <Button type="button" size="sm" variant="outline" onClick={handleCopyCredentials}>
+                    <Button type="button" size="sm" variant="outline" onClick={handleCopyCredentials} className="w-full sm:w-auto">
                       <Copy className="mr-2 h-3.5 w-3.5" />
                       Copiază
                     </Button>

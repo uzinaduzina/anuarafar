@@ -181,7 +181,7 @@ export default function DashboardSubmissions() {
             <div key={submission.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
               {/* Compact header row */}
               <div
-                className="flex items-center gap-3 p-4 cursor-pointer hover:bg-accent/30 transition-colors"
+                className="flex cursor-pointer flex-col gap-3 p-4 hover:bg-accent/30 transition-colors sm:flex-row sm:items-start"
                 onClick={() => toggleExpanded(submission.id)}
               >
                 <div className="flex-1 min-w-0">
@@ -191,19 +191,19 @@ export default function DashboardSubmissions() {
                     </span>
                     <span className="text-xs text-muted-foreground font-mono">#{submission.id}</span>
                   </div>
-                  <h3 className="font-medium text-sm mt-1 truncate">{submission.title}</h3>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                  <h3 className="mt-1 text-sm font-medium break-words">{submission.title}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><User className="h-3 w-3" />{submission.authors}</span>
                     <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{submission.date_submitted}</span>
                     {submission.assigned_reviewer && (
-                      <span className="hidden sm:flex items-center gap-1">R1: {submission.assigned_reviewer}</span>
+                      <span className="flex items-center gap-1">R1: {submission.assigned_reviewer}</span>
                     )}
                     {submission.assigned_reviewer_2 && (
-                      <span className="hidden sm:flex items-center gap-1">R2: {submission.assigned_reviewer_2}</span>
+                      <span className="flex items-center gap-1">R2: {submission.assigned_reviewer_2}</span>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:flex-shrink-0">
                   <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={(e) => { e.stopPropagation(); setActiveSubmissionId(submission.id); }}>
                     <Eye className="mr-1 h-3 w-3" /> Detalii
                   </Button>
@@ -330,22 +330,22 @@ export default function DashboardSubmissions() {
                   )}
 
                   {/* Row 3: Actions */}
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+                  <div className="flex flex-col gap-2 border-t border-border/50 pt-2 sm:flex-row sm:flex-wrap">
                     <Button
                       size="sm"
-                      className="h-8 text-xs"
+                      className="h-8 text-xs sm:w-auto"
                       onClick={() => void handleSendToReview(submission)}
                       disabled={!submission.anonymized_files?.length}
                     >
                       <Send className="mr-1 h-3 w-3" /> La evaluare
                     </Button>
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'accepted', 'acceptat', 'Articol acceptat')}>
+                    <Button size="sm" variant="outline" className="h-8 text-xs sm:w-auto" onClick={() => void handleDecisionAction(submission.id, 'accepted', 'acceptat', 'Articol acceptat')}>
                       <CheckCircle2 className="mr-1 h-3 w-3" /> Acceptă
                     </Button>
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'revision_requested', 'revizuire solicitată', 'Revizuire solicitată')}>
+                    <Button size="sm" variant="outline" className="h-8 text-xs sm:w-auto" onClick={() => void handleDecisionAction(submission.id, 'revision_requested', 'revizuire solicitată', 'Revizuire solicitată')}>
                       <RotateCcw className="mr-1 h-3 w-3" /> Revizuire
                     </Button>
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'rejected', 'respins', 'Articol respins')}>
+                    <Button size="sm" variant="outline" className="h-8 text-xs sm:w-auto" onClick={() => void handleDecisionAction(submission.id, 'rejected', 'respins', 'Articol respins')}>
                       <XCircle className="mr-1 h-3 w-3" /> Respinge
                     </Button>
                   </div>

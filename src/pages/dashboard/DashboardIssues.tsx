@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { ChevronDown, Download, Loader2, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
@@ -325,8 +325,8 @@ export default function DashboardIssues() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6 gap-4">
+    <div className="space-y-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="font-serif text-2xl font-bold">Numere</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -335,16 +335,16 @@ export default function DashboardIssues() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap">
           {/* Export CSV principal */}
-          <Button variant="outline" size="sm" onClick={onExportCsv}>
+          <Button variant="outline" size="sm" className="w-full lg:w-auto" onClick={onExportCsv}>
             <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
 
           {/* Export Articole per serie */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="w-full lg:w-auto">
                 <Download className="mr-2 h-4 w-4" /> Articole per serie <ChevronDown className="ml-1 h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -360,7 +360,7 @@ export default function DashboardIssues() {
           {/* DOAJ Export */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="w-full lg:w-auto">
                 <Download className="mr-2 h-4 w-4" /> DOAJ Export <ChevronDown className="ml-1 h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -411,13 +411,13 @@ export default function DashboardIssues() {
                 className="hidden"
                 onChange={onImportCsvFile}
               />
-              <Button variant="outline" size="sm" onClick={onTriggerImport} disabled={importing}>
+              <Button variant="outline" size="sm" className="w-full lg:w-auto" onClick={onTriggerImport} disabled={importing}>
                 <Upload className="mr-2 h-4 w-4" /> {importing ? 'Import...' : 'Import CSV'}
               </Button>
-              <Button variant="outline" size="sm" onClick={onResetToFile} disabled={resetting}>
+              <Button variant="outline" size="sm" className="w-full lg:w-auto" onClick={onResetToFile} disabled={resetting}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Reset
               </Button>
-              <Button size="sm" onClick={onAddIssue}><Plus className="mr-2 h-4 w-4" /> Număr nou</Button>
+              <Button size="sm" className="w-full lg:w-auto" onClick={onAddIssue}><Plus className="mr-2 h-4 w-4" /> Număr nou</Button>
             </>
           )}
         </div>
@@ -435,8 +435,132 @@ export default function DashboardIssues() {
       </div>
 
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="divide-y xl:hidden">
+          {sortedIssues.map((issue) => (
+            <div key={issue.id} className="space-y-4 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <IssueStatusBadge status={issue.status} />
+                    <span className="text-xs font-mono text-muted-foreground">#{issue.id}</span>
+                  </div>
+                  <h3 className="mt-1 break-words text-sm font-medium">{issue.title || 'Număr fără titlu'}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span>{issue.year || '—'}</span>
+                    <span>Vol. {issue.volume || '—'}</span>
+                    <span>Nr. {issue.number || '—'}</span>
+                  </div>
+                </div>
+
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 w-full border-destructive/40 text-xs text-destructive hover:bg-destructive/10 sm:w-auto"
+                    onClick={() => onDeleteIssue(issue.id, `${issue.year} · ${issue.volume}`)}
+                    disabled={(linkedArticlesByIssueId[issue.id] || 0) > 0}
+                    title={
+                      (linkedArticlesByIssueId[issue.id] || 0) > 0
+                        ? 'Nu poti sterge un numar care are articole asociate.'
+                        : 'Sterge numarul'
+                    }
+                  >
+                    <Trash2 className="mr-1 h-3 w-3" /> Sterge
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <MobileField label="Slug">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.slug} onChange={(value) => updateField(issue.id, 'slug', value)} />
+                </MobileField>
+                <MobileField label="Titlu">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.title} onChange={(value) => updateField(issue.id, 'title', value)} />
+                </MobileField>
+                <MobileField label="An">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.year} onChange={(value) => updateField(issue.id, 'year', value)} inputClassName="w-full" />
+                </MobileField>
+                <MobileField label="Volum">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.volume} onChange={(value) => updateField(issue.id, 'volume', value)} inputClassName="w-full" />
+                </MobileField>
+                <MobileField label="Număr">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.number} onChange={(value) => updateField(issue.id, 'number', value)} inputClassName="w-full" />
+                </MobileField>
+                <MobileField label="Data publicării">
+                  {isAdmin ? (
+                    <input
+                      type="date"
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      value={issue.date_published}
+                      onChange={(event) => updateField(issue.id, 'date_published', event.target.value)}
+                    />
+                  ) : (
+                    <span className="text-sm text-muted-foreground">{issue.date_published}</span>
+                  )}
+                </MobileField>
+                <MobileField label="Status">
+                  {isAdmin ? (
+                    <select
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      value={issue.status}
+                      onChange={(event) => updateField(issue.id, 'status', event.target.value)}
+                    >
+                      <option value="published">Publicat</option>
+                      <option value="draft">Draft</option>
+                    </select>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">{issue.status}</span>
+                  )}
+                </MobileField>
+                <MobileField label="Articole">
+                  {isAdmin ? (
+                    <input
+                      type="number"
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      value={issue.article_count}
+                      onChange={(event) => updateField(issue.id, 'article_count', event.target.value)}
+                    />
+                  ) : (
+                    <span className="text-sm text-muted-foreground">{issue.article_count}</span>
+                  )}
+                </MobileField>
+                <MobileField label="Pagini">
+                  <MobileTextInput isAdmin={isAdmin} value={String(issue.pages || '')} onChange={(value) => updateField(issue.id, 'pages', value)} inputClassName="w-full" />
+                </MobileField>
+                <MobileField label="DOI prefix">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.doi_prefix} onChange={(value) => updateField(issue.id, 'doi_prefix', value)} />
+                </MobileField>
+                <MobileField label="Seria">
+                  {isAdmin ? (
+                    <select
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      value={issue.series}
+                      onChange={(event) => updateField(issue.id, 'series', event.target.value)}
+                    >
+                      <option value="seria-1">seria-1</option>
+                      <option value="seria-2">seria-2</option>
+                      <option value="seria-3">seria-3</option>
+                    </select>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">{issue.series}</span>
+                  )}
+                </MobileField>
+                <MobileField label="Eticheta serie">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.series_label} onChange={(value) => updateField(issue.id, 'series_label', value)} />
+                </MobileField>
+                <MobileField label="Issue PDF path">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.issue_pdf_path} onChange={(value) => updateField(issue.id, 'issue_pdf_path', value)} />
+                </MobileField>
+                <MobileField label="Cover path">
+                  <MobileTextInput isAdmin={isAdmin} value={issue.cover_hint_path} onChange={(value) => updateField(issue.id, 'cover_hint_path', value)} />
+                </MobileField>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto xl:block">
+          <table className="w-full min-w-[1500px]">
             <thead>
               <tr className="bg-secondary">
                 {[
@@ -606,6 +730,50 @@ export default function DashboardIssues() {
         </div>
       </div>
     </div>
+  );
+}
+
+function IssueStatusBadge({ status }: { status: string }) {
+  const active = status === 'published';
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.05em] ${
+        active ? 'bg-primary/10 text-primary' : 'bg-secondary text-secondary-foreground'
+      }`}
+    >
+      {active ? 'Publicat' : 'Draft'}
+    </span>
+  );
+}
+
+function MobileField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function MobileTextInput({
+  isAdmin,
+  value,
+  onChange,
+  inputClassName,
+}: {
+  isAdmin: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  inputClassName?: string;
+}) {
+  return isAdmin ? (
+    <input
+      className={`h-10 rounded-md border bg-background px-3 text-sm ${inputClassName || 'w-full'}`}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ) : (
+    <span className="block break-words text-sm text-muted-foreground">{value || '-'}</span>
   );
 }
 

@@ -94,7 +94,7 @@ function SummaryPanel({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { label: 'Ultima zi', value: counts.lastDay },
             { label: 'Ultima săptămână', value: counts.lastWeek },
@@ -237,7 +237,7 @@ function AnalyticsTab({
                 <BarChart data={topItems} layout="vertical" margin={{ left: 24 }}>
                   <CartesianGrid horizontal={false} />
                   <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
-                  <YAxis dataKey="label" type="category" tickLine={false} axisLine={false} width={160} />
+                  <YAxis dataKey="label" type="category" tickLine={false} axisLine={false} width={112} />
                   <ChartTooltip
                     content={(
                       <ChartTooltipContent
@@ -267,32 +267,53 @@ function AnalyticsTab({
           {items.length === 0 ? (
             <EmptyAnalyticsState label="Nu există încă statistici de afișat." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Element</TableHead>
-                  <TableHead className="text-right">Ultima zi</TableHead>
-                  <TableHead className="text-right">Ultima săptămână</TableHead>
-                  <TableHead className="text-right">Ultima lună</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">{lastSeenLabel}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 md:hidden">
                 {items.map((item) => (
-                  <TableRow key={`${item.entityType}:${item.entityId}`}>
-                    <TableCell>
-                      <div className="font-medium">{item.label}</div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{formatNumber(item.lastDay)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatNumber(item.lastWeek)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatNumber(item.lastMonth)}</TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{formatNumber(item.total)}</TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground">{formatLastViewedAt(item.lastViewedAt)}</TableCell>
-                  </TableRow>
+                  <div key={`${item.entityType}:${item.entityId}`} className="rounded-lg border bg-muted/20 p-4">
+                    <div className="font-medium break-words">{item.label}</div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <MetricField label="Ultima zi" value={formatNumber(item.lastDay)} />
+                      <MetricField label="Ultima săptămână" value={formatNumber(item.lastWeek)} />
+                      <MetricField label="Ultima lună" value={formatNumber(item.lastMonth)} />
+                      <MetricField label="Total" value={formatNumber(item.total)} emphasized />
+                    </div>
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      {lastSeenLabel}: {formatLastViewedAt(item.lastViewedAt)}
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Element</TableHead>
+                      <TableHead className="text-right">Ultima zi</TableHead>
+                      <TableHead className="text-right">Ultima săptămână</TableHead>
+                      <TableHead className="text-right">Ultima lună</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">{lastSeenLabel}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item) => (
+                      <TableRow key={`${item.entityType}:${item.entityId}`}>
+                        <TableCell>
+                          <div className="font-medium">{item.label}</div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(item.lastDay)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(item.lastWeek)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(item.lastMonth)}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold">{formatNumber(item.total)}</TableCell>
+                        <TableCell className="text-right text-xs text-muted-foreground">{formatLastViewedAt(item.lastViewedAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -329,6 +350,15 @@ function AnalyticsTab({
           counts={breakdown.screenResolutions}
         />
       </div>
+    </div>
+  );
+}
+
+function MetricField({ label, value, emphasized = false }: { label: string; value: string; emphasized?: boolean }) {
+  return (
+    <div className="rounded-md border bg-background px-3 py-2">
+      <div className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-mono text-sm ${emphasized ? 'font-semibold' : ''}`}>{value}</div>
     </div>
   );
 }
@@ -419,7 +449,7 @@ export default function DashboardStats() {
       </div>
 
       <Tabs defaultValue="articles" className="space-y-6">
-        <TabsList className="grid w-full max-w-xl grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 sm:max-w-xl sm:grid-cols-3">
           <TabsTrigger value="articles" className="gap-2">
             <FileText className="h-4 w-4" />
             Articole
