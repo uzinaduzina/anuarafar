@@ -2276,6 +2276,7 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
   const pages = sortAnalyticsSummaries(pageRecords.map((record) => summarizeAnalyticsRecord(record)));
   const downloads = sortAnalyticsSummaries(downloadRecords.map((record) => summarizeAnalyticsRecord(record)));
   const articleBreakdown = sumAnalyticsDimensionMaps(articleRecords);
+  const pageBreakdown = sumAnalyticsDimensionMaps(pageRecords);
   const downloadBreakdown = sumAnalyticsDimensionMaps(downloadRecords);
 
   return jsonResponse(request, env, 200, {
@@ -2290,6 +2291,7 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     pageTimeline: analyticsTimeline(pageRecords),
     downloadTimeline: analyticsTimeline(downloadRecords),
     articleBreakdown,
+    pageBreakdown,
     downloadBreakdown,
   });
 }

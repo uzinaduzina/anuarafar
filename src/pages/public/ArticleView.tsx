@@ -47,12 +47,20 @@ export default function ArticleView() {
     }
 
     const load = async () => {
-      const tracked = await trackAnalyticsView({
-        entityType: 'article',
-        entityId: article.id,
-        label: article.title,
-        path: `/article/${article.id}`,
-      });
+      const [tracked] = await Promise.all([
+        trackAnalyticsView({
+          entityType: 'article',
+          entityId: article.id,
+          label: article.title,
+          path: `/article/${article.id}`,
+        }),
+        trackAnalyticsView({
+          entityType: 'page',
+          entityId: `/article/${article.id}`,
+          label: `Pagină articol · ${article.title}`,
+          path: `/article/${article.id}`,
+        }),
+      ]);
       const summary = tracked ?? await fetchAnalyticsSummary('article', article.id);
       if (!cancelled) {
         setArticleAnalytics(summary);

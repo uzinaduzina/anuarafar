@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, FileText, Loader2, Download, Pencil } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
@@ -8,6 +8,7 @@ import { SeriesBadge } from '@/components/SeriesBadge';
 import { JOURNAL } from '@/data/journal';
 import { SeriesId, Article, SERIES_CONFIG } from '@/data/types';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
+import { trackAnalyticsView } from '@/lib/analytics';
 
 const coverGradients: Record<SeriesId, string> = {
   'seria-1': 'from-[hsl(145,30%,35%)] via-[hsl(145,30%,50%)] to-[hsl(145,30%,80%)]',
@@ -47,6 +48,17 @@ export default function IssueDetail() {
   }
 
   const issue = issues.find(i => i.slug === slug);
+  useEffect(() => {
+    if (!issue) return;
+
+    void trackAnalyticsView({
+      entityType: 'page',
+      entityId: `/archive/${issue.slug}`,
+      label: `Cuprins număr · ${issue.title}`,
+      path: `/archive/${issue.slug}`,
+    });
+  }, [issue?.slug, issue?.title]);
+
   if (!issue) {
     return (
       <div className="container py-16 text-center">

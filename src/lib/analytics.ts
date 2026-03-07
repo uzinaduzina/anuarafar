@@ -45,6 +45,7 @@ export interface AnalyticsDashboardData {
   pageTimeline: AnalyticsTimelinePoint[];
   downloadTimeline: AnalyticsTimelinePoint[];
   articleBreakdown: AnalyticsBreakdownGroup;
+  pageBreakdown: AnalyticsBreakdownGroup;
   downloadBreakdown: AnalyticsBreakdownGroup;
 }
 
@@ -62,6 +63,7 @@ interface AnalyticsApiResponse {
   pageTimeline?: unknown;
   downloadTimeline?: unknown;
   articleBreakdown?: unknown;
+  pageBreakdown?: unknown;
   downloadBreakdown?: unknown;
 }
 
@@ -290,6 +292,7 @@ export async function fetchAdminAnalyticsDashboard(token: string): Promise<Analy
     pageTimeline: parseTimeline(payload.pageTimeline),
     downloadTimeline: parseTimeline(payload.downloadTimeline),
     articleBreakdown: parseBreakdownGroup(payload.articleBreakdown),
+    pageBreakdown: parseBreakdownGroup(payload.pageBreakdown),
     downloadBreakdown: parseBreakdownGroup(payload.downloadBreakdown),
   };
 }

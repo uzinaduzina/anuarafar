@@ -26,12 +26,15 @@ export default function PublicLayout() {
   const { user } = useAuth();
   const [despreOpen, setDespreOpen] = useState(false);
   const despreRef = useRef<HTMLDivElement>(null);
+  const isTrackedByPageComponent = location.pathname.startsWith('/article/')
+    || /^\/archive\/[^/]+$/.test(location.pathname);
 
   useTrackAnalyticsView({
     entityType: 'page',
     entityId: location.pathname,
     label: labelForPublicPath(location.pathname),
     path: location.pathname,
+    enabled: !isTrackedByPageComponent,
   });
 
   useEffect(() => {

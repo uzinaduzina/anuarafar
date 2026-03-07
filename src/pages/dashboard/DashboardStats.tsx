@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ElementType } from 'react';
-import { AlertCircle, Download, Eye, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, Download, Eye, FileText, Globe2, Loader2 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -393,16 +393,22 @@ export default function DashboardStats() {
       <div className="flex flex-col gap-2">
         <h1 className="font-serif text-2xl font-bold">Statistici de trafic</h1>
         <p className="text-sm text-muted-foreground">
-          Vizualizări agregate pe articole și descărcări PDF pentru articolele publicate.
+          Vizualizări agregate pe articole, pe toate paginile publice fără login și descărcări PDF pentru articole.
         </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-3">
         <SummaryPanel
           title="Articole"
           description="Traficul cumulat pe fiecare articol publicat."
           icon={FileText}
           counts={analytics.articleTotals}
+        />
+        <SummaryPanel
+          title="Pagini publice"
+          description="Homepage, arhivă, cuprinsuri de număr și orice pagină publică disponibilă fără login."
+          icon={Globe2}
+          counts={analytics.pageTotals}
         />
         <SummaryPanel
           title="Descărcări articole"
@@ -413,12 +419,16 @@ export default function DashboardStats() {
       </div>
 
       <Tabs defaultValue="articles" className="space-y-6">
-        <TabsList className="grid w-full max-w-sm grid-cols-2">
+        <TabsList className="grid w-full max-w-xl grid-cols-3">
           <TabsTrigger value="articles" className="gap-2">
             <FileText className="h-4 w-4" />
             Articole
           </TabsTrigger>
-          <TabsTrigger value="pages" className="gap-2">
+          <TabsTrigger value="public-pages" className="gap-2">
+            <Globe2 className="h-4 w-4" />
+            Pagini publice
+          </TabsTrigger>
+          <TabsTrigger value="downloads" className="gap-2">
             <Download className="h-4 w-4" />
             Descărcări
           </TabsTrigger>
@@ -436,7 +446,19 @@ export default function DashboardStats() {
           />
         </TabsContent>
 
-        <TabsContent value="pages">
+        <TabsContent value="public-pages">
+          <AnalyticsTab
+            title="Pagini publice"
+            description="Evoluția zilnică a vizualizărilor pe homepage, arhivă, cuprinsurile numerelor și restul paginilor publice."
+            items={analytics.pages}
+            timeline={analytics.pageTimeline}
+            breakdown={analytics.pageBreakdown}
+            activityLabel="vizualizări"
+            lastSeenLabel="Ultima vizualizare"
+          />
+        </TabsContent>
+
+        <TabsContent value="downloads">
           <AnalyticsTab
             title="Descărcări articole"
             description="Evoluția zilnică a descărcărilor PDF pe articole."
