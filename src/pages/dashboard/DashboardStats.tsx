@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ElementType } from 'react';
-import { AlertCircle, BarChart3, Eye, FileText, Globe2, Loader2 } from 'lucide-react';
+import { AlertCircle, Download, Eye, FileText, Loader2 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
 import { type AnalyticsCounts, type AnalyticsDashboardData, type AnalyticsSummary } from '@/lib/analytics';
@@ -92,7 +92,7 @@ function EmptyAnalyticsState({ label }: { label: string }) {
     <div className="flex min-h-[240px] flex-col items-center justify-center rounded-lg border border-dashed text-center">
       <Eye className="mb-3 h-8 w-8 text-muted-foreground" />
       <p className="font-medium">{label}</p>
-      <p className="mt-1 text-sm text-muted-foreground">Statisticile apar după primele vizualizări în producție.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Statisticile apar după primele evenimente în producție.</p>
     </div>
   );
 }
@@ -102,11 +102,15 @@ function AnalyticsTab({
   description,
   items,
   timeline,
+  activityLabel = 'vizualizări',
+  lastSeenLabel = 'Ultima activitate',
 }: {
   title: string;
   description: string;
   items: AnalyticsSummary[];
   timeline: AnalyticsDashboardData['articleTimeline'];
+  activityLabel?: string;
+  lastSeenLabel?: string;
 }) {
   const topItems = useMemo(() => items.slice(0, 8).map((item) => ({
     label: compactLabel(item.label),
@@ -148,7 +152,7 @@ function AnalyticsTab({
         <Card>
           <CardHeader>
             <CardTitle className="font-serif text-lg">Top 8 după ultima lună</CardTitle>
-            <CardDescription>Ordinea este calculată pe ultimele 30 de zile.</CardDescription>
+            <CardDescription>Ordinea este calculată pe ultimele 30 de zile de {activityLabel}.</CardDescription>
           </CardHeader>
           <CardContent>
             {topItems.length === 0 ? (
@@ -196,7 +200,7 @@ function AnalyticsTab({
                   <TableHead className="text-right">Ultima săptămână</TableHead>
                   <TableHead className="text-right">Ultima lună</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Ultima vizualizare</TableHead>
+                  <TableHead className="text-right">{lastSeenLabel}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -204,9 +208,6 @@ function AnalyticsTab({
                   <TableRow key={`${item.entityType}:${item.entityId}`}>
                     <TableCell>
                       <div className="font-medium">{item.label}</div>
-                      {item.path && (
-                        <div className="mt-0.5 text-xs text-muted-foreground">{item.path}</div>
-                      )}
                     </TableCell>
                     <TableCell className="text-right font-mono">{formatNumber(item.lastDay)}</TableCell>
                     <TableCell className="text-right font-mono">{formatNumber(item.lastWeek)}</TableCell>
@@ -282,9 +283,9 @@ export default function DashboardStats() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-serif text-2xl font-bold">Statistici de vizualizare</h1>
+        <h1 className="font-serif text-2xl font-bold">Statistici de trafic</h1>
         <p className="text-sm text-muted-foreground">
-          Vizualizări agregate pentru articole și paginile publice ale revistei.
+          Vizualizări agregate pe articole și descărcări PDF pentru articolele publicate.
         </p>
       </div>
 
@@ -296,10 +297,10 @@ export default function DashboardStats() {
           counts={analytics.articleTotals}
         />
         <SummaryPanel
-          title="Pagini publice"
-          description="Trafic pe homepage, arhivă, pagini editoriale și rute individuale."
-          icon={Globe2}
-          counts={analytics.pageTotals}
+          title="Descărcări articole"
+          description="Descărcări PDF agregate pentru fiecare articol publicat."
+          icon={Download}
+          counts={analytics.downloadTotals}
         />
       </div>
 
@@ -310,8 +311,8 @@ export default function DashboardStats() {
             Articole
           </TabsTrigger>
           <TabsTrigger value="pages" className="gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Pagini
+            <Download className="h-4 w-4" />
+            Descărcări
           </TabsTrigger>
         </TabsList>
 
@@ -321,15 +322,19 @@ export default function DashboardStats() {
             description="Evoluția zilnică a vizualizărilor pe articole."
             items={analytics.articles}
             timeline={analytics.articleTimeline}
+            activityLabel="vizualizări"
+            lastSeenLabel="Ultima vizualizare"
           />
         </TabsContent>
 
         <TabsContent value="pages">
           <AnalyticsTab
-            title="Pagini publice"
-            description="Evoluția zilnică a vizualizărilor pe paginile site-ului."
-            items={analytics.pages}
-            timeline={analytics.pageTimeline}
+            title="Descărcări articole"
+            description="Evoluția zilnică a descărcărilor PDF pe articole."
+            items={analytics.downloads}
+            timeline={analytics.downloadTimeline}
+            activityLabel="descărcări"
+            lastSeenLabel="Ultima descărcare"
           />
         </TabsContent>
       </Tabs>

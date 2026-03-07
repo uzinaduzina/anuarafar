@@ -1,6 +1,6 @@
 const ANALYTICS_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
 
-export type AnalyticsEntityType = 'article' | 'page';
+export type AnalyticsEntityType = 'article' | 'page' | 'download';
 
 export interface AnalyticsCounts {
   lastDay: number;
@@ -25,10 +25,13 @@ export interface AnalyticsTimelinePoint {
 export interface AnalyticsDashboardData {
   articles: AnalyticsSummary[];
   pages: AnalyticsSummary[];
+  downloads: AnalyticsSummary[];
   articleTotals: AnalyticsCounts;
   pageTotals: AnalyticsCounts;
+  downloadTotals: AnalyticsCounts;
   articleTimeline: AnalyticsTimelinePoint[];
   pageTimeline: AnalyticsTimelinePoint[];
+  downloadTimeline: AnalyticsTimelinePoint[];
 }
 
 interface AnalyticsApiResponse {
@@ -37,10 +40,13 @@ interface AnalyticsApiResponse {
   summary?: unknown;
   articles?: unknown;
   pages?: unknown;
+  downloads?: unknown;
   articleTotals?: unknown;
   pageTotals?: unknown;
+  downloadTotals?: unknown;
   articleTimeline?: unknown;
   pageTimeline?: unknown;
+  downloadTimeline?: unknown;
 }
 
 interface TrackAnalyticsViewInput {
@@ -71,7 +77,7 @@ function parseSummary(value: unknown): AnalyticsSummary | null {
   if (!isRecord(value)) return null;
   const entityType = typeof value.entityType === 'string' ? value.entityType : '';
   const entityId = typeof value.entityId === 'string' ? value.entityId : '';
-  if ((entityType !== 'article' && entityType !== 'page') || !entityId) return null;
+  if ((entityType !== 'article' && entityType !== 'page' && entityType !== 'download') || !entityId) return null;
   return {
     entityType,
     entityId,
@@ -149,6 +155,7 @@ export async function trackAnalyticsView(input: TrackAnalyticsViewInput): Promis
   try {
     const response = await fetch(`${ANALYTICS_API_BASE}/analytics/view`, {
       method: 'POST',
+      keepalive: true,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -202,9 +209,12 @@ export async function fetchAdminAnalyticsDashboard(token: string): Promise<Analy
   return {
     articles: parseSummaryList(payload.articles),
     pages: parseSummaryList(payload.pages),
+    downloads: parseSummaryList(payload.downloads),
     articleTotals: parseCounts(payload.articleTotals),
     pageTotals: parseCounts(payload.pageTotals),
+    downloadTotals: parseCounts(payload.downloadTotals),
     articleTimeline: parseTimeline(payload.articleTimeline),
     pageTimeline: parseTimeline(payload.pageTimeline),
+    downloadTimeline: parseTimeline(payload.downloadTimeline),
   };
 }

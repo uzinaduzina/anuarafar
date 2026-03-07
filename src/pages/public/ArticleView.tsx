@@ -227,7 +227,13 @@ export default function ArticleView() {
 
       {/* PDF Viewer */}
       {article.pdf_path ? (
-        <PdfViewer pdfPath={article.pdf_path} title={article.title} />
+        <PdfViewer
+          pdfPath={article.pdf_path}
+          title={article.title}
+          analyticsEntityId={article.id}
+          analyticsLabel={article.title}
+          analyticsPath={`/article/${article.id}`}
+        />
       ) : (
         <div className="rounded-lg border bg-card p-8 shadow-sm text-center">
           <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />

@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ZoomIn, ZoomOut, Download, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { trackAnalyticsView } from '@/lib/analytics';
 
 const GITHUB_BASE = 'https://raw.githubusercontent.com/liviupop/ojs_alternative_iafar/main/';
 
 interface PdfViewerProps {
   pdfPath: string;
   title?: string;
+  analyticsEntityId?: string;
+  analyticsLabel?: string;
+  analyticsPath?: string;
 }
 
-export default function PdfViewer({ pdfPath, title }: PdfViewerProps) {
+export default function PdfViewer({
+  pdfPath,
+  title,
+  analyticsEntityId,
+  analyticsLabel,
+  analyticsPath,
+}: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
@@ -21,6 +31,17 @@ export default function PdfViewer({ pdfPath, title }: PdfViewerProps) {
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
 
   const pdfUrl = pdfPath.startsWith('http') ? pdfPath : `${GITHUB_BASE}${pdfPath}`;
+
+  const trackDownload = useCallback(() => {
+    if (!analyticsEntityId) return;
+
+    void trackAnalyticsView({
+      entityType: 'download',
+      entityId: analyticsEntityId,
+      label: analyticsLabel || title || analyticsEntityId,
+      path: analyticsPath || '',
+    });
+  }, [analyticsEntityId, analyticsLabel, analyticsPath, title]);
 
   // Load PDF document
   useEffect(() => {
@@ -137,7 +158,7 @@ export default function PdfViewer({ pdfPath, title }: PdfViewerProps) {
         <AlertTriangle className="h-8 w-8 text-destructive" />
         <p className="text-sm text-muted-foreground">{error}</p>
         <Button asChild variant="outline" size="sm">
-          <a href={pdfUrl} target="_blank" rel="noreferrer">
+          <a href={pdfUrl} target="_blank" rel="noreferrer" onClick={trackDownload}>
             <Download className="mr-2 h-4 w-4" /> Deschide direct
           </a>
         </Button>
@@ -179,7 +200,7 @@ export default function PdfViewer({ pdfPath, title }: PdfViewerProps) {
           <div className="w-px h-5 bg-border mx-1" />
 
           <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-            <a href={pdfUrl} target="_blank" rel="noreferrer">
+            <a href={pdfUrl} target="_blank" rel="noreferrer" onClick={trackDownload}>
               <Download className="mr-1.5 h-3.5 w-3.5" /> Descarcă
             </a>
           </Button>

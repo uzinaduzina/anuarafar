@@ -87,7 +87,7 @@ type StoredEmailTemplateMap = Partial<Record<EmailTemplateId, PartialEditableEma
 
 type SubmissionStatus = 'submitted' | 'anonymization' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
 type ReviewAnswer = 'yes' | 'partial' | 'no';
-type AnalyticsEntityType = 'article' | 'page';
+type AnalyticsEntityType = 'article' | 'page' | 'download';
 type ReviewCriterionId =
   | 'q1'
   | 'q2'
@@ -961,7 +961,7 @@ function toIsoDate(value: Date): string {
 }
 
 function isAnalyticsEntityType(value: string): value is AnalyticsEntityType {
-  return value === 'article' || value === 'page';
+  return value === 'article' || value === 'page' || value === 'download';
 }
 
 function normalizeAnalyticsEntityId(entityType: AnalyticsEntityType, raw: string): string {
@@ -2050,7 +2050,11 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
   const path = sanitizeAnalyticsPath(asString(body.path), entityTypeRaw === 'page' ? entityId : '');
   const label = sanitizeAnalyticsLabel(
     asString(body.label),
-    entityTypeRaw === 'article' ? `Articol ${entityId}` : entityId,
+    entityTypeRaw === 'article'
+      ? `Articol ${entityId}`
+      : entityTypeRaw === 'download'
+        ? `Descărcare articol ${entityId}`
+        : entityId,
   );
   const now = Date.now();
   const today = analyticsToday();
@@ -2122,17 +2126,22 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
   const records = await listAnalyticsRecords(env);
   const articleRecords = records.filter((record) => record.entityType === 'article');
   const pageRecords = records.filter((record) => record.entityType === 'page');
+  const downloadRecords = records.filter((record) => record.entityType === 'download');
   const articles = sortAnalyticsSummaries(articleRecords.map((record) => summarizeAnalyticsRecord(record)));
   const pages = sortAnalyticsSummaries(pageRecords.map((record) => summarizeAnalyticsRecord(record)));
+  const downloads = sortAnalyticsSummaries(downloadRecords.map((record) => summarizeAnalyticsRecord(record)));
 
   return jsonResponse(request, env, 200, {
     ok: true,
     articles,
     pages,
+    downloads,
     articleTotals: sumAnalyticsSummaries(articles),
     pageTotals: sumAnalyticsSummaries(pages),
+    downloadTotals: sumAnalyticsSummaries(downloads),
     articleTimeline: analyticsTimeline(articleRecords),
     pageTimeline: analyticsTimeline(pageRecords),
+    downloadTimeline: analyticsTimeline(downloadRecords),
   });
 }
 
