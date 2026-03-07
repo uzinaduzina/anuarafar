@@ -87,6 +87,7 @@ type StoredEmailTemplateMap = Partial<Record<EmailTemplateId, PartialEditableEma
 
 type SubmissionStatus = 'submitted' | 'anonymization' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
 type ReviewAnswer = 'yes' | 'partial' | 'no';
+type AnalyticsEntityType = 'article' | 'page';
 type ReviewCriterionId =
   | 'q1'
   | 'q2'
@@ -141,6 +142,33 @@ interface StoredSubmission {
   createdAt: number;
 }
 
+interface AnalyticsSummaryCounts {
+  lastDay: number;
+  lastWeek: number;
+  lastMonth: number;
+  total: number;
+}
+
+interface StoredAnalyticsRecord {
+  entityType: AnalyticsEntityType;
+  entityId: string;
+  label: string;
+  path: string;
+  total: number;
+  buckets: Record<string, number>;
+  createdAt: number;
+  updatedAt: number;
+  lastViewedAt: string;
+}
+
+interface AnalyticsSummaryPayload extends AnalyticsSummaryCounts {
+  entityType: AnalyticsEntityType;
+  entityId: string;
+  label: string;
+  path: string;
+  lastViewedAt: string;
+}
+
 interface Env {
   AUTH_KV: KVNamespace;
   RESEND_API_KEY: string;
@@ -161,6 +189,7 @@ interface Env {
 const USERS_KEY = 'auth_users_v1';
 const SUBMISSIONS_KEY = 'submissions_v1';
 const EMAIL_TEMPLATES_KEY = 'email_templates_v1';
+const ANALYTICS_KEY_PREFIX = 'analytics_entity_v1:';
 const SUBMISSION_FILE_KEY_PREFIX = 'submission_file_v1:';
 const DEFAULT_OTP_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -168,6 +197,10 @@ const DEFAULT_SUBMISSION_RECIPIENTS = ['anuar@iafar.ro', 'confafar@gmail.com'];
 const MAX_SUBMISSION_FILES = 5;
 const MAX_SUBMISSION_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_SUBMISSION_TOTAL_BYTES = 25 * 1024 * 1024;
+const ANALYTICS_RETENTION_DAYS = 90;
+const ANALYTICS_ENTITY_ID_LIMIT = 280;
+const ANALYTICS_LABEL_LIMIT = 240;
+const ANALYTICS_PATH_LIMIT = 320;
 const REVIEW_CRITERIA_IDS: ReviewCriterionId[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11'];
 const EDITABLE_EMAIL_TEMPLATE_FIELDS: (keyof EditableEmailTemplateFields)[] = [
   'subject',
@@ -925,6 +958,207 @@ function toIsoDate(value: Date): string {
   const month = String(value.getMonth() + 1).padStart(2, '0');
   const day = String(value.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function isAnalyticsEntityType(value: string): value is AnalyticsEntityType {
+  return value === 'article' || value === 'page';
+}
+
+function normalizeAnalyticsEntityId(entityType: AnalyticsEntityType, raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (entityType === 'page') {
+    const normalizedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed.replace(/^\/+/, '')}`;
+    return normalizedPath.slice(0, ANALYTICS_ENTITY_ID_LIMIT);
+  }
+  return trimmed.slice(0, ANALYTICS_ENTITY_ID_LIMIT);
+}
+
+function sanitizeAnalyticsLabel(raw: string, fallback: string): string {
+  const normalized = raw.replace(/\s+/g, ' ').trim() || fallback;
+  return normalized.slice(0, ANALYTICS_LABEL_LIMIT);
+}
+
+function sanitizeAnalyticsPath(raw: string, fallback = ''): string {
+  const source = raw.trim() || fallback;
+  if (!source) return '';
+  const normalized = source.startsWith('/') ? source : `/${source.replace(/^\/+/, '')}`;
+  return normalized.slice(0, ANALYTICS_PATH_LIMIT);
+}
+
+function analyticsStorageKey(entityType: AnalyticsEntityType, entityId: string): string {
+  return `${ANALYTICS_KEY_PREFIX}${entityType}:${encodeURIComponent(entityId)}`;
+}
+
+function analyticsToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function shiftAnalyticsDay(day: string, offset: number): string {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function analyticsDateWindow(days: number, endDay = analyticsToday()): string[] {
+  const window: string[] = [];
+  for (let index = days - 1; index >= 0; index -= 1) {
+    window.push(shiftAnalyticsDay(endDay, -index));
+  }
+  return window;
+}
+
+function pruneAnalyticsBuckets(buckets: Record<string, number>, endDay = analyticsToday()): Record<string, number> {
+  const cutoff = shiftAnalyticsDay(endDay, -(ANALYTICS_RETENTION_DAYS - 1));
+  const next: Record<string, number> = {};
+  for (const [day, count] of Object.entries(buckets)) {
+    if (typeof count !== 'number' || !Number.isFinite(count) || count <= 0) continue;
+    if (day < cutoff || day > endDay) continue;
+    next[day] = Math.round(count);
+  }
+  return next;
+}
+
+function sumAnalyticsWindow(buckets: Record<string, number>, days: number, endDay = analyticsToday()): number {
+  const allowed = new Set(analyticsDateWindow(days, endDay));
+  let total = 0;
+  for (const [day, count] of Object.entries(buckets)) {
+    if (allowed.has(day)) total += Number(count) || 0;
+  }
+  return total;
+}
+
+function summarizeAnalyticsRecord(record: StoredAnalyticsRecord, endDay = analyticsToday()): AnalyticsSummaryPayload {
+  const buckets = pruneAnalyticsBuckets(record.buckets, endDay);
+  return {
+    entityType: record.entityType,
+    entityId: record.entityId,
+    label: record.label,
+    path: record.path,
+    lastViewedAt: record.lastViewedAt,
+    lastDay: sumAnalyticsWindow(buckets, 1, endDay),
+    lastWeek: sumAnalyticsWindow(buckets, 7, endDay),
+    lastMonth: sumAnalyticsWindow(buckets, 30, endDay),
+    total: Math.max(0, Math.round(record.total || 0)),
+  };
+}
+
+function sumAnalyticsSummaries(summaries: AnalyticsSummaryPayload[]): AnalyticsSummaryCounts {
+  return summaries.reduce<AnalyticsSummaryCounts>((accumulator, current) => ({
+    lastDay: accumulator.lastDay + current.lastDay,
+    lastWeek: accumulator.lastWeek + current.lastWeek,
+    lastMonth: accumulator.lastMonth + current.lastMonth,
+    total: accumulator.total + current.total,
+  }), {
+    lastDay: 0,
+    lastWeek: 0,
+    lastMonth: 0,
+    total: 0,
+  });
+}
+
+function analyticsTimeline(records: StoredAnalyticsRecord[], endDay = analyticsToday(), days = 30) {
+  const dates = analyticsDateWindow(days, endDay);
+  return dates.map((date) => ({
+    date,
+    views: records.reduce((sum, record) => sum + (record.buckets[date] || 0), 0),
+  }));
+}
+
+function sortAnalyticsSummaries(summaries: AnalyticsSummaryPayload[]): AnalyticsSummaryPayload[] {
+  return [...summaries].sort((left, right) => (
+    right.lastMonth - left.lastMonth
+      || right.total - left.total
+      || right.lastWeek - left.lastWeek
+      || left.label.localeCompare(right.label)
+  ));
+}
+
+async function readAnalyticsRecord(
+  env: Env,
+  entityType: AnalyticsEntityType,
+  entityId: string,
+): Promise<StoredAnalyticsRecord | null> {
+  const raw = await env.AUTH_KV.get(analyticsStorageKey(entityType, entityId));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredAnalyticsRecord>;
+    if (
+      !parsed
+      || !isAnalyticsEntityType(asString(parsed.entityType))
+      || asString(parsed.entityId) !== entityId
+    ) {
+      return null;
+    }
+    return {
+      entityType: parsed.entityType,
+      entityId,
+      label: sanitizeAnalyticsLabel(asString(parsed.label), entityId),
+      path: sanitizeAnalyticsPath(asString(parsed.path)),
+      total: Math.max(0, Math.round(Number(parsed.total) || 0)),
+      buckets: pruneAnalyticsBuckets((parsed.buckets && typeof parsed.buckets === 'object' ? parsed.buckets : {}) as Record<string, number>),
+      createdAt: Number(parsed.createdAt) || Date.now(),
+      updatedAt: Number(parsed.updatedAt) || Date.now(),
+      lastViewedAt: asString(parsed.lastViewedAt),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function writeAnalyticsRecord(env: Env, record: StoredAnalyticsRecord): Promise<void> {
+  await env.AUTH_KV.put(
+    analyticsStorageKey(record.entityType, record.entityId),
+    JSON.stringify({
+      ...record,
+      buckets: pruneAnalyticsBuckets(record.buckets),
+    }),
+  );
+}
+
+async function listAnalyticsRecords(env: Env): Promise<StoredAnalyticsRecord[]> {
+  let cursor: string | undefined;
+  const keys: string[] = [];
+
+  do {
+    const page = await env.AUTH_KV.list({ prefix: ANALYTICS_KEY_PREFIX, cursor, limit: 1000 });
+    for (const key of page.keys) {
+      keys.push(key.name);
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  const records = await Promise.all(keys.map(async (key) => {
+    const raw = await env.AUTH_KV.get(key);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Partial<StoredAnalyticsRecord>;
+      const entityType = asString(parsed.entityType);
+      const entityId = asString(parsed.entityId);
+      if (!isAnalyticsEntityType(entityType) || !entityId) return null;
+      return {
+        entityType,
+        entityId,
+        label: sanitizeAnalyticsLabel(asString(parsed.label), entityId),
+        path: sanitizeAnalyticsPath(asString(parsed.path)),
+        total: Math.max(0, Math.round(Number(parsed.total) || 0)),
+        buckets: pruneAnalyticsBuckets((parsed.buckets && typeof parsed.buckets === 'object' ? parsed.buckets : {}) as Record<string, number>),
+        createdAt: Number(parsed.createdAt) || Date.now(),
+        updatedAt: Number(parsed.updatedAt) || Date.now(),
+        lastViewedAt: asString(parsed.lastViewedAt),
+      } satisfies StoredAnalyticsRecord;
+    } catch {
+      return null;
+    }
+  }));
+
+  return records.filter((entry): entry is StoredAnalyticsRecord => Boolean(entry));
+}
+
+function isRequestOriginAllowed(request: Request, env: Env): boolean {
+  const origin = request.headers.get('Origin');
+  if (!origin) return true;
+  return pickCorsOrigin(request, env) === origin;
 }
 
 function toBase64Url(value: string): string {
@@ -1797,6 +2031,111 @@ async function handleUpdateEmailTemplate(request: Request, env: Env): Promise<Re
   });
 }
 
+async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Response> {
+  if (!isRequestOriginAllowed(request, env)) {
+    return jsonResponse(request, env, 403, { ok: false, error: 'Origine nepermisa.' });
+  }
+
+  const body = await readJson(request);
+  const entityTypeRaw = asString(body.entityType).trim().toLowerCase();
+  if (!isAnalyticsEntityType(entityTypeRaw)) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Tip analytics invalid.' });
+  }
+
+  const entityId = normalizeAnalyticsEntityId(entityTypeRaw, asString(body.entityId));
+  if (!entityId) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
+  }
+
+  const path = sanitizeAnalyticsPath(asString(body.path), entityTypeRaw === 'page' ? entityId : '');
+  const label = sanitizeAnalyticsLabel(
+    asString(body.label),
+    entityTypeRaw === 'article' ? `Articol ${entityId}` : entityId,
+  );
+  const now = Date.now();
+  const today = analyticsToday();
+  const existing = await readAnalyticsRecord(env, entityTypeRaw, entityId);
+  const next: StoredAnalyticsRecord = existing || {
+    entityType: entityTypeRaw,
+    entityId,
+    label,
+    path,
+    total: 0,
+    buckets: {},
+    createdAt: now,
+    updatedAt: now,
+    lastViewedAt: '',
+  };
+
+  next.label = label || next.label || entityId;
+  next.path = path || next.path;
+  next.total += 1;
+  next.updatedAt = now;
+  next.lastViewedAt = new Date(now).toISOString();
+  next.buckets = pruneAnalyticsBuckets(next.buckets, today);
+  next.buckets[today] = (next.buckets[today] || 0) + 1;
+
+  await writeAnalyticsRecord(env, next);
+
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    summary: summarizeAnalyticsRecord(next, today),
+  });
+}
+
+async function handleGetAnalyticsSummary(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const entityTypeRaw = asString(url.searchParams.get('entityType')).trim().toLowerCase();
+  if (!isAnalyticsEntityType(entityTypeRaw)) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Tip analytics invalid.' });
+  }
+
+  const entityId = normalizeAnalyticsEntityId(entityTypeRaw, asString(url.searchParams.get('entityId')));
+  if (!entityId) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
+  }
+
+  const record = await readAnalyticsRecord(env, entityTypeRaw, entityId);
+  const summary = record
+    ? summarizeAnalyticsRecord(record)
+    : {
+        entityType: entityTypeRaw,
+        entityId,
+        label: entityId,
+        path: entityTypeRaw === 'page' ? entityId : '',
+        lastViewedAt: '',
+        lastDay: 0,
+        lastWeek: 0,
+        lastMonth: 0,
+        total: 0,
+      } satisfies AnalyticsSummaryPayload;
+
+  return jsonResponse(request, env, 200, { ok: true, summary });
+}
+
+async function handleListAnalytics(request: Request, env: Env): Promise<Response> {
+  const isAllowed = await isAdminAuthorized(request, env);
+  if (!isAllowed) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  const records = await listAnalyticsRecords(env);
+  const articleRecords = records.filter((record) => record.entityType === 'article');
+  const pageRecords = records.filter((record) => record.entityType === 'page');
+  const articles = sortAnalyticsSummaries(articleRecords.map((record) => summarizeAnalyticsRecord(record)));
+  const pages = sortAnalyticsSummaries(pageRecords.map((record) => summarizeAnalyticsRecord(record)));
+
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    articles,
+    pages,
+    articleTotals: sumAnalyticsSummaries(articles),
+    pageTotals: sumAnalyticsSummaries(pages),
+    articleTimeline: analyticsTimeline(articleRecords),
+    pageTimeline: analyticsTimeline(pageRecords),
+  });
+}
+
 async function handleNotifyRole(request: Request, env: Env): Promise<Response> {
   const isAllowed = await isAdminAuthorized(request, env);
   if (!isAllowed) {
@@ -2580,6 +2919,14 @@ export default {
         return jsonResponse(request, env, 200, { ok: true, status: 'healthy' });
       }
 
+      if (request.method === 'POST' && url.pathname === '/analytics/view') {
+        return handleTrackAnalyticsView(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/analytics/summary') {
+        return handleGetAnalyticsSummary(request, env);
+      }
+
       if (request.method === 'POST' && url.pathname === '/auth/request-code') {
         return handleRequestCode(request, env);
       }
@@ -2606,6 +2953,10 @@ export default {
 
       if (request.method === 'POST' && url.pathname === '/admin/email-templates') {
         return handleUpdateEmailTemplate(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/admin/analytics') {
+        return handleListAnalytics(request, env);
       }
 
       if (request.method === 'POST' && url.pathname === '/notify/role') {

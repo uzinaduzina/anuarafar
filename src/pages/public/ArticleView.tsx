@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Loader2, Pencil } from 'lucide-react';
+import { ArrowLeft, BookOpen, Eye, Loader2, Pencil } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { SeriesBadge } from '@/components/SeriesBadge';
@@ -8,6 +8,7 @@ import { SeriesId, SERIES_CONFIG } from '@/data/types';
 import { Button } from '@/components/ui/button';
 import PdfViewer from '@/components/PdfViewer';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
+import { fetchAnalyticsSummary, trackAnalyticsView, type AnalyticsSummary } from '@/lib/analytics';
 
 const seriesBorderLeft: Record<SeriesId, string> = {
   'seria-1': 'border-l-[4px] border-l-series-1',
@@ -32,6 +33,38 @@ export default function ArticleView() {
   const { issues, articles, loading } = useJournalData();
   const { isEditor, isAdmin } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
+  const [articleAnalytics, setArticleAnalytics] = useState<AnalyticsSummary | null>(null);
+  const article = articles.find(a => a.id === id);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!article) {
+      setArticleAnalytics(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const load = async () => {
+      const tracked = await trackAnalyticsView({
+        entityType: 'article',
+        entityId: article.id,
+        label: article.title,
+        path: `/article/${article.id}`,
+      });
+      const summary = tracked ?? await fetchAnalyticsSummary('article', article.id);
+      if (!cancelled) {
+        setArticleAnalytics(summary);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [article?.id, article?.title]);
 
   if (loading) {
     return (
@@ -41,7 +74,6 @@ export default function ArticleView() {
     );
   }
 
-  const article = articles.find(a => a.id === id);
   if (!article) {
     return (
       <div className="container py-16 text-center">
@@ -155,21 +187,42 @@ export default function ArticleView() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {previousArticle ? (
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/article/${previousArticle.id}`}>Articol anterior</Link>
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" disabled>Articol anterior</Button>
-        )}
-        {nextArticle ? (
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/article/${nextArticle.id}`}>Articol următor</Link>
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" disabled>Articol următor</Button>
-        )}
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          {previousArticle ? (
+            <Button asChild size="sm" variant="outline">
+              <Link to={`/article/${previousArticle.id}`}>Articol anterior</Link>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" disabled>Articol anterior</Button>
+          )}
+          {nextArticle ? (
+            <Button asChild size="sm" variant="outline">
+              <Link to={`/article/${nextArticle.id}`}>Articol următor</Link>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" disabled>Articol următor</Button>
+          )}
+        </div>
+
+        <div className="ml-auto grid grid-cols-2 gap-2 text-right sm:grid-cols-4">
+          {[
+            { label: 'Ultima zi', value: articleAnalytics?.lastDay },
+            { label: 'Ultima săptămână', value: articleAnalytics?.lastWeek },
+            { label: 'Ultima lună', value: articleAnalytics?.lastMonth },
+            { label: 'Total', value: articleAnalytics?.total },
+          ].map((item) => (
+            <div key={item.label} className="min-w-[112px] rounded-md border bg-card px-3 py-2 shadow-sm">
+              <div className="flex items-center justify-end gap-1 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+                <Eye className="h-3 w-3" />
+                <span>{item.label}</span>
+              </div>
+              <div className="mt-1 text-sm font-semibold tabular-nums">
+                {typeof item.value === 'number' ? item.value.toLocaleString('ro-RO') : '—'}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* PDF Viewer */}

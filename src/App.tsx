@@ -28,6 +28,7 @@ import DashboardReviewer from './pages/dashboard/DashboardReviewer';
 import DashboardAuthor from './pages/dashboard/DashboardAuthor';
 import DashboardUsers from './pages/dashboard/DashboardUsers';
 import DashboardEmailTemplates from './pages/dashboard/DashboardEmailTemplates';
+import DashboardStats from './pages/dashboard/DashboardStats';
 import DashboardPlaceholder from './pages/dashboard/DashboardPlaceholder';
 import NotFound from './pages/NotFound';
 
@@ -71,6 +72,15 @@ const App = () => (
                   )}
                 >
                   <Route index element={<DashboardHome />} />
+
+                  <Route
+                    path="stats"
+                    element={(
+                      <RequireRole roles={['admin']}>
+                        <DashboardStats />
+                      </RequireRole>
+                    )}
+                  />
 
                   <Route
                     path="issues"

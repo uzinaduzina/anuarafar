@@ -4,6 +4,8 @@ import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { labelForPublicPath } from '@/lib/analytics';
+import { useTrackAnalyticsView } from '@/hooks/useTrackAnalyticsView';
 
 const NAV_ITEMS = [
   { label: 'Acasă', path: '/', icon: BookOpen },
@@ -24,6 +26,13 @@ export default function PublicLayout() {
   const { user } = useAuth();
   const [despreOpen, setDespreOpen] = useState(false);
   const despreRef = useRef<HTMLDivElement>(null);
+
+  useTrackAnalyticsView({
+    entityType: 'page',
+    entityId: location.pathname,
+    label: labelForPublicPath(location.pathname),
+    path: location.pathname,
+  });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

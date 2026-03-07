@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import { AUTH_ACCOUNTS, type AuthAccount, type UserRole } from '@/data/authUsers';
+import { fetchAdminAnalyticsDashboard, type AnalyticsDashboardData } from '@/lib/analytics';
 
 type AuthUser = AuthAccount;
 type AuthTransport = 'local' | 'remote';
@@ -56,6 +57,10 @@ interface TemplateActionResult extends ActionResult {
   template?: ManagedEmailTemplate;
 }
 
+interface AnalyticsActionResult extends ActionResult {
+  analytics?: AnalyticsDashboardData;
+}
+
 interface ApiAuthResponse {
   ok?: boolean;
   message?: string;
@@ -80,6 +85,7 @@ interface AuthContextType {
   fetchEmailTemplates: () => Promise<TemplateActionResult>;
   updateEmailTemplate: (id: string, template: Partial<EmailTemplateFields>) => Promise<TemplateActionResult>;
   resetEmailTemplate: (id: string) => Promise<TemplateActionResult>;
+  fetchAnalyticsDashboard: () => Promise<AnalyticsActionResult>;
   logout: () => void;
   isAdmin: boolean;
   isEditor: boolean;
@@ -275,6 +281,7 @@ const AuthContext = createContext<AuthContextType>({
   fetchEmailTemplates: async () => buildTemplateAction(false),
   updateEmailTemplate: async () => buildTemplateAction(false),
   resetEmailTemplate: async () => buildTemplateAction(false),
+  fetchAnalyticsDashboard: async () => buildAction(false),
   logout: () => {},
   isAdmin: false,
   isEditor: false,
@@ -648,6 +655,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [authToken, sessionExpiresAt]);
 
+  const fetchAnalyticsDashboard = useCallback(async (): Promise<AnalyticsActionResult> => {
+    if (!REMOTE_AUTH_ENABLED) {
+      return buildAction(false, undefined, 'Statisticile sunt disponibile doar in modul remote.');
+    }
+
+    if (!authToken || !sessionExpiresAt || sessionExpiresAt <= Date.now()) {
+      setUser(null);
+      setAuthToken(null);
+      setSessionExpiresAt(null);
+      setAccounts([]);
+      clearPersistedSession();
+      return buildAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
+    }
+
+    try {
+      const analytics = await fetchAdminAnalyticsDashboard(authToken);
+      return {
+        ok: true,
+        analytics,
+      };
+    } catch (error) {
+      return buildAction(false, undefined, error instanceof Error ? error.message : 'Nu am putut incarca statisticile.');
+    }
+  }, [authToken, sessionExpiresAt]);
+
   const logout = useCallback(() => {
     setUser(null);
     setAuthToken(null);
@@ -685,6 +717,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchEmailTemplates,
     updateEmailTemplate,
     resetEmailTemplate,
+    fetchAnalyticsDashboard,
     logout,
     isAdmin,
     isEditor,
@@ -706,6 +739,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchEmailTemplates,
     updateEmailTemplate,
     resetEmailTemplate,
+    fetchAnalyticsDashboard,
     logout,
     isAdmin,
     isEditor,

@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   FileUp,
   Mail,
+  BarChart3,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +32,7 @@ import logo from '@/assets/logo_iafar.png';
 const roleNavigation = {
   admin: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+    { title: 'Statistici', url: '/dashboard/stats', icon: BarChart3 },
     { title: 'Numere (CSV)', url: '/dashboard/issues', icon: BookOpen },
     { title: 'Articole trimise', url: '/dashboard/submissions', icon: FileText },
     { title: 'Recenzii (reviewer)', url: '/dashboard/reviewer', icon: ClipboardCheck },
