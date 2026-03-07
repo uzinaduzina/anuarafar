@@ -121,7 +121,7 @@ export default function Login() {
             <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
               Pentru admin/editor/reviewer foloseste pagina separata:
               {' '}
-              <Link to="/admin-login" className="text-primary hover:underline">Admin login (user + parola)</Link>.
+              <Link to="/admin-login" className="text-primary hover:underline">Admin login (user + parolă sau email + cod)</Link>.
             </div>
           </div>
         </div>

@@ -1,11 +1,14 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard, Menu } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { labelForPublicPath } from '@/lib/analytics';
 import { useTrackAnalyticsView } from '@/hooks/useTrackAnalyticsView';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import PwaInstallButton from '@/components/PwaInstallButton';
 
 const NAV_ITEMS = [
   { label: 'Acasă', path: '/', icon: BookOpen },
@@ -25,6 +28,7 @@ export default function PublicLayout() {
   const location = useLocation();
   const { user } = useAuth();
   const [despreOpen, setDespreOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const despreRef = useRef<HTMLDivElement>(null);
   const isTrackedByPageComponent = location.pathname.startsWith('/article/')
     || /^\/archive\/[^/]+$/.test(location.pathname);
@@ -47,6 +51,10 @@ export default function PublicLayout() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   const isDespreActive = DESPRE_ITEMS.some(
     item => location.pathname === item.path || location.pathname.startsWith(item.path + '/')
   );
@@ -68,7 +76,7 @@ export default function PublicLayout() {
             </div>
           </Link>
 
-          <nav className="flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1">
             {NAV_ITEMS.map(item => {
               const active = location.pathname === item.path || 
                 (item.path !== '/' && location.pathname.startsWith(item.path));
@@ -140,9 +148,107 @@ export default function PublicLayout() {
                 <span className="hidden md:inline">Login</span>
               </Link>
             )}
+
+            <PwaInstallButton
+              variant="ghost"
+              size="sm"
+              className="ml-1 gap-2 text-muted-foreground hover:text-foreground hover:bg-accent"
+              label="Instalează"
+              installedLabel="Instalată"
+            />
           </nav>
+
+          <div className="flex items-center gap-2 md:hidden">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Deschide meniul"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </header>
+
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="right" className="w-full max-w-sm border-l px-0">
+          <div className="flex h-full flex-col">
+            <div className="border-b px-5 py-5">
+              <Link to="/" className="flex items-center gap-3">
+                <img src={logo} alt="IAFAR" className="h-10 w-10 rounded-sm" />
+                <div>
+                  <div className="font-serif text-lg font-bold leading-tight text-foreground">
+                    Anuarul AAF
+                  </div>
+                  <div className="text-[0.65rem] uppercase tracking-[0.12em] text-muted-foreground">
+                    ISSN {JOURNAL.issn}
+                  </div>
+                </div>
+              </Link>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+              <div className="space-y-2">
+                <div className="text-[0.68rem] uppercase tracking-[0.12em] font-semibold text-muted-foreground">Navigare</div>
+                {NAV_ITEMS.map((item) => {
+                  const active = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition-colors ${
+                        active ? 'bg-primary/10 text-primary' : 'hover:bg-accent text-foreground'
+                      }`}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[0.68rem] uppercase tracking-[0.12em] font-semibold text-muted-foreground">Despre</div>
+                {DESPRE_ITEMS.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition-colors ${
+                      location.pathname === item.path ? 'bg-primary/10 text-primary' : 'hover:bg-accent text-foreground'
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t px-5 py-5 space-y-3">
+              <PwaInstallButton className="w-full justify-center gap-2" label="Instalează aplicația" installedLabel="Aplicație instalată" />
+              {user ? (
+                <Button asChild variant="outline" className="w-full">
+                  <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild variant="outline" className="w-full">
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Login
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Main content */}
       <main className="flex-1">

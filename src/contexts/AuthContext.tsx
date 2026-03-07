@@ -10,8 +10,13 @@ interface CreateAccountInput {
   name: string;
   email: string;
   role: UserRole;
-  password: string;
   username?: string;
+}
+
+interface GeneratedCredentials {
+  username: string;
+  password: string;
+  email: string;
 }
 
 interface SendRoleNotificationInput {
@@ -52,6 +57,11 @@ interface ActionResult {
   error?: string;
 }
 
+interface CreateAccountActionResult extends ActionResult {
+  account?: AuthAccount;
+  credentials?: GeneratedCredentials;
+}
+
 interface TemplateActionResult extends ActionResult {
   templates?: ManagedEmailTemplate[];
   template?: ManagedEmailTemplate;
@@ -71,6 +81,7 @@ interface ApiAuthResponse {
   accounts?: AuthAccount[];
   templates?: ManagedEmailTemplate[];
   template?: ManagedEmailTemplate;
+  credentials?: GeneratedCredentials;
 }
 
 interface AuthContextType {
@@ -80,7 +91,7 @@ interface AuthContextType {
   loginWithPassword: (identifier: string, password: string) => Promise<ActionResult>;
   verifyLoginCode: (email: string, code: string) => Promise<ActionResult>;
   refreshAccounts: () => Promise<ActionResult>;
-  createAccount: (input: CreateAccountInput) => Promise<ActionResult>;
+  createAccount: (input: CreateAccountInput) => Promise<CreateAccountActionResult>;
   sendRoleNotification: (input: SendRoleNotificationInput) => Promise<ActionResult>;
   fetchEmailTemplates: () => Promise<TemplateActionResult>;
   updateEmailTemplate: (id: string, template: Partial<EmailTemplateFields>) => Promise<TemplateActionResult>;
@@ -125,6 +136,16 @@ function buildTemplateAction(ok: boolean, message?: string, error?: string): Tem
   return { ok, message, error };
 }
 
+function buildCreateAccountAction(
+  ok: boolean,
+  message?: string,
+  error?: string,
+  account?: AuthAccount,
+  credentials?: GeneratedCredentials,
+): CreateAccountActionResult {
+  return { ok, message, error, account, credentials };
+}
+
 function isAuthUser(value: unknown): value is AuthUser {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<AuthUser>;
@@ -147,6 +168,14 @@ function parseRemoteAccounts(accounts: unknown): AuthAccount[] {
         email: normalizeEmail(account.email),
       };
     });
+}
+
+function isGeneratedCredentials(value: unknown): value is GeneratedCredentials {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<GeneratedCredentials>;
+  return typeof candidate.username === 'string'
+    && typeof candidate.password === 'string'
+    && typeof candidate.email === 'string';
 }
 
 function isEmailTemplateFields(value: unknown): value is EmailTemplateFields {
@@ -276,7 +305,7 @@ const AuthContext = createContext<AuthContextType>({
   loginWithPassword: async () => buildAction(false),
   verifyLoginCode: async () => buildAction(false),
   refreshAccounts: async () => buildAction(false),
-  createAccount: async () => buildAction(false),
+  createAccount: async () => buildCreateAccountAction(false),
   sendRoleNotification: async () => buildAction(false),
   fetchEmailTemplates: async () => buildTemplateAction(false),
   updateEmailTemplate: async () => buildTemplateAction(false),
@@ -460,9 +489,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [authToken, sessionExpiresAt]);
 
-  const createAccount = useCallback(async (input: CreateAccountInput): Promise<ActionResult> => {
+  const createAccount = useCallback(async (input: CreateAccountInput): Promise<CreateAccountActionResult> => {
     if (!REMOTE_AUTH_ENABLED) {
-      return buildAction(false, undefined, 'Crearea de utilizatori este disponibila doar in modul remote.');
+      return buildCreateAccountAction(false, undefined, 'Crearea de utilizatori este disponibila doar in modul remote.');
     }
 
     if (!authToken || !sessionExpiresAt || sessionExpiresAt <= Date.now()) {
@@ -471,7 +500,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSessionExpiresAt(null);
       setAccounts([]);
       clearPersistedSession();
-      return buildAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
+      return buildCreateAccountAction(false, undefined, 'Sesiunea a expirat. Reautentifica-te.');
     }
 
     try {
@@ -486,13 +515,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const payload = await parseApiResponse(response);
 
       if (!response.ok || payload.ok === false) {
-        return buildAction(false, undefined, payload.error || 'Nu am putut crea utilizatorul.');
+        return buildCreateAccountAction(false, undefined, payload.error || 'Nu am putut crea utilizatorul.');
       }
 
       await refreshAccounts();
-      return buildAction(true, payload.message || 'Utilizator creat cu succes.');
+      const account = isAuthUser(payload.account)
+        ? {
+            username: payload.account.username,
+            name: payload.account.name,
+            role: payload.account.role,
+            email: normalizeEmail(payload.account.email),
+          }
+        : undefined;
+      const credentials = isGeneratedCredentials(payload.credentials)
+        ? {
+            username: payload.credentials.username,
+            password: payload.credentials.password,
+            email: normalizeEmail(payload.credentials.email),
+          }
+        : undefined;
+      return buildCreateAccountAction(
+        true,
+        payload.message || 'Utilizator creat cu succes.',
+        undefined,
+        account,
+        credentials,
+      );
     } catch {
-      return buildAction(false, undefined, 'Serviciul de utilizatori nu raspunde momentan.');
+      return buildCreateAccountAction(false, undefined, 'Serviciul de utilizatori nu raspunde momentan.');
     }
   }, [authToken, refreshAccounts, sessionExpiresAt]);
 

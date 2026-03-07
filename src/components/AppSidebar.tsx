@@ -28,6 +28,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import logo from '@/assets/logo_iafar.png';
+import PwaInstallButton from '@/components/PwaInstallButton';
 
 const roleNavigation = {
   admin: [
@@ -122,6 +123,15 @@ export function AppSidebar() {
                 {!collapsed && <span>Site public</span>}
               </button>
             </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <PwaInstallButton
+              variant="ghost"
+              className="w-full justify-start gap-2 px-2 text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              label="Instalează aplicația"
+              installedLabel="Aplicație instalată"
+              showLabel={!collapsed}
+            />
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>

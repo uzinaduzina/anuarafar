@@ -31,6 +31,7 @@ import DashboardEmailTemplates from './pages/dashboard/DashboardEmailTemplates';
 import DashboardStats from './pages/dashboard/DashboardStats';
 import DashboardPlaceholder from './pages/dashboard/DashboardPlaceholder';
 import NotFound from './pages/NotFound';
+import { PwaProvider } from './contexts/PwaContext';
 
 const queryClient = new QueryClient();
 const routerBasename = import.meta.env.BASE_URL === '/'
@@ -41,12 +42,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <JournalDataProvider>
-          <SubmissionDataProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter basename={routerBasename}>
-              <Routes>
+        <PwaProvider>
+          <JournalDataProvider>
+            <SubmissionDataProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter basename={routerBasename}>
+                <Routes>
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<Home />} />
                   <Route path="/archive" element={<ArchivePage />} />
@@ -147,10 +149,11 @@ const App = () => (
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </SubmissionDataProvider>
-        </JournalDataProvider>
+                </Routes>
+              </BrowserRouter>
+            </SubmissionDataProvider>
+          </JournalDataProvider>
+        </PwaProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

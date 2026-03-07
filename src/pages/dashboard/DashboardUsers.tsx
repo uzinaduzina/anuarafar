@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ShieldCheck, Mail, UserPlus, Send } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ShieldCheck, Mail, UserPlus, Send, Copy, KeyRound } from 'lucide-react';
 import { ROLE_LABELS, type UserRole } from '@/data/authUsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
-const ROLE_OPTIONS: UserRole[] = ['admin', 'editor', 'reviewer', 'author'];
+const ROLE_OPTIONS: UserRole[] = ['admin', 'editor', 'reviewer'];
+
+interface GeneratedCredentials {
+  username: string;
+  password: string;
+  email: string;
+}
 
 export default function DashboardUsers() {
   const { toast } = useToast();
@@ -23,12 +29,12 @@ export default function DashboardUsers() {
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [generatedCredentials, setGeneratedCredentials] = useState<GeneratedCredentials | null>(null);
 
   const [createForm, setCreateForm] = useState({
     name: '',
     email: '',
     role: 'editor' as UserRole,
-    password: '',
     username: '',
   });
 
@@ -37,6 +43,17 @@ export default function DashboardUsers() {
     subject: '',
     message: '',
   });
+
+  const credentialsText = useMemo(() => {
+    if (!generatedCredentials) return '';
+    return [
+      `Email: ${generatedCredentials.email}`,
+      `Username: ${generatedCredentials.username}`,
+      `Parola: ${generatedCredentials.password}`,
+      'Login direct: user + parola',
+      'Login cu cod: email + parola -> cere cod pe email',
+    ].join('\n');
+  }, [generatedCredentials]);
 
   useEffect(() => {
     if (authTransport !== 'remote') return;
@@ -77,13 +94,30 @@ export default function DashboardUsers() {
     }
 
     toast({ title: 'Utilizator creat', description: result.message });
+    setGeneratedCredentials(result.credentials || null);
     setCreateForm({
       name: '',
       email: '',
       role: 'editor',
-      password: '',
       username: '',
     });
+  };
+
+  const handleCopyCredentials = async () => {
+    if (!credentialsText) return;
+    try {
+      await navigator.clipboard.writeText(credentialsText);
+      toast({
+        title: 'Credențiale copiate',
+        description: 'Le poți trimite și manual, dacă este nevoie.',
+      });
+    } catch {
+      toast({
+        title: 'Nu am putut copia',
+        description: 'Copiază manual credențialele afișate.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSendNotification = async (event: React.FormEvent) => {
@@ -114,7 +148,7 @@ export default function DashboardUsers() {
       <div>
         <h1 className="font-serif text-2xl font-bold">Utilizatori & autentificare</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Creezi utilizatori cu parola si le trimiti cod de logare pe email, valabil 30 de zile.
+          Creezi conturi editoriale cu username si parola generate automat. Utilizatorul primit pe email se poate conecta fie cu user + parola, fie cu email + cod.
         </p>
       </div>
 
@@ -198,29 +232,52 @@ export default function DashboardUsers() {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-user-password">Parola</Label>
-                <Input
-                  id="new-user-password"
-                  type="password"
-                  value={createForm.password}
-                  onChange={(event) => setCreateForm((previous) => ({ ...previous, password: event.target.value }))}
-                  placeholder="Minimum 8 caractere"
-                  required
-                  minLength={8}
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="new-user-username">Username (optional)</Label>
                 <Input
                   id="new-user-username"
                   value={createForm.username}
                   onChange={(event) => setCreateForm((previous) => ({ ...previous, username: event.target.value }))}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Dacă îl lași gol, sistemul generează automat username-ul pornind de la email.
+                </p>
               </div>
               <Button type="submit" disabled={isCreatingUser} className="w-full">
                 <UserPlus className="mr-2 h-4 w-4" />
-                Creeaza utilizator si trimite codul de login
+                Creează utilizator și trimite credențialele
               </Button>
+
+              {generatedCredentials && (
+                <div className="rounded-lg border bg-secondary/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <KeyRound className="h-4 w-4 text-primary" />
+                      <h3 className="font-semibold text-sm">Ultimele credențiale generate</h3>
+                    </div>
+                    <Button type="button" size="sm" variant="outline" onClick={handleCopyCredentials}>
+                      <Copy className="mr-2 h-3.5 w-3.5" />
+                      Copiază
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                    <div className="rounded-md border bg-background px-3 py-2">
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Email</div>
+                      <div className="mt-1 font-medium break-all">{generatedCredentials.email}</div>
+                    </div>
+                    <div className="rounded-md border bg-background px-3 py-2">
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Username</div>
+                      <div className="mt-1 font-medium break-all">{generatedCredentials.username}</div>
+                    </div>
+                    <div className="rounded-md border bg-background px-3 py-2">
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Parola</div>
+                      <div className="mt-1 font-medium break-all">{generatedCredentials.password}</div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Credențialele au fost trimise și pe email. Codul de login rămâne disponibil 30 de zile.
+                  </p>
+                </div>
+              )}
             </form>
           </div>
 

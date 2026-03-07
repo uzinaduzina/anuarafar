@@ -55,6 +55,7 @@ interface BuildEmailTemplateInput {
 
 type EmailTemplateId =
   | 'login_code'
+  | 'account_credentials'
   | 'submission_new_editorial'
   | 'submission_confirmation_author'
   | 'reviewer_assigned'
@@ -237,6 +238,21 @@ const EMAIL_TEMPLATE_DESCRIPTORS: EmailTemplateDescriptor[] = [
       intro: 'Ai solicitat autentificarea in {{app_name}}. Codul tau este mai jos.',
       note: 'Codul este valabil {{validity}}.',
       action: 'Daca nu ai cerut acest cod, ignora mesajul.',
+      footer: '',
+    },
+  },
+  {
+    id: 'account_credentials',
+    label: 'Credențiale cont nou',
+    description: 'Email trimis la crearea unui cont editorial nou.',
+    placeholders: ['app_name', 'recipient_name', 'email', 'username', 'password', 'code', 'validity', 'role'],
+    defaults: {
+      subject: '{{app_name}} - cont nou editorial',
+      heading: 'Cont creat în platformă',
+      greeting: '{{recipient_name}}',
+      intro: 'A fost creat un cont pentru tine în {{app_name}}. Mai jos ai datele inițiale de autentificare.',
+      note: 'Poți folosi direct username + parola sau poți cere un cod nou pe email folosind emailul și parola contului.',
+      action: 'Conectează-te în dashboard și schimbă fluxul de lucru după rolul primit.',
       footer: '',
     },
   },
@@ -968,6 +984,28 @@ function toIsoDate(value: Date): string {
   const month = String(value.getMonth() + 1).padStart(2, '0');
   const day = String(value.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function userRoleLabel(role: UserRole): string {
+  switch (role) {
+    case 'admin':
+      return 'Admin';
+    case 'editor':
+      return 'Editor';
+    case 'reviewer':
+      return 'Reviewer';
+    case 'author':
+      return 'Autor';
+    default:
+      return role;
+  }
+}
+
+function generateSecurePassword(length = 14): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!#%*+-_';
+  const chars = new Uint32Array(length);
+  crypto.getRandomValues(chars);
+  return Array.from(chars, (value) => alphabet[value % alphabet.length]).join('');
 }
 
 function isAnalyticsEntityType(value: string): value is AnalyticsEntityType {
@@ -1768,6 +1806,54 @@ async function sendLoginCodeEmail(
   );
 }
 
+async function sendAccountCredentialsEmail(
+  env: Env,
+  user: StoredUser,
+  password: string,
+  loginCode: string,
+  ttlSeconds: number,
+  emailTemplates: StoredEmailTemplateMap,
+): Promise<Response> {
+  const appName = getAppName(env);
+  const validity = ttlLabel(ttlSeconds);
+  const templateFields = resolveTemplateFields('account_credentials', emailTemplates, {
+    app_name: appName,
+    recipient_name: user.name,
+    email: user.email,
+    username: user.username,
+    password,
+    code: loginCode,
+    validity,
+    role: userRoleLabel(user.role),
+  });
+
+  const template = buildWorkflowEmailTemplate({
+    subject: templateFields.subject,
+    heading: templateFields.heading,
+    greeting: templateFields.greeting || undefined,
+    intro: templateFields.intro,
+    details: [
+      { label: 'Rol', value: userRoleLabel(user.role) },
+      { label: 'Email', value: user.email },
+      { label: 'Username', value: user.username },
+      { label: 'Parola', value: password },
+      { label: 'Cod login', value: loginCode },
+      { label: 'Valabilitate cod', value: validity },
+    ],
+    note: templateFields.note || undefined,
+    action: templateFields.action || undefined,
+    footer: templateFields.footer || undefined,
+  });
+
+  return sendEmail(
+    env,
+    [user.email],
+    template.subject,
+    template.html,
+    template.text,
+  );
+}
+
 type PasswordCheckResult = 'ok' | 'missing' | 'wrong' | 'not_configured';
 
 async function checkAccountPassword(account: StoredUser, password: string, env: Env): Promise<PasswordCheckResult> {
@@ -2001,7 +2087,6 @@ async function handleCreateUser(request: Request, env: Env): Promise<Response> {
   const email = typeof body.email === 'string' ? normalizeEmail(body.email) : '';
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const roleRaw = typeof body.role === 'string' ? body.role.trim().toLowerCase() : '';
-  const password = typeof body.password === 'string' ? body.password : '';
   const usernameRaw = typeof body.username === 'string' ? body.username.trim() : '';
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -2012,9 +2097,6 @@ async function handleCreateUser(request: Request, env: Env): Promise<Response> {
   }
   if (!isUserRole(roleRaw)) {
     return jsonResponse(request, env, 400, { ok: false, error: 'Rol invalid.' });
-  }
-  if (password.length < 8) {
-    return jsonResponse(request, env, 400, { ok: false, error: 'Parola trebuie sa aiba minimum 8 caractere.' });
   }
 
   const users = await readUsers(env);
@@ -2031,6 +2113,7 @@ async function handleCreateUser(request: Request, env: Env): Promise<Response> {
     counter += 1;
   }
 
+  const password = generateSecurePassword();
   const passwordHash = await hashPassword(password, env);
   const newUser: StoredUser = {
     username: candidateUsername,
@@ -2047,7 +2130,7 @@ async function handleCreateUser(request: Request, env: Env): Promise<Response> {
   const ttlSeconds = parsePositiveInt(env.OTP_TTL_SECONDS, DEFAULT_OTP_TTL_SECONDS);
   const loginCode = await issueLoginCode(env, email, ttlSeconds);
   const emailTemplates = await readEmailTemplates(env);
-  const sendResult = await sendLoginCodeEmail(env, email, name, loginCode.code, ttlSeconds, emailTemplates);
+  const sendResult = await sendAccountCredentialsEmail(env, newUser, password, loginCode.code, ttlSeconds, emailTemplates);
   if (!sendResult.ok) {
     const errorBody = await sendResult.text();
     console.error('Resend create-user send failed', sendResult.status, errorBody);
@@ -2061,8 +2144,13 @@ async function handleCreateUser(request: Request, env: Env): Promise<Response> {
 
   return jsonResponse(request, env, 201, {
     ok: true,
-    message: `Utilizator creat. Codul de logare a fost trimis si este valabil ${ttlLabel(ttlSeconds)}.`,
+    message: `Utilizator creat. Username-ul, parola generata si codul de logare au fost trimise pe email.`,
     account: toAccount(newUser),
+    credentials: {
+      username: newUser.username,
+      password,
+      email: newUser.email,
+    },
   });
 }
 
