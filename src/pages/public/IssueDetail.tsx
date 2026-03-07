@@ -40,15 +40,8 @@ export default function IssueDetail() {
   const { issues, articles, loading } = useJournalData();
   const { isEditor, isAdmin } = useAuth();
   const [editArticle, setEditArticle] = useState<Article | null>(null);
-  if (loading) {
-    return (
-      <div className="container py-16 flex justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const issue = issues.find(i => i.slug === slug);
+
   useEffect(() => {
     if (!issue) return;
 
@@ -59,6 +52,14 @@ export default function IssueDetail() {
       path: `/archive/${issue.slug}`,
     });
   }, [issue?.slug, issue?.title]);
+
+  if (loading) {
+    return (
+      <div className="container py-16 flex justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!issue) {
     return (
