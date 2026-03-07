@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import SubmissionWorkflowDrawer from '@/components/SubmissionWorkflowDrawer';
 import { useToast } from '@/hooks/use-toast';
 import type { Submission } from '@/data/types';
+import { reviewRecommendationLabel } from '@/data/reviewForm';
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
   submitted: { label: 'Trimis', cls: 'bg-primary/10 text-primary' },
@@ -266,7 +267,7 @@ export default function DashboardSubmissions() {
                       {submission.recommendation && (
                         <div className="rounded-md border border-primary/20 bg-primary/5 p-2 space-y-1">
                           <div className="text-[0.6rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recomandare R1</div>
-                          <div className="text-xs font-semibold text-primary">{submission.recommendation}</div>
+                          <div className="text-xs font-semibold text-primary">{reviewRecommendationLabel(submission.recommendation)}</div>
                           {submission.review_notes && (
                             <p className="text-xs text-muted-foreground whitespace-pre-wrap">{submission.review_notes}</p>
                           )}
@@ -297,7 +298,7 @@ export default function DashboardSubmissions() {
                       {submission.recommendation_2 && (
                         <div className="rounded-md border border-primary/20 bg-primary/5 p-2 space-y-1">
                           <div className="text-[0.6rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recomandare R2</div>
-                          <div className="text-xs font-semibold text-primary">{submission.recommendation_2}</div>
+                          <div className="text-xs font-semibold text-primary">{reviewRecommendationLabel(submission.recommendation_2 || '')}</div>
                           {submission.review_notes_2 && (
                             <p className="text-xs text-muted-foreground whitespace-pre-wrap">{submission.review_notes_2}</p>
                           )}

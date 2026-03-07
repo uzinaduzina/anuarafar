@@ -70,6 +70,8 @@ export interface Submission {
   reviewer_deadline_2?: string;
   recommendation: string;
   recommendation_2?: string;
+  review_form?: Partial<Record<ReviewCriterionId, ReviewAnswer>>;
+  review_form_2?: Partial<Record<ReviewCriterionId, ReviewAnswer>>;
   review_notes?: string;
   review_notes_2?: string;
   reviewed_at?: string;
@@ -91,6 +93,20 @@ export interface Submission {
 }
 
 export type UserRole = 'admin' | 'editor' | 'reviewer' | 'author' | 'public';
+
+export type ReviewAnswer = 'yes' | 'partial' | 'no';
+export type ReviewCriterionId =
+  | 'q1'
+  | 'q2'
+  | 'q3'
+  | 'q4'
+  | 'q5'
+  | 'q6'
+  | 'q7'
+  | 'q8'
+  | 'q9'
+  | 'q10'
+  | 'q11';
 
 export interface AppUser {
   username: string;

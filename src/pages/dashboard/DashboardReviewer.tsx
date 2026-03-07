@@ -1,18 +1,20 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, ClipboardCheck, ChevronDown, ChevronUp, FileText, Download } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, ChevronDown, ChevronUp, Download, FileText } from 'lucide-react';
 import { useSubmissionData } from '@/data/SubmissionDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import type { Submission } from '@/data/types';
-
-const recommendationLabels: Record<string, { label: string; cls: string }> = {
-  accept: { label: 'Acceptat', cls: 'bg-series-1-bg text-series-1-foreground' },
-  minor_revisions: { label: 'Revizuiri minore', cls: 'bg-amber-100 text-amber-900' },
-  major_revisions: { label: 'Revizuiri majore', cls: 'bg-series-3-bg text-series-3-foreground' },
-  reject: { label: 'Respins', cls: 'bg-destructive/10 text-destructive' },
-};
+import {
+  REVIEW_ANSWER_LABELS,
+  REVIEW_ANSWER_ORDER,
+  REVIEW_CRITERIA,
+  REVIEW_RECOMMENDATIONS,
+  countReviewAnswers,
+  isCompleteReviewForm,
+  reviewRecommendationLabel,
+} from '@/data/reviewForm';
 
 function todayIsoDate() {
   const now = new Date();
@@ -22,69 +24,69 @@ function todayIsoDate() {
 const DEMO_SUBMISSIONS: Submission[] = [
   {
     id: 'demo-rev-1',
-    title: 'Practici rituale în zona Munților Apuseni: o analiză comparativă',
+    title: 'Practici rituale in zona Muntilor Apuseni: o analiza comparativa',
     authors: '[Anonim]',
     email: '',
     affiliation: '',
-    abstract: 'Studiul propune o analiză comparativă a practicilor rituale din zona Munților Apuseni, bazată pe cercetări de teren efectuate între 2019 și 2024. Sunt examinate ritualurile de trecere, obiceiurile calendaristice și formele de religiozitate populară, cu accent pe transformările suferite în ultimele decenii. Metodologia combină observația participativă cu interviurile semi-structurate aplicate în 12 comunități rurale.',
-    keywords_ro: 'ritualuri, Munții Apuseni, etnografie, obiceiuri calendaristice, religiozitate populară',
-    keywords_en: 'rituals, Apuseni Mountains, ethnography, calendar customs, popular religiosity',
+    abstract: 'Studiul propune o analiza comparativa a practicilor rituale din zona Muntilor Apuseni, bazata pe cercetari de teren efectuate intre 2019 si 2024.',
+    keywords_ro: 'ritualuri, etnografie, Apuseni',
+    keywords_en: 'rituals, ethnography, Apuseni',
     date_submitted: '2026-02-15',
     status: 'under_review',
-    assigned_reviewer: '', assigned_reviewer_email: '',
+    assigned_reviewer: '',
+    assigned_reviewer_email: '',
     reviewer_deadline: '2026-04-15',
-    recommendation: '', decision: '',
-    anonymized_files: [
-      { id: 'demo-file-1', filename: 'manuscris_blind_001.docx', size: 245000 },
-    ],
-  },
-  {
-    id: 'demo-rev-2',
-    title: 'Narative orale și identitate comunitară în satele din Maramureș',
-    authors: '[Anonim]',
-    email: '',
-    affiliation: '',
-    abstract: 'Articolul investighează rolul narativelor orale în construcția identității comunitare din cinci sate maramureșene. Prin analiza tematică a 47 de interviuri colectate, se evidențiază modul în care memoriile colective și legendele locale contribuie la menținerea coeziunii sociale și la diferențierea față de comunitățile învecinate. Se propune un model interpretativ bazat pe teoria memoriei culturale.',
-    keywords_ro: 'narative orale, identitate comunitară, Maramureș, memorie culturală, coeziune socială',
-    keywords_en: 'oral narratives, community identity, Maramureș, cultural memory, social cohesion',
-    date_submitted: '2026-02-20',
-    status: 'under_review',
-    assigned_reviewer: '', assigned_reviewer_email: '',
-    reviewer_deadline: '2026-04-20',
-    recommendation: '', decision: '',
-    anonymized_files: [
-      { id: 'demo-file-2', filename: 'manuscris_blind_002.docx', size: 312000 },
-      { id: 'demo-file-2b', filename: 'manuscris_blind_002_layout.pdf', size: 580000 },
-    ],
-  },
-  {
-    id: 'demo-rev-3',
-    title: 'Tipologia basmului fantastic românesc: noi perspective metodologice',
-    authors: '[Anonim]',
-    email: '',
-    affiliation: '',
-    abstract: 'Lucrarea reconsideră tipologia basmului fantastic românesc prin prisma metodelor computaționale aplicate unui corpus de 320 de texte din arhivele Academiei Române. Se demonstrează că clasificarea clasică Aarne-Thompson-Uther necesită adaptări pentru specificul narativ sud-est european și se propun trei subtipuri noi, validate statistic.',
-    keywords_ro: 'basm fantastic, tipologie, Aarne-Thompson-Uther, analiză computațională, folclor românesc',
-    keywords_en: 'fairy tale, typology, Aarne-Thompson-Uther, computational analysis, Romanian folklore',
-    date_submitted: '2026-03-01',
-    status: 'under_review',
-    assigned_reviewer: '', assigned_reviewer_email: '',
-    reviewer_deadline: '2026-04-30',
-    recommendation: '', decision: '',
-    anonymized_files: [
-      { id: 'demo-file-3', filename: 'manuscris_blind_003.docx', size: 198000 },
-    ],
+    recommendation: '',
+    decision: '',
+    files: [{ id: 'demo-file-1', filename: 'manuscris_blind_001.docx', size: 245000 }],
+    anonymized_files: [],
   },
 ];
+
+type ReviewerDraft = {
+  recommendation: string;
+  notes: string;
+  answers: Submission['review_form'];
+};
+
+function ReviewAnswerButtons({
+  currentValue,
+  onSelect,
+}: {
+  currentValue: string;
+  onSelect: (value: 'yes' | 'partial' | 'no') => void;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {REVIEW_ANSWER_ORDER.map((answer) => {
+        const active = currentValue === answer;
+        return (
+          <button
+            key={answer}
+            type="button"
+            className={`rounded-md border px-2 py-1.5 text-[0.7rem] font-semibold transition-colors ${
+              active
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'bg-background hover:bg-accent/60'
+            }`}
+            onClick={() => onSelect(answer)}
+          >
+            {REVIEW_ANSWER_LABELS[answer]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function DashboardReviewer() {
   const { user } = useAuth();
   const { getSubmissionsForReviewer, updateSubmission, downloadSubmissionFile } = useSubmissionData();
   const { toast } = useToast();
 
-  const [formState, setFormState] = useState<Record<string, { recommendation: string; notes: string }>>({});
+  const [formState, setFormState] = useState<Record<string, ReviewerDraft>>({});
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [demoRecommendations, setDemoRecommendations] = useState<Record<string, string>>({});
+  const [demoSubmitted, setDemoSubmitted] = useState<Record<string, string>>({});
 
   const realAssigned = useMemo(
     () => getSubmissionsForReviewer(user?.email || ''),
@@ -112,53 +114,89 @@ export default function DashboardReviewer() {
   const getFormKey = (submissionId: string, slot: 1 | 2) => `${submissionId}-${slot}`;
 
   const reviewedCount = assignedSubmissions.filter((submission) => {
-    if (isDemo) return Boolean(demoRecommendations[submission.id]);
+    if (isDemo) return Boolean(demoSubmitted[submission.id]);
     const slot = getReviewerSlot(submission);
     return slot === 2 ? Boolean(submission.reviewed_at_2) : Boolean(submission.reviewed_at);
   }).length;
 
-  const updateForm = (id: string, slot: 1 | 2, key: 'recommendation' | 'notes', value: string) => {
-    const formKey = getFormKey(id, slot);
-    setFormState((prev) => ({
-      ...prev,
-      [formKey]: {
-        recommendation: prev[formKey]?.recommendation || '',
-        notes: prev[formKey]?.notes || '',
-        [key]: value,
-      },
-    }));
+  const updateDraft = (
+    submissionId: string,
+    slot: 1 | 2,
+    updater: (current: ReviewerDraft) => ReviewerDraft,
+  ) => {
+    const formKey = getFormKey(submissionId, slot);
+    setFormState((prev) => {
+      const current = prev[formKey] || { recommendation: '', notes: '', answers: {} };
+      return {
+        ...prev,
+        [formKey]: updater(current),
+      };
+    });
   };
 
   const submitReview = async (submission: Submission, slot: 1 | 2) => {
     const formKey = getFormKey(submission.id, slot);
-    const entry = formState[formKey];
-    if (!entry?.recommendation) {
-      toast({ title: 'Selectează recomandarea', description: 'Trebuie să alegi o recomandare editorială.', variant: 'destructive' });
+    const entry = formState[formKey] || { recommendation: '', notes: '', answers: {} };
+
+    if (!isCompleteReviewForm(entry.answers)) {
+      toast({
+        title: 'Formular incomplet',
+        description: 'Completeaza toate cele 11 intrebari din formularul de evaluare.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!entry.recommendation) {
+      toast({
+        title: 'Lipseste recomandarea finala',
+        description: 'Alege una dintre cele 3 concluzii ale formularului.',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (isDemo) {
-      setDemoRecommendations((prev) => ({ ...prev, [submission.id]: entry.recommendation }));
-      toast({ title: 'Recenzie trimisă', description: 'Recomandarea a fost înregistrată (demo).' });
+      setDemoSubmitted((prev) => ({ ...prev, [submission.id]: entry.recommendation }));
+      toast({ title: 'Recenzie trimisa', description: 'Formularul a fost inregistrat (demo).' });
       return;
     }
 
     const reviewerChanges: Partial<Submission> = slot === 2
-      ? { recommendation_2: entry.recommendation, review_notes_2: entry.notes, reviewed_at_2: todayIsoDate() }
-      : { recommendation: entry.recommendation, review_notes: entry.notes, reviewed_at: todayIsoDate() };
+      ? {
+          recommendation_2: entry.recommendation,
+          review_form_2: entry.answers,
+          review_notes_2: entry.notes,
+          reviewed_at_2: todayIsoDate(),
+        }
+      : {
+          recommendation: entry.recommendation,
+          review_form: entry.answers,
+          review_notes: entry.notes,
+          reviewed_at: todayIsoDate(),
+        };
 
     const result = await updateSubmission(submission.id, reviewerChanges);
     if (!result.ok) {
-      toast({ title: 'Nu am putut trimite recenzia', description: result.error || 'Încearcă din nou.', variant: 'destructive' });
+      toast({
+        title: 'Nu am putut trimite recenzia',
+        description: result.error || 'Incearca din nou.',
+        variant: 'destructive',
+      });
       return;
     }
-    toast({ title: 'Recenzie trimisă', description: 'Recomandarea a fost înregistrată pentru editor.' });
+
+    toast({ title: 'Recenzie trimisa', description: 'Editorul a fost notificat.' });
   };
 
   const handleDownload = async (submissionId: string, fileId: string, fileName: string) => {
     const result = await downloadSubmissionFile(submissionId, fileId, fileName);
     if (!result.ok) {
-      toast({ title: 'Nu am putut descărca fișierul', description: result.error || 'Încearcă din nou.', variant: 'destructive' });
+      toast({
+        title: 'Nu am putut descarca fisierul',
+        description: result.error || 'Incearca din nou.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -166,10 +204,11 @@ export default function DashboardReviewer() {
     <div className="space-y-8">
       <div>
         <h1 className="font-serif text-2xl font-bold">Panou reviewer</h1>
-        <p className="text-sm text-muted-foreground mt-1">Evaluează manuscrisele anonimizate atribuite pentru recenzie.</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Completeaza formularul de evaluare peer review pentru manuscrisele anonimizate atribuite.
+        </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-5 shadow-sm">
           <ClipboardCheck className="h-5 w-5 text-primary mb-3" />
@@ -179,33 +218,39 @@ export default function DashboardReviewer() {
         <div className="rounded-lg border bg-card p-5 shadow-sm">
           <CheckCircle2 className="h-5 w-5 text-primary mb-3" />
           <div className="font-serif text-2xl font-bold">{reviewedCount}</div>
-          <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mt-1">Recenzate</div>
+          <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mt-1">Trimise</div>
         </div>
         <div className="rounded-lg border bg-card p-5 shadow-sm">
           <ClipboardCheck className="h-5 w-5 text-primary mb-3" />
           <div className="font-serif text-2xl font-bold">{assignedSubmissions.length - reviewedCount}</div>
-          <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mt-1">În lucru</div>
+          <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mt-1">In lucru</div>
         </div>
       </div>
 
-      {/* Submissions as expandable cards */}
       <section className="space-y-3">
         <h2 className="font-serif text-lg font-bold">Manuscrise pentru evaluare</h2>
 
         {assignedSubmissions.map((submission) => {
           const reviewerSlot = isDemo ? 1 : getReviewerSlot(submission);
           const formKey = getFormKey(submission.id, reviewerSlot);
-          const recommendation = formState[formKey]?.recommendation
-            || (isDemo ? (demoRecommendations[submission.id] || '') : (reviewerSlot === 2 ? submission.recommendation_2 : submission.recommendation))
-            || '';
-          const notes = formState[formKey]?.notes ?? '';
+          const savedAnswers = reviewerSlot === 2 ? submission.review_form_2 : submission.review_form;
+          const savedRecommendation = reviewerSlot === 2 ? submission.recommendation_2 : submission.recommendation;
+          const savedReviewedAt = reviewerSlot === 2 ? submission.reviewed_at_2 : submission.reviewed_at;
+          const savedNotes = reviewerSlot === 2 ? submission.review_notes_2 : submission.review_notes;
+          const draft = formState[formKey] || { recommendation: '', notes: '', answers: {} };
+          const recommendation = draft.recommendation || (isDemo ? (demoSubmitted[submission.id] || '') : (savedRecommendation || ''));
+          const notes = draft.notes || savedNotes || '';
+          const answers = Object.keys(draft.answers || {}).length > 0 ? draft.answers : (savedAnswers || {});
+          const answeredCounts = countReviewAnswers(answers);
+          const answeredTotal = answeredCounts.yes + answeredCounts.partial + answeredCounts.no;
+          const isReviewed = isDemo ? Boolean(demoSubmitted[submission.id]) : Boolean(savedReviewedAt);
           const expanded = expandedIds.has(submission.id);
-          const isReviewed = isDemo ? Boolean(demoRecommendations[submission.id]) : (reviewerSlot === 2 ? Boolean(submission.reviewed_at_2) : Boolean(submission.reviewed_at));
-          const recConfig = recommendation ? recommendationLabels[recommendation] : null;
+          const reviewFiles = (submission.anonymized_files && submission.anonymized_files.length > 0)
+            ? submission.anonymized_files
+            : (submission.files || []);
 
           return (
             <div key={submission.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
-              {/* Card header */}
               <div
                 className="flex items-center gap-3 p-4 cursor-pointer hover:bg-accent/30 transition-colors"
                 onClick={() => toggleExpanded(submission.id)}
@@ -214,30 +259,46 @@ export default function DashboardReviewer() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold bg-series-2-bg text-series-2-foreground">
-                      În evaluare
+                      In evaluare
                     </span>
-                    {isReviewed && recConfig && (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold ${recConfig.cls}`}>
-                        {recConfig.label}
+                    {isReviewed && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold bg-primary/10 text-primary">
+                        {reviewRecommendationLabel(recommendation)}
                       </span>
                     )}
                     {isReviewed && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold bg-primary/10 text-primary">
-                        ✓ Recenzat
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold bg-emerald-100 text-emerald-800">
+                        Formular trimis
                       </span>
                     )}
                   </div>
                   <h3 className="font-medium text-sm mt-1 truncate">{submission.title}</h3>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Manuscris anonimizat · Termen: {submission.reviewer_deadline || '—'}
+                    Manuscris blind · Termen: {reviewerSlot === 2 ? (submission.reviewer_deadline_2 || '—') : (submission.reviewer_deadline || '—')}
                   </div>
                 </div>
                 {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
               </div>
 
-              {/* Expanded content */}
               {expanded && (
                 <div className="border-t px-4 py-5 space-y-5 bg-muted/30">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-lg border bg-card p-3">
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Raspunsuri completate</div>
+                      <div className="font-serif text-2xl font-bold mt-1">{answeredTotal}/11</div>
+                    </div>
+                    <div className="rounded-lg border bg-card p-3">
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Rezultat curent</div>
+                      <div className="text-sm font-semibold mt-2">{reviewRecommendationLabel(recommendation)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-card p-3">
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Scor grila</div>
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        Da: {answeredCounts.yes} · Partial: {answeredCounts.partial} · Nu: {answeredCounts.no}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-1">
                     <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Rezumat</div>
                     <p className="text-sm text-foreground/80 leading-relaxed">{submission.abstract}</p>
@@ -254,90 +315,112 @@ export default function DashboardReviewer() {
                     </div>
                   </div>
 
-                  {/* Anonymized files for review */}
-                  {(submission.anonymized_files?.length || 0) > 0 && (
+                  {reviewFiles.length > 0 && (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
-                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-emerald-800 font-semibold flex items-center gap-1.5">
-                        <Download className="h-3.5 w-3.5" />
-                        Manuscris anonimizat — descarcă pentru evaluare
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-emerald-800 font-semibold">
+                        Fisiere blind pentru evaluare
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {submission.anonymized_files!.map((file) => {
-                          const sizeKB = Math.round(file.size / 1024);
-                          return (
-                            <Button
-                              key={file.id}
-                              variant="outline"
-                              size="sm"
-                              className="border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-                              onClick={() => {
-                                if (isDemo) {
-                                  toast({ title: 'Demo', description: `Fișierul „${file.filename}" nu este disponibil în modul demo.` });
-                                } else {
-                                  void handleDownload(submission.id, file.id, file.filename);
-                                }
-                              }}
-                            >
-                              <FileText className="mr-1.5 h-3.5 w-3.5" />
-                              {file.filename}
-                              <span className="ml-1.5 text-emerald-600/70 text-[0.65rem]">({sizeKB} KB)</span>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Original files (only for real submissions, non-anonymized) */}
-                  {!isDemo && submission.files && submission.files.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Fișiere originale</div>
-                      <div className="flex flex-wrap gap-2">
-                        {submission.files.map((file) => (
-                          <Button key={file.id} variant="outline" size="sm" onClick={() => handleDownload(submission.id, file.id, file.filename)}>
-                            <Download className="mr-2 h-3 w-3" /> {file.filename}
+                        {reviewFiles.map((file) => (
+                          <Button
+                            key={file.id}
+                            variant="outline"
+                            size="sm"
+                            className="border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+                            onClick={() => {
+                              if (isDemo) {
+                                toast({ title: 'Demo', description: `Fisierul "${file.filename}" nu este disponibil in modul demo.` });
+                              } else {
+                                void handleDownload(submission.id, file.id, file.filename);
+                              }
+                            }}
+                          >
+                            <Download className="mr-1.5 h-3.5 w-3.5" />
+                            {file.filename}
                           </Button>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Review form */}
                   <div className="rounded-lg border bg-card p-4 space-y-4">
-                    <h3 className="font-serif text-sm font-bold">Formularul de evaluare</h3>
+                    <div>
+                      <h3 className="font-serif text-sm font-bold">Formular de evaluare / Peer review</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Completeaza toate intrebarile cu `Da`, `Partial` sau `Nu`, apoi alege concluzia finala.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      {REVIEW_CRITERIA.map((criterion, index) => (
+                        <div key={criterion.id} className="rounded-md border p-3">
+                          <div className="text-[0.68rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+                            Intrebarea {index + 1}
+                          </div>
+                          <div className="text-sm font-medium mt-1">{criterion.en}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{criterion.ro}</div>
+                          <div className="mt-3">
+                            <ReviewAnswerButtons
+                              currentValue={answers?.[criterion.id] || ''}
+                              onSelect={(value) => updateDraft(submission.id, reviewerSlot, (current) => ({
+                                ...current,
+                                answers: {
+                                  ...(current.answers || {}),
+                                  [criterion.id]: value,
+                                },
+                              }))}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
                     <div className="space-y-2">
-                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recomandare editorială *</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {Object.entries(recommendationLabels).map(([value, { label, cls }]) => (
-                          <button
-                            key={value}
-                            type="button"
-                            className={`rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
-                              recommendation === value
-                                ? `${cls} border-transparent ring-2 ring-primary/30`
-                                : 'bg-background hover:bg-accent/50'
-                            }`}
-                            onClick={() => updateForm(submission.id, reviewerSlot, 'recommendation', value)}
-                          >
-                            {label}
-                          </button>
-                        ))}
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+                        Concluzie finala
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {REVIEW_RECOMMENDATIONS.map((option) => {
+                          const active = recommendation === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={`rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
+                                active
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'bg-background hover:bg-accent/50'
+                              }`}
+                              onClick={() => updateDraft(submission.id, reviewerSlot, (current) => ({
+                                ...current,
+                                recommendation: option.value,
+                              }))}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Observații și comentarii</label>
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+                        Posibile sugestii pentru autor
+                      </label>
                       <Textarea
-                        rows={4}
-                        placeholder="Comentarii detaliate despre calitatea, metodologia și relevanța manuscrisului..."
+                        rows={5}
+                        placeholder="Observatii pentru autor, corecturi recomandate, clarificari metodologice etc."
                         value={notes}
-                        onChange={(e) => updateForm(submission.id, reviewerSlot, 'notes', e.target.value)}
+                        onChange={(event) => updateDraft(submission.id, reviewerSlot, (current) => ({
+                          ...current,
+                          notes: event.target.value,
+                        }))}
                       />
                     </div>
 
                     <div className="flex justify-end">
                       <Button size="sm" onClick={() => void submitReview(submission, reviewerSlot)} disabled={isReviewed}>
-                        {isReviewed ? '✓ Recenzie trimisă' : 'Trimite recomandarea'}
+                        {isReviewed ? 'Formular trimis' : 'Trimite evaluarea'}
                       </Button>
                     </div>
                   </div>

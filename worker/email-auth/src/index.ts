@@ -54,6 +54,20 @@ interface BuildEmailTemplateInput {
 }
 
 type SubmissionStatus = 'submitted' | 'anonymization' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
+type ReviewAnswer = 'yes' | 'partial' | 'no';
+type ReviewCriterionId =
+  | 'q1'
+  | 'q2'
+  | 'q3'
+  | 'q4'
+  | 'q5'
+  | 'q6'
+  | 'q7'
+  | 'q8'
+  | 'q9'
+  | 'q10'
+  | 'q11';
+type ReviewForm = Partial<Record<ReviewCriterionId, ReviewAnswer>>;
 
 interface StoredSubmissionFile {
   id: string;
@@ -82,6 +96,8 @@ interface StoredSubmission {
   reviewer_deadline_2: string;
   recommendation: string;
   recommendation_2: string;
+  review_form: ReviewForm;
+  review_form_2: ReviewForm;
   review_notes: string;
   review_notes_2: string;
   reviewed_at: string;
@@ -119,6 +135,7 @@ const DEFAULT_SUBMISSION_RECIPIENTS = ['anuar@iafar.ro', 'confafar@gmail.com'];
 const MAX_SUBMISSION_FILES = 5;
 const MAX_SUBMISSION_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_SUBMISSION_TOTAL_BYTES = 25 * 1024 * 1024;
+const REVIEW_CRITERIA_IDS: ReviewCriterionId[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11'];
 
 const DEFAULT_ACCOUNTS: AuthAccount[] = [
   { username: 'admin', name: 'Liviu Pop', role: 'admin', email: 'liviu.o.pop@gmail.com' },
@@ -186,6 +203,29 @@ function isSubmissionStatus(value: string): value is SubmissionStatus {
     || value === 'accepted'
     || value === 'rejected'
     || value === 'revision_requested';
+}
+
+function isReviewAnswer(value: string): value is ReviewAnswer {
+  return value === 'yes' || value === 'partial' || value === 'no';
+}
+
+function parseReviewForm(value: unknown): ReviewForm {
+  if (!value || typeof value !== 'object') return {};
+  const candidate = value as Record<string, unknown>;
+  const form: ReviewForm = {};
+
+  for (const criterionId of REVIEW_CRITERIA_IDS) {
+    const answer = asString(candidate[criterionId]).trim().toLowerCase();
+    if (isReviewAnswer(answer)) {
+      form[criterionId] = answer;
+    }
+  }
+
+  return form;
+}
+
+function isCompleteReviewForm(form: ReviewForm): boolean {
+  return REVIEW_CRITERIA_IDS.every((criterionId) => isReviewAnswer(asString(form[criterionId])));
 }
 
 function sanitizeFileName(fileName: string): string {
@@ -406,6 +446,8 @@ function parseStoredSubmissions(raw: string | null): StoredSubmission[] {
           reviewer_deadline_2: asString(entry.reviewer_deadline_2),
           recommendation: asString(entry.recommendation).trim(),
           recommendation_2: asString(entry.recommendation_2).trim(),
+          review_form: parseReviewForm(entry.review_form),
+          review_form_2: parseReviewForm(entry.review_form_2),
           review_notes: asString(entry.review_notes).trim(),
           review_notes_2: asString(entry.review_notes_2).trim(),
           reviewed_at: asString(entry.reviewed_at),
@@ -493,6 +535,8 @@ function toPublicSubmission(submission: StoredSubmission) {
     reviewer_deadline_2: submission.reviewer_deadline_2,
     recommendation: submission.recommendation,
     recommendation_2: submission.recommendation_2,
+    review_form: submission.review_form,
+    review_form_2: submission.review_form_2,
     review_notes: submission.review_notes,
     review_notes_2: submission.review_notes_2,
     reviewed_at: submission.reviewed_at,
@@ -735,10 +779,15 @@ function submissionStatusLabel(status: SubmissionStatus): string {
 }
 
 function recommendationLabel(value: string): string {
-  if (value === 'accept') return 'Acceptat';
-  if (value === 'minor_revisions') return 'Revizuiri minore';
-  if (value === 'major_revisions') return 'Revizuiri majore';
-  if (value === 'reject') return 'Respins';
+  if (value === 'accept' || value === 'accept_as_is') return 'Acceptat fara modificari';
+  if (
+    value === 'accepted_after_corrections'
+    || value === 'minor_revisions'
+    || value === 'major_revisions'
+  ) {
+    return 'Acceptat dupa revizuire';
+  }
+  if (value === 'reject') return 'Nu poate fi acceptat';
   return value || '-';
 }
 
@@ -1389,6 +1438,8 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
     reviewer_deadline_2: '',
     recommendation: '',
     recommendation_2: '',
+    review_form: {},
+    review_form_2: {},
     review_notes: '',
     review_notes_2: '',
     reviewed_at: '',
@@ -1638,6 +1689,14 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
       next.recommendation_2 = changes.recommendation_2.trim();
       changed = true;
     }
+    if (changes.review_form && typeof changes.review_form === 'object') {
+      next.review_form = parseReviewForm(changes.review_form);
+      changed = true;
+    }
+    if (changes.review_form_2 && typeof changes.review_form_2 === 'object') {
+      next.review_form_2 = parseReviewForm(changes.review_form_2);
+      changed = true;
+    }
     if (typeof changes.review_notes === 'string') {
       next.review_notes = changes.review_notes.trim();
       changed = true;
@@ -1665,6 +1724,14 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
       }
       changed = true;
     }
+    if (changes.review_form && typeof changes.review_form === 'object') {
+      if (reviewerSlot === 2) {
+        next.review_form_2 = parseReviewForm(changes.review_form);
+      } else {
+        next.review_form = parseReviewForm(changes.review_form);
+      }
+      changed = true;
+    }
     if (typeof changes.review_notes === 'string') {
       if (reviewerSlot === 2) {
         next.review_notes_2 = changes.review_notes.trim();
@@ -1683,6 +1750,10 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
     }
     if (typeof changes.recommendation_2 === 'string' && reviewerSlot === 2) {
       next.recommendation_2 = changes.recommendation_2.trim();
+      changed = true;
+    }
+    if (changes.review_form_2 && typeof changes.review_form_2 === 'object' && reviewerSlot === 2) {
+      next.review_form_2 = parseReviewForm(changes.review_form_2);
       changed = true;
     }
     if (typeof changes.review_notes_2 === 'string' && reviewerSlot === 2) {
@@ -1734,6 +1805,26 @@ async function handleUpdateSubmission(request: Request, env: Env): Promise<Respo
 
   if (!changed) {
     return jsonResponse(request, env, 400, { ok: false, error: 'Nu exista modificari valide pentru aceasta submisie.' });
+  }
+
+  if (canReviewerEdit) {
+    const activeRecommendation = reviewerSlot === 2 ? next.recommendation_2 : next.recommendation;
+    const activeReviewedAt = reviewerSlot === 2 ? next.reviewed_at_2 : next.reviewed_at;
+    const activeForm = reviewerSlot === 2 ? next.review_form_2 : next.review_form;
+    if (activeRecommendation || activeReviewedAt) {
+      if (!isCompleteReviewForm(activeForm)) {
+        return jsonResponse(request, env, 400, {
+          ok: false,
+          error: 'Completeaza toate cele 11 criterii din formularul de evaluare.',
+        });
+      }
+      if (!activeRecommendation) {
+        return jsonResponse(request, env, 400, {
+          ok: false,
+          error: 'Selecteaza recomandarea finala a recenzorului.',
+        });
+      }
+    }
   }
 
   if (canReviewerEdit) {

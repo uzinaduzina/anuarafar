@@ -9,17 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSubmissionData } from '@/data/SubmissionDataProvider';
 import type { Submission } from '@/data/types';
 import { useToast } from '@/hooks/use-toast';
-
-const recommendationConfig: Record<string, { label: string; cls: string }> = {
-  accept: { label: 'Acceptat', cls: 'bg-series-1-bg text-series-1-foreground' },
-  acceptat: { label: 'Acceptat', cls: 'bg-series-1-bg text-series-1-foreground' },
-  minor_revisions: { label: 'Revizuiri minore', cls: 'bg-amber-100 text-amber-900' },
-  'acceptat cu revizuiri minore': { label: 'Revizuiri minore', cls: 'bg-amber-100 text-amber-900' },
-  major_revisions: { label: 'Revizuiri majore', cls: 'bg-series-3-bg text-series-3-foreground' },
-  'revizuire solicitată': { label: 'Revizuiri majore', cls: 'bg-series-3-bg text-series-3-foreground' },
-  reject: { label: 'Respins', cls: 'bg-destructive/10 text-destructive' },
-  respins: { label: 'Respins', cls: 'bg-destructive/10 text-destructive' },
-};
+import { REVIEW_ANSWER_LABELS, REVIEW_CRITERIA, countReviewAnswers, reviewRecommendationLabel } from '@/data/reviewForm';
 
 interface SubmissionWorkflowDrawerProps {
   submission: Submission | null;
@@ -27,25 +17,25 @@ interface SubmissionWorkflowDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function ReviewCard({ label, reviewer, recommendation, notes, reviewedAt }: {
+function ReviewCard({ label, reviewer, recommendation, reviewForm, notes, reviewedAt }: {
   label: string;
   reviewer: string;
   recommendation?: string;
+  reviewForm?: Submission['review_form'];
   notes?: string;
   reviewedAt?: string;
 }) {
   const hasReview = !!recommendation;
-  const recConfig = recommendation
-    ? recommendationConfig[recommendation.toLowerCase()] || { label: recommendation, cls: 'bg-secondary text-secondary-foreground' }
-    : null;
+  const counts = countReviewAnswers(reviewForm);
+  const answeredTotal = counts.yes + counts.partial + counts.no;
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold">{label}</div>
         {hasReview ? (
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${recConfig!.cls}`}>
-            {recConfig!.label}
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+            {reviewRecommendationLabel(recommendation || '')}
           </span>
         ) : (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-secondary text-muted-foreground">
@@ -60,6 +50,34 @@ function ReviewCard({ label, reviewer, recommendation, notes, reviewedAt }: {
 
       {hasReview ? (
         <>
+          <div className="rounded-md border bg-muted/30 p-3">
+            <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+              Grila completata
+            </div>
+            <div className="text-sm mt-1">{answeredTotal}/11 raspunsuri</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Da: {counts.yes} · Partial: {counts.partial} · Nu: {counts.no}
+            </div>
+          </div>
+          {reviewForm && (
+            <div className="space-y-2">
+              {REVIEW_CRITERIA.map((criterion, index) => {
+                const answer = reviewForm[criterion.id];
+                return (
+                  <div key={criterion.id} className="rounded-md border p-3">
+                    <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+                      Intrebarea {index + 1}
+                    </div>
+                    <div className="text-sm font-medium mt-1">{criterion.ro}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{criterion.en}</div>
+                    <div className="mt-2 text-sm font-semibold">
+                      Raspuns: {answer ? REVIEW_ANSWER_LABELS[answer] : '—'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {notes && (
             <div className="space-y-1">
               <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold flex items-center gap-1">
@@ -315,6 +333,7 @@ export default function SubmissionWorkflowDrawer({
                 label="Reviewer 1"
                 reviewer={submission.assigned_reviewer || ''}
                 recommendation={submission.recommendation}
+                reviewForm={submission.review_form}
                 notes={submission.review_notes}
                 reviewedAt={submission.reviewed_at}
               />
@@ -322,6 +341,7 @@ export default function SubmissionWorkflowDrawer({
                 label="Reviewer 2"
                 reviewer={submission.assigned_reviewer_2 || ''}
                 recommendation={submission.recommendation_2}
+                reviewForm={submission.review_form_2}
                 notes={submission.review_notes_2}
                 reviewedAt={submission.reviewed_at_2}
               />
