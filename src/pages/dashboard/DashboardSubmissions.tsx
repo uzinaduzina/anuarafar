@@ -24,7 +24,7 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
   submitted: { label: 'Trimis', cls: 'bg-primary/10 text-primary' },
   anonymization: { label: 'În anonimizare', cls: 'bg-amber-100 text-amber-900' },
   under_review: { label: 'În evaluare', cls: 'bg-series-2-bg text-series-2-foreground' },
-  decision_pending: { label: 'Decizie pendintă', cls: 'bg-series-3-bg text-series-3-foreground' },
+  decision_pending: { label: 'Decizie în așteptare', cls: 'bg-series-3-bg text-series-3-foreground' },
   accepted: { label: 'Acceptat', cls: 'bg-series-1-bg text-series-1-foreground' },
   rejected: { label: 'Respins', cls: 'bg-destructive/10 text-destructive' },
   revision_requested: { label: 'Revizuire', cls: 'bg-series-3-bg text-series-3-foreground' },
