@@ -8,6 +8,6 @@ export const JOURNAL: JournalInfo = {
   publisher: 'Academia Română – Filiala Cluj-Napoca · Institutul „Arhiva de Folclor a Academiei Române"',
   country: 'România',
   language: 'ro',
-  url: 'https://www.iafar.ro',
+  url: 'https://anuar.iafar.ro',
   description: 'Publicație științifică a Academiei Române – Filiala Cluj-Napoca, Institutul „Arhiva de Folclor a Academiei Române". Contact: str. Republicii nr. 59, 400015 Cluj-Napoca · Tel/Fax +40-264-591864 · Email: anuar@iafar.ro.',
 };
