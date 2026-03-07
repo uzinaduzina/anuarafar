@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import { AUTH_ACCOUNTS, type AuthAccount, type UserRole } from '@/data/authUsers';
 import { fetchAdminAnalyticsDashboard, type AnalyticsDashboardData } from '@/lib/analytics';
+import { isRemoteAuthEnabled, resolveAuthApiBase } from '@/lib/authApi';
 
 type AuthUser = AuthAccount;
 type AuthTransport = 'local' | 'remote';
@@ -112,8 +113,8 @@ const SESSION_USER_KEY = 'auth_user';
 const SESSION_TOKEN_KEY = 'auth_session_token';
 const AUTH_SESSION_KEY = 'auth_session_v2';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const AUTH_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
-const REMOTE_AUTH_ENABLED = AUTH_API_BASE.length > 0;
+const AUTH_API_BASE = resolveAuthApiBase();
+const REMOTE_AUTH_ENABLED = isRemoteAuthEnabled();
 
 function safeJsonParse<T>(value: string | null, fallback: T): T {
   if (!value) return fallback;

@@ -2,9 +2,10 @@ import { createContext, useContext, useMemo, useState, type ReactNode, useCallba
 import { SUBMISSIONS as INITIAL_SUBMISSIONS } from './articles';
 import type { Submission } from './types';
 import { useAuth } from '@/contexts/AuthContext';
+import { resolveAuthApiBase } from '@/lib/authApi';
 
 const STORAGE_KEY = 'workflow_submissions_v1';
-const SUBMISSION_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
+const SUBMISSION_API_BASE = resolveAuthApiBase();
 const REMOTE_SUBMISSIONS_ENABLED = SUBMISSION_API_BASE.length > 0;
 
 export interface NewSubmissionInput {

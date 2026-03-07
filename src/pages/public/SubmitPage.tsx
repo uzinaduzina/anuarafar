@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { generateTemplate } from '@/lib/generateTemplate';
+import { resolveAuthApiBase } from '@/lib/authApi';
 
 function GuidelineSection({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
@@ -166,7 +167,7 @@ function Guidelines() {
   );
 }
 
-const SUBMISSION_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
+const SUBMISSION_API_BASE = resolveAuthApiBase();
 
 interface SubmissionFormState {
   title: string;

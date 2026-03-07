@@ -1,4 +1,6 @@
-const ANALYTICS_API_BASE = (import.meta.env.VITE_AUTH_API_BASE || '').trim().replace(/\/+$/, '');
+import { resolveAuthApiBase } from '@/lib/authApi';
+
+const ANALYTICS_API_BASE = resolveAuthApiBase();
 
 export type AnalyticsEntityType = 'article' | 'page' | 'download';
 
