@@ -66,7 +66,7 @@ export const REVIEW_CRITERIA: ReviewCriterion[] = [
 
 export const REVIEW_ANSWER_LABELS: Record<ReviewAnswer, string> = {
   yes: 'Da',
-  partial: 'Partial',
+  partial: 'Parțial',
   no: 'Nu',
 };
 

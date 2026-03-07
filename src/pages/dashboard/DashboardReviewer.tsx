@@ -203,9 +203,9 @@ export default function DashboardReviewer() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-2xl font-bold">Panou reviewer</h1>
+          <h1 className="font-serif text-2xl font-bold">Panou recenzor</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Completeaza formularul de evaluare peer review pentru manuscrisele anonimizate atribuite.
+          Completează formularul de evaluare pentru manuscrisele anonimizate atribuite.
         </p>
       </div>
 
@@ -223,7 +223,7 @@ export default function DashboardReviewer() {
         <div className="rounded-lg border bg-card p-5 shadow-sm">
           <ClipboardCheck className="h-5 w-5 text-primary mb-3" />
           <div className="font-serif text-2xl font-bold">{assignedSubmissions.length - reviewedCount}</div>
-          <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mt-1">In lucru</div>
+          <div className="text-xs uppercase tracking-[0.08em] text-muted-foreground font-semibold mt-1">În lucru</div>
         </div>
       </div>
 
@@ -259,7 +259,7 @@ export default function DashboardReviewer() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold bg-series-2-bg text-series-2-foreground">
-                      In evaluare
+                      În evaluare
                     </span>
                     {isReviewed && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6rem] uppercase tracking-[0.05em] font-semibold bg-primary/10 text-primary">
@@ -284,7 +284,7 @@ export default function DashboardReviewer() {
                 <div className="border-t px-4 py-5 space-y-5 bg-muted/30">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="rounded-lg border bg-card p-3">
-                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Raspunsuri completate</div>
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Răspunsuri completate</div>
                       <div className="font-serif text-2xl font-bold mt-1">{answeredTotal}/11</div>
                     </div>
                     <div className="rounded-lg border bg-card p-3">
@@ -292,9 +292,9 @@ export default function DashboardReviewer() {
                       <div className="text-sm font-semibold mt-2">{reviewRecommendationLabel(recommendation)}</div>
                     </div>
                     <div className="rounded-lg border bg-card p-3">
-                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Scor grila</div>
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Scor grilă</div>
                       <div className="mt-2 text-sm text-muted-foreground">
-                        Da: {answeredCounts.yes} · Partial: {answeredCounts.partial} · Nu: {answeredCounts.no}
+                        Da: {answeredCounts.yes} · Parțial: {answeredCounts.partial} · Nu: {answeredCounts.no}
                       </div>
                     </div>
                   </div>
@@ -310,7 +310,7 @@ export default function DashboardReviewer() {
                       <p className="text-sm text-foreground/80">{submission.keywords_ro || '—'}</p>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Keywords (EN)</div>
+                      <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Cuvinte cheie (EN)</div>
                       <p className="text-sm text-foreground/80">{submission.keywords_en || '—'}</p>
                     </div>
                   </div>
@@ -318,7 +318,7 @@ export default function DashboardReviewer() {
                   {reviewFiles.length > 0 && (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
                       <div className="text-[0.65rem] uppercase tracking-[0.08em] text-emerald-800 font-semibold">
-                        Fisiere blind pentru evaluare
+                        Fișiere blind pentru evaluare
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {reviewFiles.map((file) => (
@@ -329,7 +329,7 @@ export default function DashboardReviewer() {
                             className="border-emerald-300 text-emerald-800 hover:bg-emerald-100"
                             onClick={() => {
                               if (isDemo) {
-                                toast({ title: 'Demo', description: `Fisierul "${file.filename}" nu este disponibil in modul demo.` });
+                                toast({ title: 'Demo', description: `Fișierul "${file.filename}" nu este disponibil în modul demo.` });
                               } else {
                                 void handleDownload(submission.id, file.id, file.filename);
                               }
@@ -345,9 +345,9 @@ export default function DashboardReviewer() {
 
                   <div className="rounded-lg border bg-card p-4 space-y-4">
                     <div>
-                      <h3 className="font-serif text-sm font-bold">Formular de evaluare / Peer review</h3>
+                      <h3 className="font-serif text-sm font-bold">Formular de evaluare</h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Completeaza toate intrebarile cu `Da`, `Partial` sau `Nu`, apoi alege concluzia finala.
+                        Completează toate întrebările cu `Da`, `Parțial` sau `Nu`, apoi alege concluzia finală.
                       </p>
                     </div>
 
@@ -355,10 +355,9 @@ export default function DashboardReviewer() {
                       {REVIEW_CRITERIA.map((criterion, index) => (
                         <div key={criterion.id} className="rounded-md border p-3">
                           <div className="text-[0.68rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
-                            Intrebarea {index + 1}
+                            Întrebarea {index + 1}
                           </div>
-                          <div className="text-sm font-medium mt-1">{criterion.en}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{criterion.ro}</div>
+                          <div className="text-sm font-medium mt-1">{criterion.ro}</div>
                           <div className="mt-3">
                             <ReviewAnswerButtons
                               currentValue={answers?.[criterion.id] || ''}
@@ -377,7 +376,7 @@ export default function DashboardReviewer() {
 
                     <div className="space-y-2">
                       <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
-                        Concluzie finala
+                        Concluzie finală
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {REVIEW_RECOMMENDATIONS.map((option) => {
@@ -409,7 +408,7 @@ export default function DashboardReviewer() {
                       </label>
                       <Textarea
                         rows={5}
-                        placeholder="Observatii pentru autor, corecturi recomandate, clarificari metodologice etc."
+                        placeholder="Observații pentru autor, corecturi recomandate, clarificări metodologice etc."
                         value={notes}
                         onChange={(event) => updateDraft(submission.id, reviewerSlot, (current) => ({
                           ...current,

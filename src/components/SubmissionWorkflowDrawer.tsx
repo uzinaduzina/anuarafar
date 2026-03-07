@@ -45,7 +45,7 @@ function ReviewCard({ label, reviewer, recommendation, reviewForm, notes, review
       </div>
 
       <div className="text-xs text-muted-foreground">
-        Reviewer: <span className="font-medium text-foreground">{reviewer || 'Nealocat'}</span>
+        Recenzor: <span className="font-medium text-foreground">{reviewer || 'Nealocat'}</span>
       </div>
 
       {hasReview ? (
@@ -54,24 +54,23 @@ function ReviewCard({ label, reviewer, recommendation, reviewForm, notes, review
             <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
               Grila completata
             </div>
-            <div className="text-sm mt-1">{answeredTotal}/11 raspunsuri</div>
+            <div className="text-sm mt-1">{answeredTotal}/11 răspunsuri</div>
             <div className="text-xs text-muted-foreground mt-1">
-              Da: {counts.yes} · Partial: {counts.partial} · Nu: {counts.no}
+              Da: {counts.yes} · Parțial: {counts.partial} · Nu: {counts.no}
             </div>
-          </div>
-          {reviewForm && (
-            <div className="space-y-2">
+                  </div>
+                  {reviewForm && (
+                    <div className="space-y-2">
               {REVIEW_CRITERIA.map((criterion, index) => {
                 const answer = reviewForm[criterion.id];
                 return (
                   <div key={criterion.id} className="rounded-md border p-3">
                     <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
-                      Intrebarea {index + 1}
+                      Întrebarea {index + 1}
                     </div>
                     <div className="text-sm font-medium mt-1">{criterion.ro}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{criterion.en}</div>
                     <div className="mt-2 text-sm font-semibold">
-                      Raspuns: {answer ? REVIEW_ANSWER_LABELS[answer] : '—'}
+                      Răspuns: {answer ? REVIEW_ANSWER_LABELS[answer] : '—'}
                     </div>
                   </div>
                 );
@@ -272,7 +271,7 @@ export default function SubmissionWorkflowDrawer({
                   <Input value={String(form.keywords_ro || '')} onChange={(e) => setField('keywords_ro', e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Keywords (EN)</Label>
+                  <Label className="text-xs">Cuvinte cheie (EN)</Label>
                   <Input value={String(form.keywords_en || '')} onChange={(e) => setField('keywords_en', e.target.value)} />
                 </div>
               </div>
@@ -330,7 +329,7 @@ export default function SubmissionWorkflowDrawer({
           <TabsContent value="reviews" className="space-y-5 mt-4">
             <div className="grid gap-4 md:grid-cols-2">
               <ReviewCard
-                label="Reviewer 1"
+                label="Recenzor 1"
                 reviewer={submission.assigned_reviewer || ''}
                 recommendation={submission.recommendation}
                 reviewForm={submission.review_form}
@@ -338,7 +337,7 @@ export default function SubmissionWorkflowDrawer({
                 reviewedAt={submission.reviewed_at}
               />
               <ReviewCard
-                label="Reviewer 2"
+                label="Recenzor 2"
                 reviewer={submission.assigned_reviewer_2 || ''}
                 recommendation={submission.recommendation_2}
                 reviewForm={submission.review_form_2}
@@ -354,7 +353,7 @@ export default function SubmissionWorkflowDrawer({
               </p>
               <Textarea
                 rows={4}
-                placeholder="Ex: Vă rugăm să revizuiți secțiunea de metodologie conform observațiilor Reviewer 1..."
+                placeholder="Ex: Vă rugăm să revizuiți secțiunea de metodologie conform observațiilor recenzorului 1..."
                 value={editorMessage}
                 onChange={(e) => setEditorMessage(e.target.value)}
               />

@@ -91,7 +91,7 @@ export default function DashboardSubmissions() {
     hasAnonymizedFiles: boolean,
   ) => {
     if (reviewerEmail && reviewerEmail === otherReviewerEmail) {
-      toast({ title: 'Reviewer duplicat', description: 'Alege doi revieweri diferiți.', variant: 'destructive' });
+      toast({ title: 'Recenzor duplicat', description: 'Alege doi recenzori diferiți.', variant: 'destructive' });
       return;
     }
     const reviewer = reviewers.find((a) => a.email === reviewerEmail);
@@ -99,7 +99,7 @@ export default function DashboardSubmissions() {
     const patch: Partial<Submission> = slot === 2
       ? { assigned_reviewer_2: reviewer?.name || '', assigned_reviewer_email_2: reviewer?.email || '', status: nextStatus as Submission['status'] }
       : { assigned_reviewer: reviewer?.name || '', assigned_reviewer_email: reviewer?.email || '', status: nextStatus as Submission['status'] };
-    await applySubmissionUpdate(submissionId, patch, `Reviewer ${slot} actualizat`);
+    await applySubmissionUpdate(submissionId, patch, `Recenzor ${slot} actualizat`);
   };
 
   const handleSendToReview = async (submission: Submission) => {
@@ -114,10 +114,10 @@ export default function DashboardSubmissions() {
       return;
     }
     if (r1 === r2) {
-      toast({ title: 'Revieweri duplicați', variant: 'destructive' });
+      toast({ title: 'Recenzori duplicați', variant: 'destructive' });
       return;
     }
-    await applySubmissionUpdate(submission.id, { status: 'under_review' }, 'Trimis la review', 'Reviewerii și autorul au fost notificați.');
+    await applySubmissionUpdate(submission.id, { status: 'under_review' }, 'Trimis la evaluare', 'Recenzorii și autorul au fost notificați.');
   };
 
   const handleDecisionAction = async (submissionId: string, status: Submission['status'], defaultDecision: string, successTitle: string) => {
@@ -247,9 +247,9 @@ export default function DashboardSubmissions() {
                       </div>
                     </div>
 
-                    {/* Reviewer 1 */}
+                    {/* Recenzor 1 */}
                     <div className="space-y-1.5">
-                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Reviewer 1</label>
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recenzor 1</label>
                       <select
                         className="w-full h-9 rounded-md border bg-background px-2 text-sm"
                         value={submission.assigned_reviewer_email || ''}
@@ -278,9 +278,9 @@ export default function DashboardSubmissions() {
                       )}
                     </div>
 
-                    {/* Reviewer 2 */}
+                    {/* Recenzor 2 */}
                     <div className="space-y-1.5">
-                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Reviewer 2</label>
+                      <label className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Recenzor 2</label>
                       <select
                         className="w-full h-9 rounded-md border bg-background px-2 text-sm"
                         value={submission.assigned_reviewer_email_2 || ''}
@@ -337,7 +337,7 @@ export default function DashboardSubmissions() {
                       onClick={() => void handleSendToReview(submission)}
                       disabled={!submission.anonymized_files?.length}
                     >
-                      <Send className="mr-1 h-3 w-3" /> La review
+                      <Send className="mr-1 h-3 w-3" /> La evaluare
                     </Button>
                     <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void handleDecisionAction(submission.id, 'accepted', 'acceptat', 'Articol acceptat')}>
                       <CheckCircle2 className="mr-1 h-3 w-3" /> Acceptă
