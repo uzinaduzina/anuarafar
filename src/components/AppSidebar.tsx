@@ -33,9 +33,9 @@ const roleNavigation = {
   admin: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
     { title: 'Statistici', url: '/dashboard/stats', icon: BarChart3 },
-    { title: 'Numere (CSV)', url: '/dashboard/issues', icon: BookOpen },
+    { title: 'Numere', url: '/dashboard/issues', icon: BookOpen },
     { title: 'Articole trimise', url: '/dashboard/submissions', icon: FileText },
-    { title: 'Recenzii (reviewer)', url: '/dashboard/reviewer', icon: ClipboardCheck },
+    { title: 'Evaluări articole', url: '/dashboard/reviewer', icon: ClipboardCheck },
     { title: 'Zona autor', url: '/dashboard/author', icon: FileUp },
     { title: 'Utilizatori', url: '/dashboard/users', icon: Users },
     { title: 'Template-uri email', url: '/dashboard/email-templates', icon: Mail },
@@ -47,7 +47,7 @@ const roleNavigation = {
   ],
   reviewer: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-    { title: 'Recenzii', url: '/dashboard/reviewer', icon: ClipboardCheck },
+    { title: 'Evaluări articole', url: '/dashboard/reviewer', icon: ClipboardCheck },
   ],
   author: [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
