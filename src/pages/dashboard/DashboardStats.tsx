@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState, type ElementType } from 'react';
 import { AlertCircle, Download, Eye, FileText, Loader2 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
-import { type AnalyticsCounts, type AnalyticsDashboardData, type AnalyticsSummary } from '@/lib/analytics';
+import {
+  type AnalyticsBreakdownCounts,
+  type AnalyticsBreakdownGroup,
+  type AnalyticsCounts,
+  type AnalyticsDashboardData,
+  type AnalyticsSummary,
+} from '@/lib/analytics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -40,6 +46,27 @@ function formatLastViewedAt(value: string) {
 
 function compactLabel(value: string, max = 42) {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function sortBreakdownEntries(counts: AnalyticsBreakdownCounts) {
+  return Object.entries(counts)
+    .map(([key, count]) => ({ key, count }))
+    .sort((left, right) => right.count - left.count || left.key.localeCompare(right.key));
+}
+
+function formatCountryLabel(countryCode: string) {
+  if (countryCode === 'XX') return 'Țară necunoscută';
+  try {
+    const formatter = new Intl.DisplayNames(['ro'], { type: 'region' });
+    return formatter.of(countryCode) || countryCode;
+  } catch {
+    return countryCode;
+  }
+}
+
+function formatBreakdownLabel(kind: keyof AnalyticsBreakdownGroup, key: string) {
+  if (kind === 'countries') return formatCountryLabel(key);
+  return key;
 }
 
 function SummaryPanel({
@@ -97,11 +124,58 @@ function EmptyAnalyticsState({ label }: { label: string }) {
   );
 }
 
+function BreakdownCard({
+  title,
+  description,
+  kind,
+  counts,
+}: {
+  title: string;
+  description: string;
+  kind: keyof AnalyticsBreakdownGroup;
+  counts: AnalyticsBreakdownCounts;
+}) {
+  const entries = useMemo(() => sortBreakdownEntries(counts).slice(0, 10), [counts]);
+  const total = useMemo(() => entries.reduce((sum, entry) => sum + entry.count, 0), [entries]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="font-serif text-lg">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {entries.length === 0 ? (
+          <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
+            Nu există încă suficiente date pentru această secțiune.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {entries.map((entry) => {
+              const percentage = total > 0 ? Math.round((entry.count / total) * 100) : 0;
+              return (
+                <div key={`${kind}:${entry.key}`} className="flex items-center justify-between gap-4 border-b pb-2 last:border-b-0 last:pb-0">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{formatBreakdownLabel(kind, entry.key)}</div>
+                    <div className="text-xs text-muted-foreground">{percentage}% din topul afișat</div>
+                  </div>
+                  <div className="text-right font-mono text-sm font-semibold">{formatNumber(entry.count)}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AnalyticsTab({
   title,
   description,
   items,
   timeline,
+  breakdown,
   activityLabel = 'vizualizări',
   lastSeenLabel = 'Ultima activitate',
 }: {
@@ -109,6 +183,7 @@ function AnalyticsTab({
   description: string;
   items: AnalyticsSummary[];
   timeline: AnalyticsDashboardData['articleTimeline'];
+  breakdown: AnalyticsBreakdownGroup;
   activityLabel?: string;
   lastSeenLabel?: string;
 }) {
@@ -221,6 +296,39 @@ function AnalyticsTab({
           )}
         </CardContent>
       </Card>
+
+      <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3">
+        <BreakdownCard
+          title="Dispozitive"
+          description="Distribuție pe desktop, mobil și tabletă."
+          kind="devices"
+          counts={breakdown.devices}
+        />
+        <BreakdownCard
+          title="Sisteme de operare"
+          description="Sistemele de operare detectate din browser."
+          kind="operatingSystems"
+          counts={breakdown.operatingSystems}
+        />
+        <BreakdownCard
+          title="Țări"
+          description="Țările detectate prin Cloudflare."
+          kind="countries"
+          counts={breakdown.countries}
+        />
+        <BreakdownCard
+          title="Referreri"
+          description="Surse externe, trafic direct și navigare internă."
+          kind="referrers"
+          counts={breakdown.referrers}
+        />
+        <BreakdownCard
+          title="Rezoluții ecran"
+          description="Rezoluțiile declarate de browser la momentul evenimentului."
+          kind="screenResolutions"
+          counts={breakdown.screenResolutions}
+        />
+      </div>
     </div>
   );
 }
@@ -322,6 +430,7 @@ export default function DashboardStats() {
             description="Evoluția zilnică a vizualizărilor pe articole."
             items={analytics.articles}
             timeline={analytics.articleTimeline}
+            breakdown={analytics.articleBreakdown}
             activityLabel="vizualizări"
             lastSeenLabel="Ultima vizualizare"
           />
@@ -333,6 +442,7 @@ export default function DashboardStats() {
             description="Evoluția zilnică a descărcărilor PDF pe articole."
             items={analytics.downloads}
             timeline={analytics.downloadTimeline}
+            breakdown={analytics.downloadBreakdown}
             activityLabel="descărcări"
             lastSeenLabel="Ultima descărcare"
           />

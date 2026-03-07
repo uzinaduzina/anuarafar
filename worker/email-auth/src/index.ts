@@ -149,6 +149,14 @@ interface AnalyticsSummaryCounts {
   total: number;
 }
 
+interface AnalyticsDimensionMaps {
+  devices: Record<string, number>;
+  operatingSystems: Record<string, number>;
+  countries: Record<string, number>;
+  referrers: Record<string, number>;
+  screenResolutions: Record<string, number>;
+}
+
 interface StoredAnalyticsRecord {
   entityType: AnalyticsEntityType;
   entityId: string;
@@ -156,6 +164,7 @@ interface StoredAnalyticsRecord {
   path: string;
   total: number;
   buckets: Record<string, number>;
+  dimensions: AnalyticsDimensionMaps;
   createdAt: number;
   updatedAt: number;
   lastViewedAt: string;
@@ -201,6 +210,7 @@ const ANALYTICS_RETENTION_DAYS = 90;
 const ANALYTICS_ENTITY_ID_LIMIT = 280;
 const ANALYTICS_LABEL_LIMIT = 240;
 const ANALYTICS_PATH_LIMIT = 320;
+const ANALYTICS_DIMENSION_KEY_LIMIT = 120;
 const REVIEW_CRITERIA_IDS: ReviewCriterionId[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11'];
 const EDITABLE_EMAIL_TEMPLATE_FIELDS: (keyof EditableEmailTemplateFields)[] = [
   'subject',
@@ -986,6 +996,135 @@ function sanitizeAnalyticsPath(raw: string, fallback = ''): string {
   return normalized.slice(0, ANALYTICS_PATH_LIMIT);
 }
 
+function emptyAnalyticsDimensions(): AnalyticsDimensionMaps {
+  return {
+    devices: {},
+    operatingSystems: {},
+    countries: {},
+    referrers: {},
+    screenResolutions: {},
+  };
+}
+
+function sanitizeAnalyticsDimensionKey(raw: string, fallback: string): string {
+  const normalized = raw.replace(/\s+/g, ' ').trim() || fallback;
+  return normalized.slice(0, ANALYTICS_DIMENSION_KEY_LIMIT);
+}
+
+function normalizeAnalyticsDimensionCounts(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object') return {};
+  const next: Record<string, number> = {};
+  for (const [key, rawCount] of Object.entries(value as Record<string, unknown>)) {
+    const count = Math.max(0, Math.round(Number(rawCount) || 0));
+    const label = sanitizeAnalyticsDimensionKey(key, '');
+    if (!label || count <= 0) continue;
+    next[label] = count;
+  }
+  return next;
+}
+
+function normalizeAnalyticsDimensions(value: unknown): AnalyticsDimensionMaps {
+  if (!value || typeof value !== 'object') return emptyAnalyticsDimensions();
+  const record = value as Record<string, unknown>;
+  return {
+    devices: normalizeAnalyticsDimensionCounts(record.devices),
+    operatingSystems: normalizeAnalyticsDimensionCounts(record.operatingSystems),
+    countries: normalizeAnalyticsDimensionCounts(record.countries),
+    referrers: normalizeAnalyticsDimensionCounts(record.referrers),
+    screenResolutions: normalizeAnalyticsDimensionCounts(record.screenResolutions),
+  };
+}
+
+function incrementAnalyticsDimension(bucket: Record<string, number>, key: string, amount = 1) {
+  const label = sanitizeAnalyticsDimensionKey(key, '');
+  if (!label) return;
+  bucket[label] = (bucket[label] || 0) + amount;
+}
+
+function normalizeHostName(value: string): string {
+  return value.trim().toLowerCase().replace(/^www\./, '');
+}
+
+function normalizeReferrerSource(rawReferrer: string, rawSiteHost: string): string {
+  const referrer = rawReferrer.trim();
+  if (!referrer) return 'Direct';
+
+  try {
+    const host = normalizeHostName(new URL(referrer).hostname);
+    const siteHost = normalizeHostName(rawSiteHost);
+    if (!host) return 'Direct';
+    if (
+      siteHost
+      && (host === siteHost || host.endsWith(`.${siteHost}`) || siteHost.endsWith(`.${host}`))
+    ) {
+      return 'Intern';
+    }
+    return sanitizeAnalyticsDimensionKey(host, 'Extern');
+  } catch {
+    return 'Direct';
+  }
+}
+
+function normalizeScreenResolution(raw: string): string {
+  const trimmed = raw.trim();
+  if (!/^\d{2,5}x\d{2,5}$/.test(trimmed)) return 'Necunoscută';
+  return trimmed;
+}
+
+function detectAnalyticsDeviceType(userAgent: string): string {
+  if (!userAgent) return 'Necunoscut';
+  if (/(ipad|tablet|playbook|silk)|(android(?!.*mobile))/i.test(userAgent)) return 'Tabletă';
+  if (/(mobi|iphone|ipod|android)/i.test(userAgent)) return 'Mobil';
+  return 'Desktop';
+}
+
+function detectAnalyticsOperatingSystem(userAgent: string): string {
+  if (!userAgent) return 'Necunoscut';
+  if (/windows nt/i.test(userAgent)) return 'Windows';
+  if (/ipad/i.test(userAgent)) return 'iPadOS';
+  if (/(iphone|ipod|ios)/i.test(userAgent)) return 'iOS';
+  if (/android/i.test(userAgent)) return 'Android';
+  if (/(mac os x|macintosh)/i.test(userAgent)) return 'macOS';
+  if (/cros/i.test(userAgent)) return 'ChromeOS';
+  if (/linux/i.test(userAgent)) return 'Linux';
+  return 'Necunoscut';
+}
+
+function detectAnalyticsCountryCode(request: Request): string {
+  const cf = (request as Request & { cf?: { country?: string } }).cf;
+  const country = asString(cf?.country).trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(country) ? country : 'XX';
+}
+
+function buildAnalyticsDimensionsFromRequest(request: Request, body: Record<string, unknown>): AnalyticsDimensionMaps {
+  const userAgent = request.headers.get('user-agent') || '';
+  const siteHost = asString(body.siteHost);
+
+  return {
+    devices: { [detectAnalyticsDeviceType(userAgent)]: 1 },
+    operatingSystems: { [detectAnalyticsOperatingSystem(userAgent)]: 1 },
+    countries: { [detectAnalyticsCountryCode(request)]: 1 },
+    referrers: { [normalizeReferrerSource(asString(body.referrer), siteHost)]: 1 },
+    screenResolutions: { [normalizeScreenResolution(asString(body.screenResolution))]: 1 },
+  };
+}
+
+function mergeAnalyticsDimensions(target: AnalyticsDimensionMaps, increment: AnalyticsDimensionMaps) {
+  (Object.keys(target) as (keyof AnalyticsDimensionMaps)[]).forEach((key) => {
+    for (const [entryKey, value] of Object.entries(increment[key])) {
+      incrementAnalyticsDimension(target[key], entryKey, value);
+    }
+  });
+}
+
+function sumAnalyticsDimensionMaps(records: StoredAnalyticsRecord[]): AnalyticsDimensionMaps {
+  const aggregate = emptyAnalyticsDimensions();
+  for (const record of records) {
+    mergeAnalyticsDimensions(aggregate, record.dimensions);
+  }
+  return aggregate;
+}
+
 function analyticsStorageKey(entityType: AnalyticsEntityType, entityId: string): string {
   return `${ANALYTICS_KEY_PREFIX}${entityType}:${encodeURIComponent(entityId)}`;
 }
@@ -1097,6 +1236,7 @@ async function readAnalyticsRecord(
       path: sanitizeAnalyticsPath(asString(parsed.path)),
       total: Math.max(0, Math.round(Number(parsed.total) || 0)),
       buckets: pruneAnalyticsBuckets((parsed.buckets && typeof parsed.buckets === 'object' ? parsed.buckets : {}) as Record<string, number>),
+      dimensions: normalizeAnalyticsDimensions(parsed.dimensions),
       createdAt: Number(parsed.createdAt) || Date.now(),
       updatedAt: Number(parsed.updatedAt) || Date.now(),
       lastViewedAt: asString(parsed.lastViewedAt),
@@ -1143,6 +1283,7 @@ async function listAnalyticsRecords(env: Env): Promise<StoredAnalyticsRecord[]> 
         path: sanitizeAnalyticsPath(asString(parsed.path)),
         total: Math.max(0, Math.round(Number(parsed.total) || 0)),
         buckets: pruneAnalyticsBuckets((parsed.buckets && typeof parsed.buckets === 'object' ? parsed.buckets : {}) as Record<string, number>),
+        dimensions: normalizeAnalyticsDimensions(parsed.dimensions),
         createdAt: Number(parsed.createdAt) || Date.now(),
         updatedAt: Number(parsed.updatedAt) || Date.now(),
         lastViewedAt: asString(parsed.lastViewedAt),
@@ -2059,6 +2200,7 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
   const now = Date.now();
   const today = analyticsToday();
   const existing = await readAnalyticsRecord(env, entityTypeRaw, entityId);
+  const requestDimensions = buildAnalyticsDimensionsFromRequest(request, body);
   const next: StoredAnalyticsRecord = existing || {
     entityType: entityTypeRaw,
     entityId,
@@ -2066,6 +2208,7 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
     path,
     total: 0,
     buckets: {},
+    dimensions: emptyAnalyticsDimensions(),
     createdAt: now,
     updatedAt: now,
     lastViewedAt: '',
@@ -2078,6 +2221,8 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
   next.lastViewedAt = new Date(now).toISOString();
   next.buckets = pruneAnalyticsBuckets(next.buckets, today);
   next.buckets[today] = (next.buckets[today] || 0) + 1;
+  next.dimensions = normalizeAnalyticsDimensions(next.dimensions);
+  mergeAnalyticsDimensions(next.dimensions, requestDimensions);
 
   await writeAnalyticsRecord(env, next);
 
@@ -2130,6 +2275,8 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
   const articles = sortAnalyticsSummaries(articleRecords.map((record) => summarizeAnalyticsRecord(record)));
   const pages = sortAnalyticsSummaries(pageRecords.map((record) => summarizeAnalyticsRecord(record)));
   const downloads = sortAnalyticsSummaries(downloadRecords.map((record) => summarizeAnalyticsRecord(record)));
+  const articleBreakdown = sumAnalyticsDimensionMaps(articleRecords);
+  const downloadBreakdown = sumAnalyticsDimensionMaps(downloadRecords);
 
   return jsonResponse(request, env, 200, {
     ok: true,
@@ -2142,6 +2289,8 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     articleTimeline: analyticsTimeline(articleRecords),
     pageTimeline: analyticsTimeline(pageRecords),
     downloadTimeline: analyticsTimeline(downloadRecords),
+    articleBreakdown,
+    downloadBreakdown,
   });
 }
 

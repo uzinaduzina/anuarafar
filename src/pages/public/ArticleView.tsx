@@ -189,19 +189,15 @@ export default function ArticleView() {
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          {previousArticle ? (
+          {previousArticle && (
             <Button asChild size="sm" variant="outline">
               <Link to={`/article/${previousArticle.id}`}>Articol anterior</Link>
             </Button>
-          ) : (
-            <Button size="sm" variant="outline" disabled>Articol anterior</Button>
           )}
-          {nextArticle ? (
+          {nextArticle && (
             <Button asChild size="sm" variant="outline">
               <Link to={`/article/${nextArticle.id}`}>Articol următor</Link>
             </Button>
-          ) : (
-            <Button size="sm" variant="outline" disabled>Articol următor</Button>
           )}
         </div>
 

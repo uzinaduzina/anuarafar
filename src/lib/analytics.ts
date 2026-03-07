@@ -22,6 +22,18 @@ export interface AnalyticsTimelinePoint {
   views: number;
 }
 
+export interface AnalyticsBreakdownCounts {
+  [key: string]: number;
+}
+
+export interface AnalyticsBreakdownGroup {
+  devices: AnalyticsBreakdownCounts;
+  operatingSystems: AnalyticsBreakdownCounts;
+  countries: AnalyticsBreakdownCounts;
+  referrers: AnalyticsBreakdownCounts;
+  screenResolutions: AnalyticsBreakdownCounts;
+}
+
 export interface AnalyticsDashboardData {
   articles: AnalyticsSummary[];
   pages: AnalyticsSummary[];
@@ -32,6 +44,8 @@ export interface AnalyticsDashboardData {
   articleTimeline: AnalyticsTimelinePoint[];
   pageTimeline: AnalyticsTimelinePoint[];
   downloadTimeline: AnalyticsTimelinePoint[];
+  articleBreakdown: AnalyticsBreakdownGroup;
+  downloadBreakdown: AnalyticsBreakdownGroup;
 }
 
 interface AnalyticsApiResponse {
@@ -47,6 +61,8 @@ interface AnalyticsApiResponse {
   articleTimeline?: unknown;
   pageTimeline?: unknown;
   downloadTimeline?: unknown;
+  articleBreakdown?: unknown;
+  downloadBreakdown?: unknown;
 }
 
 interface TrackAnalyticsViewInput {
@@ -112,6 +128,40 @@ function parseTimeline(value: unknown): AnalyticsTimelinePoint[] {
     .filter((entry) => entry.date.length > 0);
 }
 
+function emptyBreakdownGroup(): AnalyticsBreakdownGroup {
+  return {
+    devices: {},
+    operatingSystems: {},
+    countries: {},
+    referrers: {},
+    screenResolutions: {},
+  };
+}
+
+function parseBreakdownCounts(value: unknown): AnalyticsBreakdownCounts {
+  if (!isRecord(value)) return {};
+
+  const next: AnalyticsBreakdownCounts = {};
+  for (const [key, rawValue] of Object.entries(value)) {
+    const trimmedKey = key.trim();
+    const count = parseCount(rawValue);
+    if (!trimmedKey || count <= 0) continue;
+    next[trimmedKey] = count;
+  }
+  return next;
+}
+
+function parseBreakdownGroup(value: unknown): AnalyticsBreakdownGroup {
+  if (!isRecord(value)) return emptyBreakdownGroup();
+  return {
+    devices: parseBreakdownCounts(value.devices),
+    operatingSystems: parseBreakdownCounts(value.operatingSystems),
+    countries: parseBreakdownCounts(value.countries),
+    referrers: parseBreakdownCounts(value.referrers),
+    screenResolutions: parseBreakdownCounts(value.screenResolutions),
+  };
+}
+
 function parseSummaryList(value: unknown): AnalyticsSummary[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -149,17 +199,40 @@ export function labelForPublicPath(pathname: string): string {
     .join(' / ');
 }
 
+function buildClientAnalyticsMetadata() {
+  if (typeof window === 'undefined') {
+    return {
+      referrer: '',
+      siteHost: '',
+      screenResolution: '',
+    };
+  }
+
+  const width = Number(window.screen?.width) || 0;
+  const height = Number(window.screen?.height) || 0;
+
+  return {
+    referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
+    siteHost: window.location.host || '',
+    screenResolution: width > 0 && height > 0 ? `${width}x${height}` : '',
+  };
+}
+
 export async function trackAnalyticsView(input: TrackAnalyticsViewInput): Promise<AnalyticsSummary | null> {
   if (!ANALYTICS_API_BASE || !input.entityId.trim()) return null;
 
   try {
+    const metadata = buildClientAnalyticsMetadata();
     const response = await fetch(`${ANALYTICS_API_BASE}/analytics/view`, {
       method: 'POST',
       keepalive: true,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        ...input,
+        ...metadata,
+      }),
     });
     const payload = await parseApiResponse(response);
     if (!response.ok || payload.ok === false) return null;
@@ -216,5 +289,7 @@ export async function fetchAdminAnalyticsDashboard(token: string): Promise<Analy
     articleTimeline: parseTimeline(payload.articleTimeline),
     pageTimeline: parseTimeline(payload.pageTimeline),
     downloadTimeline: parseTimeline(payload.downloadTimeline),
+    articleBreakdown: parseBreakdownGroup(payload.articleBreakdown),
+    downloadBreakdown: parseBreakdownGroup(payload.downloadBreakdown),
   };
 }
