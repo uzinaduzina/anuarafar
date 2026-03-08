@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'anuar-aaf-static-v1';
+const STATIC_CACHE = 'anuar-aaf-static-v2';
 const CORE_ASSETS = [
   './',
   './site.webmanifest',
@@ -63,9 +63,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (url.pathname.startsWith('/data/')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
   if (
     url.pathname.startsWith('/assets/')
-    || url.pathname.startsWith('/data/')
     || /\.(?:js|css|png|jpg|jpeg|svg|webp|ico|json|csv|woff2?)$/i.test(url.pathname)
   ) {
     event.respondWith(staleWhileRevalidate(request));
