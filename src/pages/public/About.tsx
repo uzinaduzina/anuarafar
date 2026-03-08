@@ -14,7 +14,7 @@ export default function About() {
             <BookOpen className="h-5 w-5 text-primary" /> Prezentare
           </h2>
           <p className="text-sm leading-relaxed text-foreground/90 mb-4">
-            <strong>Anuarul Arhivei de Folclor / The Folklore Archive Yearbook</strong> (ISSN {JOURNAL.issn}) este o publicație științifică 
+            <strong>Anuarul Arhivei de Folclor (AAF)</strong> (ISSN {JOURNAL.issn}) este o publicație științifică 
             a Institutului „Arhiva de Folclor a Academiei Române", Filiala Cluj-Napoca a Academiei Române.
           </p>
           <p className="text-sm leading-relaxed text-foreground/90 mb-4">
@@ -66,7 +66,7 @@ export default function About() {
             <p>
               <strong>Acces deschis:</strong> Revista practică politica de acces deschis, toate articolele 
               eligibile din seria curentă fiind disponibile gratuit, fără embargo. Arhiva istorică rămâne
-              publică, dar nu are încă metadate DOAJ complete la nivel de articol.
+              publică, dar nu are încă metadate complete la nivel de articol.
             </p>
             <p>
               <strong>Etică:</strong> Revista aderă la standardele COPE (Committee on Publication Ethics) 

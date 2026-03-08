@@ -10,7 +10,7 @@ const staticRoutes = [
   '/',
   '/archive',
   '/about',
-  '/doaj',
+  '/politici',
   '/editorial-board',
   '/scientific-board',
   '/tehnoredactare',

@@ -1,7 +1,7 @@
 import { JournalInfo } from './types';
 
 export const JOURNAL: JournalInfo = {
-  name: 'Anuarul Arhivei de Folclor / The Folklore Archive Yearbook',
+  name: 'Anuarul Arhivei de Folclor',
   abbr: 'AAF',
   issn: '1220-3661',
   eissn: '',

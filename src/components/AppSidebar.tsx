@@ -72,10 +72,10 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <div className="font-serif text-sm font-bold text-sidebar-foreground leading-tight">
-                Anuarul AAF
+                Anuarul Arhivei de Folclor
               </div>
               <div className="text-[0.6rem] uppercase tracking-[0.1em] text-sidebar-foreground/60">
-                Panou {user ? ROLE_LABELS[user.role].toLowerCase() : 'editorial'}
+                AAF · Panou {user ? ROLE_LABELS[user.role].toLowerCase() : 'editorial'}
               </div>
             </div>
           )}

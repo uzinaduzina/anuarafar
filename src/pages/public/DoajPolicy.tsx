@@ -6,9 +6,9 @@ const SECTION_CLASS = 'rounded-lg border bg-card p-6 shadow-sm';
 export default function DoajPolicy() {
   return (
     <div className="container py-10 md:py-14 max-w-4xl">
-      <h1 className="font-serif text-3xl font-bold mb-2">Politici DOAJ & transparență</h1>
+      <h1 className="font-serif text-3xl font-bold mb-2">Politici editoriale & transparență</h1>
       <p className="text-muted-foreground mb-8">
-        Pagina centralizează criteriile cheie de transparență, open access și bune practici editoriale pentru indexare DOAJ.
+        Pagina centralizează criteriile cheie de transparență, open access și bune practici editoriale pentru indexare internațională.
       </p>
 
       <div className="space-y-6">
@@ -18,12 +18,12 @@ export default function DoajPolicy() {
           </h2>
           <div className="space-y-2 text-sm leading-relaxed text-foreground/90">
             <p><strong>Model OA:</strong> acces deschis imediat, fără embargo, fără autentificare pentru citire.</p>
-            <p><strong>Licență:</strong> articolele științifice eligibile pentru DOAJ din seria a III-a sunt publicate sub <a href={JOURNAL.oa_license_url} className="text-primary hover:underline" target="_blank" rel="noreferrer"><strong>{JOURNAL.oa_license_name}</strong></a>.</p>
+            <p><strong>Licență:</strong> articolele științifice eligibile din seria a III-a sunt publicate sub <a href={JOURNAL.oa_license_url} className="text-primary hover:underline" target="_blank" rel="noreferrer"><strong>{JOURNAL.oa_license_name}</strong></a>.</p>
             <p><strong>Copyright:</strong> {JOURNAL.oa_copyright_notice}</p>
             <p><strong>Drepturi acordate revistei:</strong> {JOURNAL.oa_publishing_rights_notice}</p>
             <p><strong>Reutilizare:</strong> {JOURNAL.oa_reuse_notice}</p>
             <p><strong>Taxe autori:</strong> nu se percep taxe de procesare/publicare (APC = 0).</p>
-            <p><strong>Domeniu de aplicare:</strong> arhiva istorică a seriilor I și II rămâne publică, dar nu este inclusă încă în exportul DOAJ la nivel de articol până la completarea metadatelor și a clarificărilor juridice pentru fiecare fascicul.</p>
+            <p><strong>Domeniu de aplicare:</strong> arhiva istorică a seriilor I și II rămâne publică, dar nu este inclusă încă în exportul complet de metadate la nivel de articol până la completarea metadatelor și a clarificărilor juridice pentru fiecare fascicul.</p>
           </div>
         </section>
 
@@ -62,7 +62,7 @@ export default function DoajPolicy() {
           <div className="space-y-2 text-sm leading-relaxed text-foreground/90">
             <p><strong>Articole individuale:</strong> fiecare articol are URL unic și pagină dedicată.</p>
             <p><strong>Full text:</strong> disponibil gratuit prin pagina publică a articolului și prin fișier PDF asociat.</p>
-            <p><strong>Metadata:</strong> în panoul admin există export DOAJ Native XML și CSV pentru articolele științifice eligibile din seria a III-a.</p>
+            <p><strong>Metadata:</strong> în panoul admin există export XML și CSV pentru articolele științifice eligibile din seria a III-a.</p>
             <p><strong>Identificatori persistenți:</strong> DOI este suportat și exportat când este disponibil.</p>
             <p><strong>Preservation policy:</strong> conținutul este păstrat în arhiva digitală a revistei, în infrastructura editorială a publisherului și în depozitele statice folosite pentru distribuția publică a fișierelor.</p>
             <p><strong>Repository policy:</strong> autorii pot distribui liber URL-ul versiunii publicate pe site-ul revistei și pot arhiva referința la versiunea publicată, cu menționarea licenței și a sursei.</p>

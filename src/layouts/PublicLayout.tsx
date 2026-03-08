@@ -21,7 +21,7 @@ const DESPRE_ITEMS = [
   { label: 'Comitet științific', path: '/scientific-board', icon: Award },
   { label: 'Colegiu de redacție', path: '/editorial-board', icon: Users },
   { label: 'Tehnoredactare', path: '/tehnoredactare', icon: Pen },
-  { label: 'Politici DOAJ', path: '/doaj', icon: FileCheck2 },
+  { label: 'Politici editoriale', path: '/politici', icon: FileCheck2 },
 ];
 
 export default function PublicLayout() {
@@ -68,10 +68,10 @@ export default function PublicLayout() {
             <img src={logo} alt="IAFAR" className="h-10 w-10 rounded-sm" />
             <div className="hidden sm:block">
               <div className="font-serif text-lg font-bold leading-tight text-foreground group-hover:text-primary transition-colors">
-                Anuarul AAF
+                Anuarul Arhivei de Folclor
               </div>
               <div className="text-[0.65rem] uppercase tracking-[0.12em] text-muted-foreground">
-                ISSN {JOURNAL.issn}
+                AAF · ISSN {JOURNAL.issn}
               </div>
             </div>
           </Link>
@@ -180,10 +180,10 @@ export default function PublicLayout() {
                 <img src={logo} alt="IAFAR" className="h-10 w-10 rounded-sm" />
                 <div>
                   <div className="font-serif text-lg font-bold leading-tight text-foreground">
-                    Anuarul AAF
+                    Anuarul Arhivei de Folclor
                   </div>
                   <div className="text-[0.65rem] uppercase tracking-[0.12em] text-muted-foreground">
-                    ISSN {JOURNAL.issn}
+                    AAF · ISSN {JOURNAL.issn}
                   </div>
                 </div>
               </Link>

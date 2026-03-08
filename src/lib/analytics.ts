@@ -188,7 +188,7 @@ export function labelForPublicPath(pathname: string): string {
   if (pathname === '/archive') return 'Arhivă';
   if (pathname === '/submit') return 'Trimite manuscris';
   if (pathname === '/about') return 'Despre revistă';
-  if (pathname === '/doaj') return 'Politici DOAJ';
+  if (pathname === '/politici' || pathname === '/doaj') return 'Politici editoriale';
   if (pathname === '/scientific-board') return 'Comitet științific';
   if (pathname === '/editorial-board') return 'Colegiu de redacție';
   if (pathname === '/tehnoredactare') return 'Tehnoredactare';

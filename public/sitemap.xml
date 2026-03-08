@@ -10,7 +10,7 @@
     <loc>https://anuar.iafar.ro/about</loc>
   </url>
   <url>
-    <loc>https://anuar.iafar.ro/doaj</loc>
+    <loc>https://anuar.iafar.ro/politici</loc>
   </url>
   <url>
     <loc>https://anuar.iafar.ro/editorial-board</loc>
@@ -23,22 +23,6 @@
   </url>
   <url>
     <loc>https://anuar.iafar.ro/submit</loc>
-  </url>
-  <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-xxv-xxvi-2022</loc>
-    <lastmod>2022-12-31</lastmod>
-  </url>
-  <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-xxvii-2023</loc>
-    <lastmod>2023-12-31</lastmod>
-  </url>
-  <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-xxviii-2024</loc>
-    <lastmod>2024-12-31</lastmod>
-  </url>
-  <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-xxix-2025</loc>
-    <lastmod>2025-12-20</lastmod>
   </url>
   <url>
     <loc>https://anuar.iafar.ro/archive/aaf-seria1-1932-vol-i</loc>
@@ -69,32 +53,48 @@
     <lastmod>1945-12-31</lastmod>
   </url>
   <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1996-1998-vol-xv-xvii</loc>
-    <lastmod>1996-12-31</lastmod>
-  </url>
-  <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1994-1995-vol-xii-xiv</loc>
-    <lastmod>1994-12-31</lastmod>
-  </url>
-  <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1990-1993-vol-viii-xi</loc>
-    <lastmod>1990-12-31</lastmod>
-  </url>
-  <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1987-1989-vol-v-vii</loc>
-    <lastmod>1987-12-31</lastmod>
-  </url>
-  <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1985-1986-vol-iii-iv</loc>
-    <lastmod>1985-12-31</lastmod>
+    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1980-vol-i</loc>
+    <lastmod>1980-12-31</lastmod>
   </url>
   <url>
     <loc>https://anuar.iafar.ro/archive/aaf-seria2-1984-vol-ii</loc>
     <lastmod>1984-12-31</lastmod>
   </url>
   <url>
-    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1980-vol-i</loc>
-    <lastmod>1980-12-31</lastmod>
+    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1985-1986-vol-iii-iv</loc>
+    <lastmod>1985-12-31</lastmod>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1987-1989-vol-v-vii</loc>
+    <lastmod>1987-12-31</lastmod>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1990-1993-vol-viii-xi</loc>
+    <lastmod>1990-12-31</lastmod>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1994-1995-vol-xii-xiv</loc>
+    <lastmod>1994-12-31</lastmod>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/archive/aaf-seria2-1996-1998-vol-xv-xvii</loc>
+    <lastmod>1996-12-31</lastmod>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/archive/aaf-xxv-xxvi-2022</loc>
+    <lastmod>2022-12-31</lastmod>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/archive/aaf-xxvii-2023</loc>
+    <lastmod>2023-12-31</lastmod>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/archive/aaf-xxviii-2024</loc>
+    <lastmod>2024-12-31</lastmod>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/archive/aaf-xxix-2025</loc>
+    <lastmod>2025-12-20</lastmod>
   </url>
   <url>
     <loc>https://anuar.iafar.ro/article/1</loc>
