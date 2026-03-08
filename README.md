@@ -85,6 +85,34 @@ Sunt folosite două căi principale:
 
 Pentru worker este necesară configurarea secretelor și a variabilelor în Cloudflare, inclusiv cheia Resend, `OTP_SECRET` și setările pentru domeniul de email.
 
+## DOI cu Zenodo (automat)
+
+Există scriptul `scripts/zenodo-sync.mjs` care poate:
+
+- genera drafturi Zenodo pentru articolele unui număr;
+- încărca PDF-ul fiecărui articol;
+- publica în Zenodo (opțional);
+- scrie DOI-ul în manifestul local (`public/data` + copii `docs`) după publicare.
+
+Comenzi utile:
+
+```bash
+# 1) preview fără upload (safe)
+npm run zenodo:sync -- --issue aaf-xxix-2025
+
+# 2) upload drafturi în Zenodo Sandbox
+ZENODO_TOKEN=... npm run zenodo:sync -- --issue aaf-xxix-2025 --env sandbox --execute
+
+# 3) publicare + salvare DOI în manifest
+ZENODO_TOKEN=... npm run zenodo:sync -- --issue aaf-xxix-2025 --execute --publish --update-manifest
+```
+
+Note:
+
+- Scriptul sare implicit peste articolele care au deja DOI.
+- Recenziile se procesează doar dacă adaugi `--include-reviews`.
+- Rezultatul detaliat se scrie în `tmp/zenodo/report-*.json`.
+
 ## Domeniu și scop
 
 Repository-ul este întreținut pentru publicarea și administrarea **Anuarului Arhivei de Folclor** la domeniul `anuar.iafar.ro`, cu accent pe acces deschis, metadata curate și compatibilitate cu cerințe editoriale precum DOAJ.

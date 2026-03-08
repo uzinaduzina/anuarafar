@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "node scripts/generate-sitemap.mjs && vite build",
     "build:dev": "node scripts/generate-sitemap.mjs && vite build --mode development",
+    "zenodo:sync": "node scripts/zenodo-sync.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
