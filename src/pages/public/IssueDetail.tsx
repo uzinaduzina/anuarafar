@@ -10,6 +10,7 @@ import { SeriesId, Article, SERIES_CONFIG } from '@/data/types';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
 import { trackAnalyticsView } from '@/lib/analytics';
 import { resolvePdfUrl } from '@/lib/pdfUrl';
+import { parseIssuePdfParts } from '@/lib/issuePdfParts';
 
 const coverGradients: Record<SeriesId, string> = {
   'seria-1': 'from-[hsl(145,30%,35%)] via-[hsl(145,30%,50%)] to-[hsl(145,30%,80%)]',
@@ -73,6 +74,7 @@ export default function IssueDetail() {
   const issueArticles = articles
     .filter(a => a.issue_id === issue.id)
     .sort((a, b) => (parseInt(a.pages_start) || 0) - (parseInt(b.pages_start) || 0));
+  const issuePdfParts = parseIssuePdfParts(issue.issue_pdf_path);
 
   // Group articles by section
   const sections: { name: string; articles: typeof issueArticles }[] = [];
@@ -121,17 +123,21 @@ export default function IssueDetail() {
             ))}
           </div>
 
-          {issue.issue_pdf_path && (
+          {issuePdfParts.length > 0 && (
             <div className="mt-4">
-              <Button asChild size="lg" className="w-full">
-                <a
-                  href={resolvePdfUrl(issue.issue_pdf_path)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Download className="mr-2 h-4 w-4" /> Descarcă numărul integral (PDF)
-                </a>
-              </Button>
+              <div className="flex flex-col gap-2">
+                {issuePdfParts.map((pdfPart) => (
+                  <Button asChild size="lg" className="w-full" key={pdfPart.path}>
+                    <a
+                      href={resolvePdfUrl(pdfPart.path)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Download className="mr-2 h-4 w-4" /> {pdfPart.label}
+                    </a>
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
         </div>

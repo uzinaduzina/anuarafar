@@ -550,6 +550,7 @@ export default function DashboardIssues() {
                 </MobileField>
                 <MobileField label="Issue PDF path">
                   <MobileTextInput isAdmin={isAdmin} value={issue.issue_pdf_path} onChange={(value) => updateField(issue.id, 'issue_pdf_path', value)} />
+                  <p className="mt-1 text-[11px] text-muted-foreground">Pentru mai multe PDF-uri integrale separă căile cu `|`.</p>
                 </MobileField>
                 <MobileField label="Cover path">
                   <MobileTextInput isAdmin={isAdmin} value={issue.cover_hint_path} onChange={(value) => updateField(issue.id, 'cover_hint_path', value)} />
