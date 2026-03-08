@@ -28,6 +28,7 @@ function parseArgs(argv) {
     includeReviews: false,
     max: 0,
     community: [],
+    syncExisting: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -43,6 +44,7 @@ function parseArgs(argv) {
     else if (arg === '--publish') opts.publish = true;
     else if (arg === '--update-manifest') opts.updateManifest = true;
     else if (arg === '--include-reviews') opts.includeReviews = true;
+    else if (arg === '--sync-existing') opts.syncExisting = true;
     else if (arg === '--help' || arg === '-h') opts.help = true;
   }
 
@@ -65,6 +67,7 @@ Options:
   --publish                    Publish depositions (requires --execute)
   --update-manifest            Write DOI back to all manifest copies (requires --publish)
   --include-reviews            Include review items (is_review=true)
+  --sync-existing              Pull existing DOI values from your Zenodo depositions and update manifest
   --community <identifier>     Zenodo community identifier (can be repeated)
   --max <N>                    Process first N matching articles
   --help                       Show this help
@@ -73,6 +76,7 @@ Examples:
   npm run zenodo:sync -- --issue aaf-xxix-2025
   ZENODO_TOKEN=*** npm run zenodo:sync -- --issue aaf-xxix-2025 --execute --publish --update-manifest
   ZENODO_TOKEN=*** npm run zenodo:sync -- --issue aaf-xxix-2025 --env sandbox --execute
+  ZENODO_TOKEN=*** npm run zenodo:sync -- --issue aaf-seria1-1932-vol-i --execute --sync-existing
 `;
   console.log(text.trim());
 }
@@ -306,6 +310,37 @@ async function updateManifestDois(doiByArticleId) {
   return changed;
 }
 
+function extractArticleIdFromDeposition(deposition, siteUrl) {
+  const related = Array.isArray(deposition?.metadata?.related_identifiers)
+    ? deposition.metadata.related_identifiers
+    : [];
+  const base = siteUrl.replace(/\/+$/, '');
+  for (const item of related) {
+    const identifier = String(item?.identifier || '').trim();
+    const m = identifier.match(/\/article\/(\d+)\/?$/);
+    if (m) return m[1];
+    if (identifier.startsWith(`${base}/article/`)) {
+      const m2 = identifier.match(/\/article\/(\d+)/);
+      if (m2) return m2[1];
+    }
+  }
+  return '';
+}
+
+async function listAllDepositions(apiBase, token) {
+  const perPage = 100;
+  const all = [];
+  for (let page = 1; page <= 50; page += 1) {
+    const chunk = await zenodoRequest(apiBase, token, `/deposit/depositions?page=${page}&size=${perPage}`, {
+      method: 'GET',
+    });
+    if (!Array.isArray(chunk) || chunk.length === 0) break;
+    all.push(...chunk);
+    if (chunk.length < perPage) break;
+  }
+  return all;
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help || (!opts.issue && !opts.issueId)) {
@@ -317,8 +352,11 @@ async function main() {
   if (!zenodoApiBase[opts.env]) {
     throw new Error(`Unsupported --env value "${opts.env}". Use production or sandbox.`);
   }
-  if (!opts.execute && (opts.publish || opts.updateManifest)) {
+  if (!opts.execute && (opts.publish || opts.updateManifest || opts.syncExisting)) {
     throw new Error('--publish/--update-manifest require --execute.');
+  }
+  if (opts.syncExisting && (opts.publish || opts.community.length > 0)) {
+    throw new Error('--sync-existing cannot be combined with --publish or --community.');
   }
   if (opts.publish && !opts.updateManifest) {
     console.warn('Warning: publish is enabled, but --update-manifest is disabled. DOI will not be written locally.');
@@ -343,11 +381,52 @@ async function main() {
   }
 
   const issueId = String(issue.id || '').trim();
-  let candidates = articles.filter((article) => {
+  const issueArticles = articles.filter((article) => {
     if (!article) return false;
     if (String(article.issue_id || '').trim() !== issueId) return false;
     if (String(article.status || '').trim().toLowerCase() === 'draft') return false;
     if (!opts.includeReviews && String(article.is_review || '').trim().toLowerCase() === 'true') return false;
+    return true;
+  });
+
+  if (opts.syncExisting) {
+    const issueArticleIdSet = new Set(issueArticles.map((a) => String(a.id || '').trim()).filter(Boolean));
+    console.log(`Issue: ${issue.slug} (${issue.year})`);
+    console.log(`Mode: sync-existing | env=${opts.env}`);
+    console.log(`Issue articles in scope: ${issueArticleIdSet.size}`);
+
+    const depositions = await listAllDepositions(apiBase, opts.token);
+    const doiByArticleId = new Map();
+    for (const deposition of depositions) {
+      const articleId = extractArticleIdFromDeposition(deposition, opts.siteUrl);
+      if (!articleId || !issueArticleIdSet.has(articleId)) continue;
+      const doi = pickDoi(deposition);
+      if (!doi) continue;
+      doiByArticleId.set(articleId, doi);
+    }
+
+    const updated = await updateManifestDois(doiByArticleId);
+    console.log(`Found DOI values from depositions: ${doiByArticleId.size}`);
+    if (updated.length > 0) {
+      for (const item of updated) {
+        console.log(`Updated manifest: ${item.manifestPath} (${item.touched} DOI fields)`);
+      }
+    } else {
+      console.log('No manifest DOI fields changed.');
+    }
+
+    const reportRows = Array.from(doiByArticleId.entries()).map(([articleId, doi]) => ({
+      article_id: articleId,
+      issue_slug: String(issue.slug || ''),
+      status: 'synced',
+      doi,
+    }));
+    const reportPath = await writeReport(reportRows);
+    console.log(`Report: ${reportPath}`);
+    return;
+  }
+
+  let candidates = issueArticles.filter((article) => {
     if (String(article.doi || '').trim()) return false;
     if (!String(article.pdf_path || '').trim()) return false;
     return true;
