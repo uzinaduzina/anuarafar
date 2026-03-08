@@ -57,11 +57,11 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
     const normalizedKeywords = String(form.keywords || form.keywords_ro || form.keywords_en || '').trim();
     const result = await updateArticle(article.id, {
       ...form,
-      abstract: article.is_review ? '' : normalizedAbstract,
-      abstract_ro: article.is_review ? '' : normalizedAbstract,
+      abstract: normalizedAbstract,
+      abstract_ro: normalizedAbstract,
       abstract_en: '',
-      keywords: article.is_review ? '' : normalizedKeywords,
-      keywords_ro: article.is_review ? '' : normalizedKeywords,
+      keywords: normalizedKeywords,
+      keywords_ro: normalizedKeywords,
       keywords_en: '',
     });
     setSaving(false);
@@ -108,22 +108,18 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
             <Label className="text-xs">Rezumat (o singură limbă)</Label>
             <Textarea
               className="text-sm"
-              value={article.is_review ? '' : form.abstract || form.abstract_ro || form.abstract_en || ''}
+              value={form.abstract || form.abstract_ro || form.abstract_en || ''}
               onChange={e => setAbstract(e.target.value)}
               rows={4}
-              disabled={article.is_review}
             />
-            {article.is_review && <p className="text-[11px] text-muted-foreground">Recenziile nu primesc abstract în metadata revistei.</p>}
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Cuvinte cheie (separate prin virgulă)</Label>
             <Input
               className="h-8 text-sm"
-              value={article.is_review ? '' : form.keywords || form.keywords_ro || form.keywords_en || ''}
+              value={form.keywords || form.keywords_ro || form.keywords_en || ''}
               onChange={e => setKeywords(e.target.value)}
-              disabled={article.is_review}
             />
-            {article.is_review && <p className="text-[11px] text-muted-foreground">Recenziile nu primesc keywords în metadata revistei.</p>}
           </div>
 
           {/* Rest of metadata */}

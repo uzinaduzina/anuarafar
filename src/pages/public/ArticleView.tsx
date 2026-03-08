@@ -259,20 +259,20 @@ export default function ArticleView() {
           )}
         </div>
 
-        <div className="ml-auto min-w-[220px] rounded-md border bg-card px-4 py-3 shadow-sm">
-          <div className="space-y-2">
+        <div className="ml-auto min-w-[220px] rounded-md border bg-card px-3 py-2 shadow-sm">
+          <div className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-2">
             {[
               { label: 'Ultima zi', value: articleAnalytics?.lastDay },
               { label: 'Ultima săptămână', value: articleAnalytics?.lastWeek },
               { label: 'Ultima lună', value: articleAnalytics?.lastMonth },
               { label: 'Total', value: articleAnalytics?.total },
             ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between gap-4 text-sm">
-                <div className="flex items-center gap-1 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
-                  <Eye className="h-3 w-3" />
+              <div key={item.label} className="flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1 text-[0.62rem] uppercase tracking-[0.06em] text-muted-foreground font-semibold">
+                  <Eye className="h-3 w-3 shrink-0" />
                   <span>{item.label}</span>
                 </div>
-                <div className="font-semibold tabular-nums">
+                <div className="font-semibold tabular-nums text-sm">
                   {typeof item.value === 'number' ? item.value.toLocaleString('ro-RO') : '—'}
                 </div>
               </div>
