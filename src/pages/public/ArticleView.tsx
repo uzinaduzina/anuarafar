@@ -4,7 +4,8 @@ import { ArrowLeft, BookOpen, Eye, Loader2, Pencil } from 'lucide-react';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { SeriesBadge } from '@/components/SeriesBadge';
-import { SeriesId, SERIES_CONFIG } from '@/data/types';
+import { SeriesId } from '@/data/types';
+import { JOURNAL } from '@/data/journal';
 import { Button } from '@/components/ui/button';
 import PdfViewer from '@/components/PdfViewer';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
@@ -92,7 +93,11 @@ export default function ArticleView() {
   }
 
   const issue = issues.find(i => i.id === article.issue_id);
-  const abstractText = (article.abstract || article.abstract_ro || article.abstract_en || '').trim();
+  const abstractText = [article.abstract_en, article.abstract_de, article.abstract_fr, article.abstract_ro, article.abstract]
+    .find((value) => String(value || '').trim()) || '';
+  const cleanAbstractText = String(abstractText)
+    .replace(/\b(?:Keywords?|Cuvinte(?:-| )?cheie|Parole(?:-| )?chiave|Mots(?:-| )?cl[eé]s|Schl[üu]sselw[öo]rter)\b\s*:.*/is, '')
+    .trim();
   const keywords = (article.keywords || article.keywords_ro || article.keywords_en || '')
     .split(',')
     .map(k => k.trim())
@@ -106,6 +111,24 @@ export default function ArticleView() {
   const nextArticle = currentIndex >= 0 && currentIndex < issueArticles.length - 1 ? issueArticles[currentIndex + 1] : null;
 
   const series = issue?.series || article.series;
+  const isCurrentOpenAccessIssue = issue?.series === 'seria-3';
+  const citationUrl = `${JOURNAL.url}/article/${article.id}`;
+  const licenseLabel = isCurrentOpenAccessIssue ? JOURNAL.oa_license_name : 'Arhivă istorică';
+  const rightsNotice = isCurrentOpenAccessIssue
+    ? JOURNAL.oa_copyright_notice
+    : JOURNAL.archive_rights_notice;
+  const publishingRightsNotice = isCurrentOpenAccessIssue
+    ? JOURNAL.oa_publishing_rights_notice
+    : 'Pentru seriile anterioare, condițiile detaliate de reutilizare sunt publicate separat la nivel de politică editorială.';
+  const reuseNotice = isCurrentOpenAccessIssue
+    ? JOURNAL.oa_reuse_notice
+    : 'Consultați politica revistei înainte de redistribuire, republicare sau reutilizare extinsă a materialului din arhivă.';
+  const citationVolume = issue?.volume ? `vol. ${issue.volume}` : '';
+  const citationIssue = issue?.number ? `, nr. ${issue.number}` : '';
+  const citationYear = issue?.year ? ` (${issue.year})` : '';
+  const citationPages = article.pages_start && article.pages_end ? `, pp. ${article.pages_start}–${article.pages_end}` : '';
+  const citationDoi = article.doi ? ` DOI: ${article.doi}.` : '';
+  const citationText = `${authors.join(', ')}, „${article.title},” ${JOURNAL.name}${citationVolume ? `, ${citationVolume}${citationIssue}` : ''}${citationYear}${citationPages}.${citationDoi} ${citationUrl}`.trim();
 
   return (
     <div className="container py-8 md:py-12 max-w-4xl">
@@ -158,6 +181,30 @@ export default function ArticleView() {
           <p className="text-sm text-muted-foreground mb-4">{article.affiliations}</p>
         )}
 
+        <div className="mb-4 rounded-md border bg-muted/30 p-4">
+          <h2 className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-2">Drepturi de autor și licență</h2>
+          <div className="space-y-1.5 text-sm text-foreground/90">
+            <p>
+              <strong>Licență:</strong>{' '}
+              {isCurrentOpenAccessIssue ? (
+                <a href={JOURNAL.oa_license_url} className="text-primary hover:underline" target="_blank" rel="noreferrer">
+                  {licenseLabel}
+                </a>
+              ) : (
+                licenseLabel
+              )}
+            </p>
+            <p><strong>Copyright:</strong> {rightsNotice}</p>
+            <p><strong>Publicare:</strong> {publishingRightsNotice}</p>
+            <p><strong>Reutilizare:</strong> {reuseNotice}</p>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-md border bg-muted/30 p-4">
+          <h2 className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-2">Cum se citează</h2>
+          <p className="text-sm text-foreground/90">{citationText}</p>
+        </div>
+
         <div className="flex flex-wrap gap-6 py-4 border-y text-sm">
           {article.pages_start && (
             <div>
@@ -179,10 +226,10 @@ export default function ArticleView() {
       </div>
 
       {/* Abstract */}
-      {abstractText && (
+      {cleanAbstractText && (
         <div className={`rounded-lg border p-6 md:p-8 mb-6 shadow-sm ${seriesAccentBg[series]}`}>
           <h2 className="font-serif text-lg font-bold mb-3">Rezumat</h2>
-          <p className="text-sm leading-relaxed text-foreground/90">{abstractText}</p>
+          <p className="text-sm leading-relaxed text-foreground/90">{cleanAbstractText}</p>
         </div>
       )}
 
@@ -212,23 +259,25 @@ export default function ArticleView() {
           )}
         </div>
 
-        <div className="ml-auto grid grid-cols-2 gap-2 text-right sm:grid-cols-4">
-          {[
-            { label: 'Ultima zi', value: articleAnalytics?.lastDay },
-            { label: 'Ultima săptămână', value: articleAnalytics?.lastWeek },
-            { label: 'Ultima lună', value: articleAnalytics?.lastMonth },
-            { label: 'Total', value: articleAnalytics?.total },
-          ].map((item) => (
-            <div key={item.label} className="min-w-[112px] rounded-md border bg-card px-3 py-2 shadow-sm">
-              <div className="flex items-center justify-end gap-1 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
-                <Eye className="h-3 w-3" />
-                <span>{item.label}</span>
+        <div className="ml-auto min-w-[220px] rounded-md border bg-card px-4 py-3 shadow-sm">
+          <div className="space-y-2">
+            {[
+              { label: 'Ultima zi', value: articleAnalytics?.lastDay },
+              { label: 'Ultima săptămână', value: articleAnalytics?.lastWeek },
+              { label: 'Ultima lună', value: articleAnalytics?.lastMonth },
+              { label: 'Total', value: articleAnalytics?.total },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-4 text-sm">
+                <div className="flex items-center gap-1 text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+                  <Eye className="h-3 w-3" />
+                  <span>{item.label}</span>
+                </div>
+                <div className="font-semibold tabular-nums">
+                  {typeof item.value === 'number' ? item.value.toLocaleString('ro-RO') : '—'}
+                </div>
               </div>
-              <div className="mt-1 text-sm font-semibold tabular-nums">
-                {typeof item.value === 'number' ? item.value.toLocaleString('ro-RO') : '—'}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 

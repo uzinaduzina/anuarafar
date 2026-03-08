@@ -19,6 +19,7 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
   const { updateArticle } = useJournalData();
   const { toast } = useToast();
   const [form, setForm] = useState<Partial<Article>>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (article) {
@@ -50,19 +51,36 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setSaving(true);
     const normalizedAbstract = String(form.abstract || form.abstract_ro || form.abstract_en || '').trim();
     const normalizedKeywords = String(form.keywords || form.keywords_ro || form.keywords_en || '').trim();
-    updateArticle(article.id, {
+    const result = await updateArticle(article.id, {
       ...form,
-      abstract: normalizedAbstract,
-      abstract_ro: normalizedAbstract,
+      abstract: article.is_review ? '' : normalizedAbstract,
+      abstract_ro: article.is_review ? '' : normalizedAbstract,
       abstract_en: '',
-      keywords: normalizedKeywords,
-      keywords_ro: normalizedKeywords,
+      keywords: article.is_review ? '' : normalizedKeywords,
+      keywords_ro: article.is_review ? '' : normalizedKeywords,
       keywords_en: '',
     });
-    toast({ title: 'Articol actualizat', description: 'Modificările au fost salvate local.' });
+    setSaving(false);
+
+    if (!result.ok) {
+      toast({
+        title: 'Salvare eșuată',
+        description: result.error || 'Nu am putut salva modificările.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Articol actualizat',
+      description: result.source === 'remote'
+        ? 'Modificările au fost salvate în sursa publică.'
+        : 'Modificările au fost salvate local.',
+    });
     onOpenChange(false);
   };
 
@@ -88,11 +106,24 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
           {/* Abstract & Keywords — higher up */}
           <div className="space-y-1">
             <Label className="text-xs">Rezumat (o singură limbă)</Label>
-            <Textarea className="text-sm" value={form.abstract || form.abstract_ro || form.abstract_en || ''} onChange={e => setAbstract(e.target.value)} rows={4} />
+            <Textarea
+              className="text-sm"
+              value={article.is_review ? '' : form.abstract || form.abstract_ro || form.abstract_en || ''}
+              onChange={e => setAbstract(e.target.value)}
+              rows={4}
+              disabled={article.is_review}
+            />
+            {article.is_review && <p className="text-[11px] text-muted-foreground">Recenziile nu primesc abstract în metadata revistei.</p>}
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Cuvinte cheie (separate prin virgulă)</Label>
-            <Input className="h-8 text-sm" value={form.keywords || form.keywords_ro || form.keywords_en || ''} onChange={e => setKeywords(e.target.value)} />
+            <Input
+              className="h-8 text-sm"
+              value={article.is_review ? '' : form.keywords || form.keywords_ro || form.keywords_en || ''}
+              onChange={e => setKeywords(e.target.value)}
+              disabled={article.is_review}
+            />
+            {article.is_review && <p className="text-[11px] text-muted-foreground">Recenziile nu primesc keywords în metadata revistei.</p>}
           </div>
 
           {/* Rest of metadata */}
@@ -138,7 +169,7 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             <X className="mr-1 h-3 w-3" /> Anulează
           </Button>
-          <Button size="sm" onClick={handleSave}>
+          <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
             <Save className="mr-1 h-3 w-3" /> Salvează
           </Button>
         </SheetFooter>

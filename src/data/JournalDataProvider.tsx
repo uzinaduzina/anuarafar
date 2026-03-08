@@ -2,12 +2,37 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode,
 import { Issue, Article, SeriesId } from './types';
 import { objectsToRows, parseCsv, rowsToObjects, toCsv } from '@/lib/csv';
 import { JOURNAL } from './journal';
-import { resolvePdfUrl } from '@/lib/pdfUrl';
+import { useAuth } from '@/contexts/AuthContext';
+import { isRemoteAuthEnabled, resolveAuthApiBase } from '@/lib/authApi';
 
 const MANIFEST_URL = `${import.meta.env.BASE_URL}data/issues_manifest_user.js`;
 const ISSUES_CSV_URL = `${import.meta.env.BASE_URL}data/issues.csv`;
 const ISSUES_CSV_STORAGE_KEY = 'journal_issues_csv_v1';
 const ARTICLE_OVERRIDES_STORAGE_KEY = 'journal_article_overrides_v1';
+const AUTH_API_BASE = resolveAuthApiBase();
+const REMOTE_AUTH_ENABLED = isRemoteAuthEnabled();
+const ARTICLE_OVERRIDE_FIELDS = [
+  'title',
+  'authors',
+  'affiliations',
+  'emails',
+  'abstract',
+  'abstract_ro',
+  'abstract_en',
+  'abstract_de',
+  'abstract_fr',
+  'keywords',
+  'keywords_ro',
+  'keywords_en',
+  'keywords_de',
+  'keywords_fr',
+  'pages_start',
+  'pages_end',
+  'doi',
+  'language',
+  'section',
+  'pdf_path',
+] as const;
 
 const ISSUE_CSV_COLUMNS = [
   'id',
@@ -39,15 +64,21 @@ const ARTICLE_CSV_COLUMNS = [
   'abstract',
   'abstract_ro',
   'abstract_en',
+  'abstract_de',
+  'abstract_fr',
   'keywords',
   'keywords_ro',
   'keywords_en',
+  'keywords_de',
+  'keywords_fr',
   'pages_start',
   'pages_end',
   'doi',
   'language',
   'status',
   'pdf_path',
+  'md_path',
+  'is_review',
 ] as const;
 
 const DOAJ_CSV_COLUMNS = [
@@ -112,9 +143,13 @@ interface ManifestArticle {
   abstract?: string;
   abstract_ro: string;
   abstract_en: string;
+  abstract_de?: string;
+  abstract_fr?: string;
   keywords?: string;
   keywords_ro: string;
   keywords_en: string;
+  keywords_de?: string;
+  keywords_fr?: string;
   pages_start: string | number;
   pages_end: string | number;
   doi: string;
@@ -145,12 +180,18 @@ interface DeleteIssueResult {
   error?: string;
 }
 
+interface ArticleUpdateResult {
+  ok: boolean;
+  error?: string;
+  source: 'remote' | 'local';
+}
+
 interface JournalData {
   issues: Issue[];
   articles: Article[];
   loading: boolean;
   error: string | null;
-  updateArticle: (id: string, changes: Partial<Article>) => void;
+  updateArticle: (id: string, changes: Partial<Article>) => Promise<ArticleUpdateResult>;
   updateIssue: (id: string, changes: Partial<Issue>) => void;
   addIssue: (seed?: Partial<Issue>) => Issue;
   deleteIssue: (id: string) => DeleteIssueResult;
@@ -174,7 +215,7 @@ const JournalDataContext = createContext<JournalData>({
   articles: [],
   loading: true,
   error: null,
-  updateArticle: () => {},
+  updateArticle: async () => ({ ok: false, error: 'Update not implemented.', source: 'local' }),
   updateIssue: () => {},
   addIssue: () => ({
     id: '',
@@ -261,12 +302,16 @@ function mapArticle(ma: ManifestArticle, issueSeries: Record<string, SeriesId>):
     authors: ma.authors || ma.author || '',
     affiliations: ma.affiliations || '',
     emails: ma.emails || '',
-    abstract: ma.abstract || ma.abstract_ro || ma.abstract_en || '',
+    abstract: ma.abstract || ma.abstract_en || ma.abstract_de || ma.abstract_fr || ma.abstract_ro || '',
     abstract_ro: ma.abstract_ro || '',
     abstract_en: ma.abstract_en || '',
-    keywords: ma.keywords || ma.keywords_ro || ma.keywords_en || '',
+    abstract_de: ma.abstract_de || '',
+    abstract_fr: ma.abstract_fr || '',
+    keywords: ma.keywords || ma.keywords_ro || ma.keywords_en || ma.keywords_de || ma.keywords_fr || '',
     keywords_ro: ma.keywords_ro || '',
     keywords_en: ma.keywords_en || '',
+    keywords_de: ma.keywords_de || '',
+    keywords_fr: ma.keywords_fr || '',
     pages_start: String(ma.pages_start || ''),
     pages_end: String(ma.pages_end || ''),
     doi: ma.doi || '',
@@ -275,6 +320,8 @@ function mapArticle(ma: ManifestArticle, issueSeries: Record<string, SeriesId>):
     section: ma.section || '',
     series: issueSeries[ma.issue_id] || mapSeries(ma.series || ''),
     pdf_path: ma.pdf_path || '',
+    md_path: ma.md_path || '',
+    is_review: Boolean(ma.is_review),
   };
 }
 
@@ -387,15 +434,21 @@ function articleToCsvRow(article: Article): Record<(typeof ARTICLE_CSV_COLUMNS)[
     abstract: article.abstract || '',
     abstract_ro: article.abstract_ro || '',
     abstract_en: article.abstract_en || '',
+    abstract_de: article.abstract_de || '',
+    abstract_fr: article.abstract_fr || '',
     keywords: article.keywords || '',
     keywords_ro: article.keywords_ro || '',
     keywords_en: article.keywords_en || '',
+    keywords_de: article.keywords_de || '',
+    keywords_fr: article.keywords_fr || '',
     pages_start: article.pages_start || '',
     pages_end: article.pages_end || '',
     doi: article.doi || '',
     language: article.language || '',
     status: article.status || '',
     pdf_path: article.pdf_path || '',
+    md_path: article.md_path || '',
+    is_review: article.is_review ? 'true' : 'false',
   };
 }
 
@@ -410,21 +463,168 @@ function exportArticlesAsCsv(articles: Article[]): string {
 
 function getPublicSiteUrl(): string {
   const configured = String(import.meta.env.VITE_PUBLIC_SITE_URL || '').trim().replace(/\/+$/, '');
-  return configured || 'https://anuar.iafar.ro';
+  return configured || String(JOURNAL.url || 'https://anuar.iafar.ro').replace(/\/+$/, '');
+}
+
+const ABSTRACT_TRAILER_PATTERN = /\b(?:keywords?|cuvinte(?:-| )?cheie|parole(?:-| )?chiave|mots(?:-| )?cl[eé]s|schl[üu]sselw[öo]rter)\b\s*:/i;
+const DOAJ_TITLE_EXCLUSION_PATTERNS: Array<[RegExp, string]> = [
+  [/^un nou început$/i, 'editorial de relansare'],
+  [/^in memoriam\b/i, 'text memorial'],
+  [/^in honorem\b/i, 'omagiu'],
+  [/^gând pios\b/i, 'omagiu memorial'],
+  [/^cuvânt înainte$/i, 'prefață'],
+  [/^curriculum vitae$/i, 'curriculum vitae'],
+  [/^memoriu de activitate$/i, 'memoriu de activitate'],
+  [/\binterviu\b/i, 'interviu'],
+  [/\bnote de lectură\b/i, 'notă de lectură'],
+  [/istoricul apariției unei cărți/i, 'text de istorie editorială'],
+];
+const DOAJ_SECTION_EXCLUSION_KEYS = new Map<string, string>([
+  ['RECENZII', 'recenzie'],
+  ['NOTEDELECTURA', 'notă de lectură'],
+  ['RESTITUIRI', 'secțiune de restituiri'],
+]);
+
+function normalizeInlineWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeSectionKey(value: string): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^A-Z]/gi, '')
+    .toUpperCase();
+}
+
+function cleanAbstractText(value: string): string {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+
+  const trailerMatch = ABSTRACT_TRAILER_PATTERN.exec(trimmed);
+  if (!trailerMatch || trailerMatch.index < 120) {
+    return normalizeInlineWhitespace(trimmed);
+  }
+
+  return normalizeInlineWhitespace(trimmed.slice(0, trailerMatch.index));
+}
+
+function getAbstractCandidate(article: Article): { value: string; language: string } {
+  const candidates: Array<[string | undefined, string]> = [
+    [article.abstract_en, 'eng'],
+    [article.abstract_de, 'ger'],
+    [article.abstract_fr, 'fre'],
+    [article.abstract_ro, 'rum'],
+    [article.abstract, toIso639_2b(article.language || JOURNAL.language || 'ro')],
+  ];
+
+  for (const [value, language] of candidates) {
+    const cleaned = cleanAbstractText(value || '');
+    if (cleaned) {
+      return { value: cleaned, language };
+    }
+  }
+
+  return { value: '', language: toIso639_2b(article.language || JOURNAL.language || 'ro') };
 }
 
 function singleAbstractValue(article: Article): string {
-  return article.abstract || article.abstract_ro || article.abstract_en || '';
+  return getAbstractCandidate(article).value;
 }
 
 function singleKeywordsValue(article: Article): string {
-  return article.keywords || article.keywords_ro || article.keywords_en || '';
+  return article.keywords || article.keywords_ro || article.keywords_en || article.keywords_de || article.keywords_fr || '';
+}
+
+function hasAnyAbstract(article: Article): boolean {
+  return Boolean(singleAbstractValue(article));
+}
+
+function hasAnyKeywords(article: Article): boolean {
+  return Boolean(singleKeywordsValue(article).trim());
+}
+
+function articleLandingUrl(article: Article): string {
+  return `${getPublicSiteUrl()}/article/${article.id}`;
+}
+
+function splitAuthors(raw: string): string[] {
+  return (raw || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function splitAffiliations(raw: string): string[] {
+  return (raw || '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function issueEligibleForDoaj(issue?: Issue): boolean {
+  return Boolean(issue && issue.series === 'seria-3' && issue.status === 'published');
+}
+
+function doajExclusionReason(article: Article, issue?: Issue): string | null {
+  if (!issueEligibleForDoaj(issue)) {
+    return 'Numărul aparține unei serii arhivistice care nu are încă metadate complete pentru DOAJ.';
+  }
+
+  if (article.is_review) {
+    return 'Recenziile nu sunt incluse în exportul DOAJ.';
+  }
+
+  const normalizedAuthors = String(article.authors || '').trim();
+  if (!normalizedAuthors || normalizedAuthors.toUpperCase() === 'N/A') {
+    return 'Înregistrările fără autor valid nu sunt incluse în exportul DOAJ.';
+  }
+
+  const sectionReason = DOAJ_SECTION_EXCLUSION_KEYS.get(normalizeSectionKey(article.section || ''));
+  if (sectionReason) {
+    return `${sectionReason.charAt(0).toUpperCase()}${sectionReason.slice(1)} nu este inclusă în exportul DOAJ.`;
+  }
+
+  if (normalizeSectionKey(article.section || '').startsWith('ARHIVADEFOLCLOR') && !hasAnyAbstract(article)) {
+    return 'Textele omagiale sau instituționale fără abstract din secțiunea de arhivă nu sunt incluse în exportul DOAJ.';
+  }
+
+  const title = String(article.title || '').trim();
+  for (const [pattern, label] of DOAJ_TITLE_EXCLUSION_PATTERNS) {
+    if (pattern.test(title)) {
+      return `${label.charAt(0).toUpperCase()}${label.slice(1)} nu este inclus(ă) în exportul DOAJ.`;
+    }
+  }
+
+  return null;
+}
+
+function doajExportScope(
+  sourceArticles: Article[],
+  issuesById: Record<string, Issue>,
+): {
+  eligible: Article[];
+  excluded: Array<{ article: Article; reason: string }>;
+} {
+  const eligible: Article[] = [];
+  const excluded: Array<{ article: Article; reason: string }> = [];
+
+  sourceArticles.forEach((article) => {
+    const reason = doajExclusionReason(article, issuesById[article.issue_id]);
+    if (reason) {
+      excluded.push({ article, reason });
+      return;
+    }
+    eligible.push(article);
+  });
+
+  return { eligible, excluded };
 }
 
 function doajRow(article: Article, issue?: Issue): Record<(typeof DOAJ_CSV_COLUMNS)[number], string> {
-  const siteUrl = getPublicSiteUrl();
   const abstractValue = singleAbstractValue(article);
   const keywordsValue = singleKeywordsValue(article);
+  const articleUrl = articleLandingUrl(article);
 
   return {
     journal_title: JOURNAL.name,
@@ -437,8 +637,8 @@ function doajRow(article: Article, issue?: Issue): Record<(typeof DOAJ_CSV_COLUM
     abstract: abstractValue,
     keywords: keywordsValue,
     doi: article.doi || '',
-    article_url: `${siteUrl}/article/${article.id}`,
-    full_text_url: resolvePdfUrl(article.pdf_path || ''),
+    article_url: articleUrl,
+    full_text_url: articleUrl,
     publication_date: issue?.date_published || '',
     volume: issue?.volume || '',
     issue: issue?.number || '',
@@ -447,9 +647,9 @@ function doajRow(article: Article, issue?: Issue): Record<(typeof DOAJ_CSV_COLUM
     start_page: article.pages_start || '',
     end_page: article.pages_end || '',
     language: article.language || JOURNAL.language || 'ro',
-    license: 'CC BY 4.0',
-    license_url: 'https://creativecommons.org/licenses/by/4.0/',
-    copyright_statement: 'Autorii isi pastreaza drepturile de autor; revista publica in regim open access CC BY 4.0.',
+    license: JOURNAL.oa_license_name,
+    license_url: JOURNAL.oa_license_url,
+    copyright_statement: `${JOURNAL.oa_copyright_notice} ${JOURNAL.oa_publishing_rights_notice}`,
     open_access_statement: 'Acces deschis imediat, fara embargo si fara autentificare pentru citire/descarcare.',
     peer_review: 'Double-blind peer review, minimum doi referenti independenti.',
     author_fees: 'Fara taxe pentru autori (APC = 0).',
@@ -502,12 +702,13 @@ function sanitizeIssn(raw: string): string {
 function buildDoajRecordXml(article: Article, issue?: Issue): string {
   const articleLanguage = toIso639_2b(article.language || JOURNAL.language || 'ro');
   const titleLanguage = articleLanguage;
-  const abstractValue = singleAbstractValue(article).trim();
-  const abstractLanguage = articleLanguage;
-  const fullTextUrl = resolvePdfUrl(article.pdf_path || '') || `${getPublicSiteUrl()}/article/${article.id}`;
-  const fullTextFormat = article.pdf_path ? 'pdf' : 'html';
-  const authors = splitList(article.authors);
-  const affiliations = splitList(article.affiliations);
+  const abstractCandidate = getAbstractCandidate(article);
+  const abstractValue = abstractCandidate.value.trim();
+  const abstractLanguage = abstractCandidate.language;
+  const fullTextUrl = articleLandingUrl(article);
+  const fullTextFormat = 'html';
+  const authors = splitAuthors(article.authors);
+  const affiliations = splitAffiliations(article.affiliations);
   const keywords = splitList(singleKeywordsValue(article));
   const issn = sanitizeIssn(JOURNAL.issn);
   const eissn = sanitizeIssn(JOURNAL.eissn);
@@ -574,25 +775,54 @@ function validateDoajRecords(articles: Article[], issuesById: Record<string, Iss
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  const { eligible, excluded } = doajExportScope(articles, issuesById);
+
   const printIssn = sanitizeIssn(JOURNAL.issn);
   const onlineIssn = sanitizeIssn(JOURNAL.eissn);
   if (!printIssn && !onlineIssn) {
     errors.push('Jurnalul nu are ISSN/eISSN configurat pentru DOAJ metadata.');
   }
 
+  if (articles.length > 0 && eligible.length === 0 && excluded.length > 0) {
+    errors.push(excluded[0].reason);
+  }
+
+  if (excluded.length > 0) {
+    warnings.push(`${excluded.length} înregistrări au fost excluse din exportul DOAJ; exemplu: ${excluded[0].article.title}.`);
+  }
+
   const seenDoi = new Map<string, string>();
   const seenFullTextUrl = new Map<string, string>();
-  const siteUrl = getPublicSiteUrl();
 
-  for (const article of articles) {
+  for (const article of eligible) {
     const issue = issuesById[article.issue_id];
     const articleLabel = article.id || article.title || 'articol-neidentificat';
     const publicationDate = (issue?.date_published || '').trim();
-    const fullTextUrl = resolvePdfUrl(article.pdf_path || '') || `${siteUrl}/article/${article.id}`;
+    const fullTextUrl = articleLandingUrl(article);
     const doi = (article.doi || '').trim().toLowerCase();
 
     if (!article.title.trim()) {
       errors.push(`Articolul ${articleLabel} nu are titlu.`);
+    }
+
+    if (!article.authors.trim()) {
+      errors.push(`Articolul ${articleLabel} nu are autori.`);
+    }
+
+    if (!article.affiliations.trim()) {
+      errors.push(`Articolul ${articleLabel} nu are afiliere instituțională.`);
+    }
+
+    if (!hasAnyAbstract(article)) {
+      errors.push(`Articolul ${articleLabel} nu are abstract DOAJ-eligibil.`);
+    }
+
+    if (!hasAnyKeywords(article)) {
+      errors.push(`Articolul ${articleLabel} nu are keywords DOAJ-eligibile.`);
+    }
+
+    if (!article.pages_start.trim() || !article.pages_end.trim()) {
+      errors.push(`Articolul ${articleLabel} nu are interval de paginare complet.`);
     }
 
     if (!publicationDate) {
@@ -606,7 +836,7 @@ function validateDoajRecords(articles: Article[], issuesById: Record<string, Iss
     }
 
     if (!article.pdf_path) {
-      warnings.push(`Articolul ${articleLabel} nu are PDF direct; fullTextUrl va indica pagina articolului.`);
+      warnings.push(`Articolul ${articleLabel} nu are PDF asociat în viewer; fullTextUrl rămâne pagina articolului.`);
     }
 
     if (article.emails.trim()) {
@@ -633,7 +863,7 @@ function validateDoajRecords(articles: Article[], issuesById: Record<string, Iss
 
   return {
     ok: errors.length === 0,
-    articleCount: articles.length,
+    articleCount: eligible.length,
     errors: Array.from(new Set(errors)),
     warnings: Array.from(new Set(warnings)),
   };
@@ -654,12 +884,39 @@ function writeArticleOverride(id: string, changes: Partial<Article>) {
   localStorage.setItem(ARTICLE_OVERRIDES_STORAGE_KEY, JSON.stringify(current));
 }
 
-function applyArticleOverrides(baseArticles: Article[]): Article[] {
-  const overrides = readArticleOverrides();
+function sanitizeArticleChanges(changes: Partial<Article>): Partial<Article> {
+  const sanitized: Partial<Article> = {};
+  for (const field of ARTICLE_OVERRIDE_FIELDS) {
+    const value = changes[field];
+    if (typeof value === 'string') {
+      sanitized[field] = value;
+    }
+  }
+  return sanitized;
+}
+
+function applyArticleOverrides(baseArticles: Article[], overrides: Record<string, Partial<Article>> = {}): Article[] {
   return baseArticles.map((article) => {
     const override = overrides[article.id];
     return override ? { ...article, ...override } : article;
   });
+}
+
+async function fetchRemoteArticleOverrides(): Promise<Record<string, Partial<Article>>> {
+  if (!REMOTE_AUTH_ENABLED || !AUTH_API_BASE) return {};
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/article-overrides`);
+    if (!response.ok) return {};
+    const payload = await response.json() as { overrides?: Record<string, Partial<Article>> };
+    const next: Record<string, Partial<Article>> = {};
+    for (const [id, value] of Object.entries(payload.overrides || {})) {
+      if (!value || typeof value !== 'object') continue;
+      next[id] = sanitizeArticleChanges(value as Partial<Article>);
+    }
+    return next;
+  } catch {
+    return {};
+  }
 }
 
 function alignArticleSeriesWithIssues(baseArticles: Article[], nextIssues: Issue[]): Article[] {
@@ -676,6 +933,7 @@ function alignArticleSeriesWithIssues(baseArticles: Article[], nextIssues: Issue
 }
 
 export function JournalDataProvider({ children }: { children: ReactNode }) {
+  const { authToken } = useAuth();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -711,8 +969,11 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
           issueSeries[issue.id] = issue.series;
         });
 
+        const remoteArticleOverrides = await fetchRemoteArticleOverrides();
+        const localArticleOverrides = REMOTE_AUTH_ENABLED ? {} : readArticleOverrides();
         const mappedArticles = applyArticleOverrides(
           (manifest.articles || []).map((article) => mapArticle(article, issueSeries)),
+          { ...localArticleOverrides, ...remoteArticleOverrides },
         );
 
         const localCsv = localStorage.getItem(ISSUES_CSV_STORAGE_KEY);
@@ -756,11 +1017,50 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const updateArticle = useCallback((id: string, changes: Partial<Article>) => {
-    setArticles((prev) => prev.map((article) => (article.id === id ? { ...article, ...changes } : article)));
-    writeArticleOverride(id, changes);
+  const updateArticle = useCallback(async (id: string, changes: Partial<Article>): Promise<ArticleUpdateResult> => {
+    const sanitizedChanges = sanitizeArticleChanges(changes);
+
+    if (REMOTE_AUTH_ENABLED && AUTH_API_BASE) {
+      if (!authToken) {
+        return { ok: false, error: 'Autentificarea editorială a expirat. Conectează-te din nou.', source: 'remote' };
+      }
+
+      try {
+        const response = await fetch(`${AUTH_API_BASE}/article-overrides`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ id, changes: sanitizedChanges }),
+        });
+
+        const payload = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
+        if (!response.ok || payload.ok === false) {
+          return {
+            ok: false,
+            error: payload.error || 'Nu am putut salva modificările în sursa publică.',
+            source: 'remote',
+          };
+        }
+
+        setArticles((prev) => prev.map((article) => (article.id === id ? { ...article, ...sanitizedChanges } : article)));
+        setEditCount((count) => count + 1);
+        return { ok: true, source: 'remote' };
+      } catch {
+        return {
+          ok: false,
+          error: 'Nu am putut contacta serviciul de salvare publică.',
+          source: 'remote',
+        };
+      }
+    }
+
+    setArticles((prev) => prev.map((article) => (article.id === id ? { ...article, ...sanitizedChanges } : article)));
+    writeArticleOverride(id, sanitizedChanges);
     setEditCount((count) => count + 1);
-  }, []);
+    return { ok: true, source: 'local' };
+  }, [authToken]);
 
   const updateIssue = useCallback((id: string, changes: Partial<Issue>) => {
     setIssues((prev) => {
@@ -869,7 +1169,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
       return acc;
     }, {});
     const filtered = articles.filter((article) => article.series === series);
-    return exportDoajCsv(filtered, issuesById);
+    return exportDoajCsv(doajExportScope(filtered, issuesById).eligible, issuesById);
   }, [articles, issues]);
 
   const exportDoajCsvByIssue = useCallback((issueId: string) => {
@@ -878,7 +1178,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
       return acc;
     }, {});
     const filtered = articles.filter((article) => article.issue_id === issueId);
-    return exportDoajCsv(filtered, issuesById);
+    return exportDoajCsv(doajExportScope(filtered, issuesById).eligible, issuesById);
   }, [articles, issues]);
 
   const exportDoajXmlBySeries = useCallback((series: SeriesId) => {
@@ -887,7 +1187,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
       return acc;
     }, {});
     const filtered = articles.filter((article) => article.series === series);
-    return exportDoajXml(filtered, issuesById);
+    return exportDoajXml(doajExportScope(filtered, issuesById).eligible, issuesById);
   }, [articles, issues]);
 
   const exportDoajXmlByIssue = useCallback((issueId: string) => {
@@ -896,7 +1196,7 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
       return acc;
     }, {});
     const filtered = articles.filter((article) => article.issue_id === issueId);
-    return exportDoajXml(filtered, issuesById);
+    return exportDoajXml(doajExportScope(filtered, issuesById).eligible, issuesById);
   }, [articles, issues]);
 
   const validateDoajBySeries = useCallback((series: SeriesId): DoajValidationResult => {
@@ -905,6 +1205,14 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
       return acc;
     }, {});
     const filtered = articles.filter((article) => article.series === series);
+    if (series !== 'seria-3') {
+      return {
+        ok: false,
+        articleCount: 0,
+        errors: ['Seriile I și II rămân publice ca arhivă, dar nu au încă metadate complete pentru exportul DOAJ.'],
+        warnings: [],
+      };
+    }
     return validateDoajRecords(filtered, issuesById);
   }, [articles, issues]);
 
@@ -914,6 +1222,15 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
       return acc;
     }, {});
     const filtered = articles.filter((article) => article.issue_id === issueId);
+    const issue = issuesById[issueId];
+    if (!issueEligibleForDoaj(issue)) {
+      return {
+        ok: false,
+        articleCount: 0,
+        errors: ['Numărul selectat aparține unei serii arhivistice sau nepublicate care nu este pregătită pentru export DOAJ.'],
+        warnings: [],
+      };
+    }
     return validateDoajRecords(filtered, issuesById);
   }, [articles, issues]);
 

@@ -373,9 +373,9 @@ export default function DashboardIssues() {
                   onChange={(event) => setDoajSeries(event.target.value as SeriesId)}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <option value="seria-1">Seria I</option>
-                  <option value="seria-2">Seria II</option>
-                  <option value="seria-3">Seria III</option>
+                  <option value="seria-3">Seria III (eligibilă)</option>
+                  <option value="seria-1">Seria I (arhivă, exclusă)</option>
+                  <option value="seria-2">Seria II (arhivă, exclusă)</option>
                 </select>
               </div>
               <DropdownMenuItem onClick={onExportDoajSeriesCsv}>CSV serie</DropdownMenuItem>
@@ -430,8 +430,10 @@ export default function DashboardIssues() {
       )}
 
       <div className="mb-4 rounded-md border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-        Exportul DOAJ XML exclude emailurile autorilor si foloseste structura DOAJ Native XML
-        (record per articol), conform cerintelor de metadata DOAJ.
+        Exportul DOAJ XML exclude emailurile autorilor, include doar articolele științifice eligibile și
+        folosește structura DOAJ Native XML (record per articol). Recenziile, notele de lectură, interviurile,
+        CV-urile și seriile istorice rămân în arhivă, dar sunt excluse din export până la completarea
+        metadatelor și a cadrului de transparență cerut de DOAJ.
       </div>
 
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">

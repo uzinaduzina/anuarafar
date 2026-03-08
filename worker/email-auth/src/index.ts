@@ -85,6 +85,29 @@ interface EmailTemplateDescriptor {
 }
 
 type StoredEmailTemplateMap = Partial<Record<EmailTemplateId, PartialEditableEmailTemplateFields>>;
+type EditableArticleField =
+  | 'title'
+  | 'authors'
+  | 'affiliations'
+  | 'emails'
+  | 'abstract'
+  | 'abstract_ro'
+  | 'abstract_en'
+  | 'abstract_de'
+  | 'abstract_fr'
+  | 'keywords'
+  | 'keywords_ro'
+  | 'keywords_en'
+  | 'keywords_de'
+  | 'keywords_fr'
+  | 'pages_start'
+  | 'pages_end'
+  | 'doi'
+  | 'language'
+  | 'section'
+  | 'pdf_path';
+type StoredArticleOverride = Partial<Record<EditableArticleField, string>>;
+type StoredArticleOverrideMap = Record<string, StoredArticleOverride>;
 
 type SubmissionStatus = 'submitted' | 'anonymization' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
 type ReviewAnswer = 'yes' | 'partial' | 'no';
@@ -199,11 +222,34 @@ interface Env {
 const USERS_KEY = 'auth_users_v1';
 const SUBMISSIONS_KEY = 'submissions_v1';
 const EMAIL_TEMPLATES_KEY = 'email_templates_v1';
+const ARTICLE_OVERRIDES_KEY = 'article_overrides_v1';
 const ANALYTICS_KEY_PREFIX = 'analytics_entity_v1:';
 const SUBMISSION_FILE_KEY_PREFIX = 'submission_file_v1:';
 const DEFAULT_OTP_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SUBMISSION_RECIPIENTS = ['anuar@iafar.ro', 'confafar@gmail.com'];
+const EDITABLE_ARTICLE_FIELDS: EditableArticleField[] = [
+  'title',
+  'authors',
+  'affiliations',
+  'emails',
+  'abstract',
+  'abstract_ro',
+  'abstract_en',
+  'abstract_de',
+  'abstract_fr',
+  'keywords',
+  'keywords_ro',
+  'keywords_en',
+  'keywords_de',
+  'keywords_fr',
+  'pages_start',
+  'pages_end',
+  'doi',
+  'language',
+  'section',
+  'pdf_path',
+];
 const MAX_SUBMISSION_FILES = 5;
 const MAX_SUBMISSION_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_SUBMISSION_TOTAL_BYTES = 25 * 1024 * 1024;
@@ -394,6 +440,50 @@ function clampTemplateField(field: keyof EditableEmailTemplateFields, rawValue: 
   const value = asString(rawValue);
   if (field === 'subject') return value.slice(0, TEMPLATE_SUBJECT_LIMIT);
   return value.slice(0, TEMPLATE_FIELD_LIMIT);
+}
+
+function clampArticleField(field: EditableArticleField, rawValue: unknown): string {
+  const value = asString(rawValue);
+  if (field === 'abstract' || field === 'abstract_ro' || field === 'abstract_en' || field === 'abstract_de' || field === 'abstract_fr') {
+    return value.slice(0, 12000);
+  }
+  if (field === 'keywords' || field === 'keywords_ro' || field === 'keywords_en' || field === 'keywords_de' || field === 'keywords_fr') {
+    return value.slice(0, 4000);
+  }
+  if (field === 'title') return value.slice(0, 1000);
+  if (field === 'authors' || field === 'affiliations') return value.slice(0, 2000);
+  if (field === 'emails') return value.slice(0, 1000);
+  if (field === 'pdf_path') return value.slice(0, 2000);
+  return value.slice(0, 400);
+}
+
+function sanitizeArticleOverride(raw: unknown): StoredArticleOverride {
+  if (!raw || typeof raw !== 'object') return {};
+  const candidate = raw as Record<string, unknown>;
+  const next: StoredArticleOverride = {};
+  for (const field of EDITABLE_ARTICLE_FIELDS) {
+    if (typeof candidate[field] === 'string') {
+      next[field] = clampArticleField(field, candidate[field]);
+    }
+  }
+  return next;
+}
+
+function parseStoredArticleOverrides(raw: string | null): StoredArticleOverrideMap {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const next: StoredArticleOverrideMap = {};
+    for (const [articleId, value] of Object.entries(parsed)) {
+      const normalizedId = articleId.trim();
+      if (!normalizedId) continue;
+      next[normalizedId] = sanitizeArticleOverride(value);
+    }
+    return next;
+  } catch {
+    return {};
+  }
 }
 
 function parseStoredEmailTemplates(raw: string | null): StoredEmailTemplateMap {
@@ -792,6 +882,15 @@ async function readSubmissions(env: Env): Promise<StoredSubmission[]> {
 
 async function writeSubmissions(env: Env, submissions: StoredSubmission[]) {
   await env.AUTH_KV.put(SUBMISSIONS_KEY, JSON.stringify(submissions));
+}
+
+async function readArticleOverrides(env: Env): Promise<StoredArticleOverrideMap> {
+  const raw = await env.AUTH_KV.get(ARTICLE_OVERRIDES_KEY);
+  return parseStoredArticleOverrides(raw);
+}
+
+async function writeArticleOverrides(env: Env, overrides: StoredArticleOverrideMap) {
+  await env.AUTH_KV.put(ARTICLE_OVERRIDES_KEY, JSON.stringify(overrides));
 }
 
 async function storeSubmissionFiles(
@@ -1403,6 +1502,13 @@ async function isAdminAuthorized(request: Request, env: Env): Promise<boolean> {
   if (env.NOTIFY_API_KEY && providedToken === env.NOTIFY_API_KEY) return true;
 
   return false;
+}
+
+async function readEditorialSession(request: Request, env: Env): Promise<SessionPayload | null> {
+  const session = await readSessionFromRequest(request, env);
+  if (!session) return null;
+  if (session.role !== 'admin' && session.role !== 'editor') return null;
+  return session;
 }
 
 async function sendEmail(
@@ -2576,6 +2682,43 @@ async function handleSubmitManuscript(request: Request, env: Env): Promise<Respo
   });
 }
 
+async function handleGetArticleOverrides(request: Request, env: Env): Promise<Response> {
+  const overrides = await readArticleOverrides(env);
+  return jsonResponse(request, env, 200, { ok: true, overrides });
+}
+
+async function handleUpdateArticleOverride(request: Request, env: Env): Promise<Response> {
+  const session = await readEditorialSession(request, env);
+  if (!session) {
+    return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  const payload = await readJson(request);
+  const articleId = asString(payload.id).trim();
+  if (!articleId) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'ID articol lipsa.' });
+  }
+
+  const sanitizedChanges = sanitizeArticleOverride(payload.changes);
+  if (Object.keys(sanitizedChanges).length === 0) {
+    return jsonResponse(request, env, 400, { ok: false, error: 'Nu exista campuri valide pentru actualizare.' });
+  }
+
+  const overrides = await readArticleOverrides(env);
+  overrides[articleId] = {
+    ...(overrides[articleId] || {}),
+    ...sanitizedChanges,
+  };
+  await writeArticleOverrides(env, overrides);
+
+  return jsonResponse(request, env, 200, {
+    ok: true,
+    message: 'Metadatele articolului au fost actualizate.',
+    override: overrides[articleId],
+    updatedBy: session.email,
+  });
+}
+
 async function handleUploadAnonymizedFiles(request: Request, env: Env): Promise<Response> {
   const session = await readSessionFromRequest(request, env);
   if (!session || (session.role !== 'admin' && session.role !== 'editor')) {
@@ -3173,6 +3316,14 @@ export default {
 
       if (request.method === 'GET' && url.pathname === '/analytics/summary') {
         return handleGetAnalyticsSummary(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/article-overrides') {
+        return handleGetArticleOverrides(request, env);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/article-overrides') {
+        return handleUpdateArticleOverride(request, env);
       }
 
       if (request.method === 'POST' && url.pathname === '/auth/request-code') {

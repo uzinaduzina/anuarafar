@@ -10,6 +10,12 @@ export interface JournalInfo {
   language: string;
   url: string;
   description: string;
+  oa_license_name: string;
+  oa_license_url: string;
+  oa_copyright_notice: string;
+  oa_publishing_rights_notice: string;
+  oa_reuse_notice: string;
+  archive_rights_notice: string;
 }
 
 export interface Issue {
@@ -40,9 +46,13 @@ export interface Article {
   abstract?: string;
   abstract_ro: string;
   abstract_en: string;
+  abstract_de?: string;
+  abstract_fr?: string;
   keywords?: string;
   keywords_ro: string;
   keywords_en: string;
+  keywords_de?: string;
+  keywords_fr?: string;
   pages_start: string;
   pages_end: string;
   doi: string;
@@ -51,6 +61,8 @@ export interface Article {
   section: string;
   series: SeriesId;
   pdf_path: string;
+  md_path?: string;
+  is_review?: boolean;
 }
 
 export interface Submission {

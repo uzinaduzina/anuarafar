@@ -2,12 +2,12 @@ import { Users } from 'lucide-react';
 import { MemberCard, type BoardMember } from '@/components/MemberCard';
 
 const editorialBoard: BoardMember[] = [
-  { name: 'Mihai Bărbulescu', title: 'acad.', affiliation: 'Redactor-șef / Editor-in-chief' },
-  { name: 'Ileana Benga', title: 'dr.', affiliation: 'Redactor-șef adjunct / Assistant chief editor' },
-  { name: 'Liviu-Ovidiu Pop', title: 'dr.', affiliation: 'Secretar de redacție / Editorial secretary' },
-  { name: 'Theodor Constantiniu', title: 'dr.', affiliation: 'Membru' },
-  { name: 'Anamaria Lisovschi', title: 'dr.', affiliation: 'Membru' },
-  { name: 'Elena Bărbulescu', title: 'dr.', affiliation: 'Membru' },
+  { name: 'Mihai Bărbulescu', title: 'acad.', affiliation: 'Redactor-șef · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
+  { name: 'Ileana Benga', title: 'dr.', affiliation: 'Redactor-șef adjunct · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
+  { name: 'Liviu-Ovidiu Pop', title: 'dr.', affiliation: 'Secretar de redacție · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
+  { name: 'Theodor Constantiniu', title: 'dr.', affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
+  { name: 'Anamaria Lisovschi', title: 'dr.', affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
+  { name: 'Elena Bărbulescu', title: 'dr.', affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
 ];
 
 export default function EditorialBoard() {

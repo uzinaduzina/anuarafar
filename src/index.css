@@ -135,3 +135,24 @@
   background: hsl(var(--border));
   border-radius: 3px;
 }
+
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  forced-color-adjust: none;
+  z-index: 1;
+}
+
+.pdf-text-layer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}
+
+.pdf-text-layer ::selection {
+  background: color-mix(in srgb, hsl(var(--primary)) 28%, transparent);
+}

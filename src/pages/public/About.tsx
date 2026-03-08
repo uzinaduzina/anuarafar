@@ -48,7 +48,7 @@ export default function About() {
             <div className="flex items-start gap-3 p-3 rounded-lg border border-series-3/30 bg-series-3-bg/20">
               <span className="w-2 h-full min-h-[2.5rem] rounded-full bg-series-3 flex-shrink-0" />
               <div>
-                <div className="font-medium text-sm">Seria a treia: nr. XXV–XXIX, 2021–2025</div>
+                <div className="font-medium text-sm">Seria a treia: nr. XXV–XXIX, 2022–2025</div>
                 <div className="text-xs text-muted-foreground">Redactor-șef: Mihai Bărbulescu</div>
               </div>
             </div>
@@ -65,7 +65,8 @@ export default function About() {
             </p>
             <p>
               <strong>Acces deschis:</strong> Revista practică politica de acces deschis, toate articolele 
-              publicate fiind disponibile gratuit, fără embargo.
+              eligibile din seria curentă fiind disponibile gratuit, fără embargo. Arhiva istorică rămâne
+              publică, dar nu are încă metadate DOAJ complete la nivel de articol.
             </p>
             <p>
               <strong>Etică:</strong> Revista aderă la standardele COPE (Committee on Publication Ethics) 
@@ -80,9 +81,10 @@ export default function About() {
             <Scale className="h-5 w-5 text-primary" /> Drepturi de autor
           </h2>
           <p className="text-sm leading-relaxed text-foreground/90">
-            Conținutul științific este publicat în regim open access sub licență
-            {' '}<strong>Creative Commons CC BY 4.0</strong>. Autorii își păstrează drepturile de autor,
-            iar reutilizarea este permisă cu citarea sursei.
+            Conținutul științific curent publicat în seria a III-a este pus la dispoziție în regim open access sub
+            {' '}<strong>Creative Commons CC BY 4.0</strong>. Autorii își păstrează drepturile de autor, iar
+            reutilizarea este permisă cu citarea sursei. Seriile istorice sunt publicate ca arhivă digitală și sunt
+            tratate separat până la clarificarea completă a regimului de reutilizare pentru fiecare fascicul scanat.
           </p>
         </div>
 
