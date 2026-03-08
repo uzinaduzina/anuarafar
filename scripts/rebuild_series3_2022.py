@@ -197,6 +197,57 @@ def slugify(value: str) -> str:
     return value[:180]
 
 
+def normalize_keywords(raw: str) -> str:
+    if not raw:
+        return ""
+    text = re.sub(r"\s+", " ", raw).strip().rstrip(".")
+    parts = re.split(r"\s*[,;]\s*", text)
+    deduped = []
+    seen = set()
+    for part in parts:
+        cleaned = re.sub(r"\s+", " ", part).strip().strip(" ,;.")
+        if not cleaned:
+            continue
+        key = normalize(cleaned)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(cleaned)
+    return ", ".join(deduped)
+
+
+def extract_keywords_from_pdf(pdf_path: Path) -> dict[str, str]:
+    reader = PdfReader(str(pdf_path))
+    text = "\n".join((reader.pages[i].extract_text() or "") for i in range(min(2, len(reader.pages))))
+    lines = [line.strip() for line in text.splitlines()]
+    labels = {
+        "keywords_ro": ["Cuvinte-cheie:", "Cuvinte cheie:"],
+        "keywords_en": ["Keywords:", "Key words:"],
+        "keywords_fr": ["Mots-clés:", "Mots clés:"],
+        "keywords_de": ["Schlüsselwörter:"],
+    }
+    found = {"keywords_ro": "", "keywords_en": "", "keywords_fr": "", "keywords_de": ""}
+    all_labels = {label for values in labels.values() for label in values}
+    for field, field_labels in labels.items():
+        for idx, line in enumerate(lines):
+            match_label = next((label for label in field_labels if label.lower() in line.lower()), None)
+            if not match_label:
+                continue
+            start = line.lower().find(match_label.lower()) + len(match_label)
+            parts = [line[start:].strip()]
+            if not parts[0].rstrip().endswith("."):
+                for follow in lines[idx + 1 :]:
+                    if any(follow.lower().startswith(label.lower()) for label in all_labels):
+                        break
+                    parts.append(follow)
+                    if follow.rstrip().endswith("."):
+                        break
+            found[field] = normalize_keywords(" ".join(parts))
+            if found[field]:
+                break
+    return found
+
+
 def parse_manifest(path: Path) -> dict:
     text = path.read_text(encoding="utf-8")
     prefix = "window.__USER_MANIFEST_OVERRIDE = "
@@ -280,6 +331,7 @@ def rebuild_manifest(entries: list[dict]) -> None:
     for idx, entry in enumerate(entries, start=1):
         key = (normalize(entry["title"]), normalize(entry["authors"]))
         old = lookup.get(key, {})
+        extracted_keywords = extract_keywords_from_pdf(REPO / entry["pdf_path"])
         article = {
             "id": str(idx),
             "issue_id": "1",
@@ -291,10 +343,10 @@ def rebuild_manifest(entries: list[dict]) -> None:
             "abstract_en": old.get("abstract_en", "") if old else "",
             "abstract_de": old.get("abstract_de", "") if old else "",
             "abstract_fr": old.get("abstract_fr", "") if old else "",
-            "keywords_ro": old.get("keywords_ro", "") if old else "",
-            "keywords_en": old.get("keywords_en", "") if old else "",
-            "keywords_de": old.get("keywords_de", "") if old else "",
-            "keywords_fr": old.get("keywords_fr", "") if old else "",
+            "keywords_ro": extracted_keywords["keywords_ro"],
+            "keywords_en": extracted_keywords["keywords_en"],
+            "keywords_de": extracted_keywords["keywords_de"],
+            "keywords_fr": extracted_keywords["keywords_fr"],
             "pages_start": entry["pages_start"],
             "pages_end": entry["pages_end"],
             "doi": old.get("doi", "") if old else "",
