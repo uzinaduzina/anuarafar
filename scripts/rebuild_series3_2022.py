@@ -296,14 +296,8 @@ def extract_front_matter_from_pdf(pdf_path: Path, authors: str) -> dict[str, str
         keyword_blocks.append(normalize_keywords(" ".join(parts)))
 
     deduped = []
-    seen = set()
     for block in keyword_blocks:
-        for part in [item.strip() for item in block.split(",") if item.strip()]:
-            key = normalize(part)
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            deduped.append(part)
+        deduped.extend(item.strip() for item in block.split(",") if item.strip())
 
     return {
         "abstract": abstract_value,
