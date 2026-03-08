@@ -245,7 +245,7 @@ async function uploadFileToBucket(bucketUrl, token, filename, absoluteFilePath) 
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/pdf',
+      'Content-Type': 'application/octet-stream',
     },
     body,
   });
