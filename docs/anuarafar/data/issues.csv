@@ -1,5 +1,5 @@
 id,slug,year,volume,number,date_published,title,status,article_count,pages,doi_prefix,series,series_label,issue_pdf_path,cover_hint_path
-1,aaf-xxv-xxvi-2022,2022,25-26,1,2022-12-31,Anuarul Arhivei de Folclor XXV-XXVI,published,59,660,,seria-3,,ingest/issues/aaf-xxv-xxvi-2022/source/issue.pdf,ingest/issues/aaf-xxv-xxvi-2022/cover/
+1,aaf-xxv-xxvi-2022,2022,25-26,1,2022-12-31,Anuarul Arhivei de Folclor XXV-XXVI,published,58,660,,seria-3,,ingest/issues/aaf-xxv-xxvi-2022/source/issue.pdf,ingest/issues/aaf-xxv-xxvi-2022/cover/
 2,aaf-xxvii-2023,2023,27,1,2023-12-31,Anuarul Arhivei de Folclor XXVII,published,49,526,,seria-3,,ingest/issues/aaf-xxvii-2023/source/issue.pdf,ingest/issues/aaf-xxvii-2023/cover/
 3,aaf-xxviii-2024,2024,28,1,2024-12-31,Anuarul Arhivei de Folclor XXVIII,published,24,254,,seria-3,,ingest/issues/aaf-xxviii-2024/source/issue.pdf,ingest/issues/aaf-xxviii-2024/cover/
 4,aaf-xxix-2025,2025,29,1,2025-12-20,Anuarul Arhivei de Folclor XXIX,published,29,324,,seria-3,,ingest/issues/aaf-xxix-2025/source/issue.pdf,ingest/issues/aaf-xxix-2025/cover/
