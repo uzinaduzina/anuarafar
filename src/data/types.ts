@@ -37,8 +37,10 @@ export interface Article {
   authors: string;
   affiliations: string;
   emails: string;
+  abstract?: string;
   abstract_ro: string;
   abstract_en: string;
+  keywords?: string;
   keywords_ro: string;
   keywords_en: string;
   pages_start: string;

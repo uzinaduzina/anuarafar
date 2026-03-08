@@ -35,17 +35,32 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
   const setAbstract = (value: string) => {
     setForm((prev) => ({
       ...prev,
+      abstract: value,
       abstract_ro: value,
       abstract_en: '',
     }));
   };
 
+  const setKeywords = (value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      keywords: value,
+      keywords_ro: value,
+      keywords_en: '',
+    }));
+  };
+
   const handleSave = () => {
-    const normalizedAbstract = String(form.abstract_ro || form.abstract_en || '').trim();
+    const normalizedAbstract = String(form.abstract || form.abstract_ro || form.abstract_en || '').trim();
+    const normalizedKeywords = String(form.keywords || form.keywords_ro || form.keywords_en || '').trim();
     updateArticle(article.id, {
       ...form,
+      abstract: normalizedAbstract,
       abstract_ro: normalizedAbstract,
       abstract_en: '',
+      keywords: normalizedKeywords,
+      keywords_ro: normalizedKeywords,
+      keywords_en: '',
     });
     toast({ title: 'Articol actualizat', description: 'Modificările au fost salvate local.' });
     onOpenChange(false);
@@ -73,11 +88,11 @@ export default function ArticleEditDrawer({ article, open, onOpenChange }: Artic
           {/* Abstract & Keywords — higher up */}
           <div className="space-y-1">
             <Label className="text-xs">Rezumat (o singură limbă)</Label>
-            <Textarea className="text-sm" value={form.abstract_ro || form.abstract_en || ''} onChange={e => setAbstract(e.target.value)} rows={4} />
+            <Textarea className="text-sm" value={form.abstract || form.abstract_ro || form.abstract_en || ''} onChange={e => setAbstract(e.target.value)} rows={4} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Cuvinte cheie (separate prin virgulă)</Label>
-            <Input className="h-8 text-sm" value={form.keywords_ro || ''} onChange={e => set('keywords_ro', e.target.value)} />
+            <Input className="h-8 text-sm" value={form.keywords || form.keywords_ro || form.keywords_en || ''} onChange={e => setKeywords(e.target.value)} />
           </div>
 
           {/* Rest of metadata */}

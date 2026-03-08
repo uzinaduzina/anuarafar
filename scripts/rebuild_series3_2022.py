@@ -216,36 +216,99 @@ def normalize_keywords(raw: str) -> str:
     return ", ".join(deduped)
 
 
-def extract_keywords_from_pdf(pdf_path: Path) -> dict[str, str]:
+KEYWORD_LABELS = [
+    "Keywords:",
+    "Key words:",
+    "Cuvinte-cheie:",
+    "Cuvinte cheie:",
+    "Mots-clés:",
+    "Mots clés:",
+    "Schlüsselwörter:",
+    "Parole chiave:",
+]
+
+
+def clean_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.replace("\xa0", " ")).strip()
+
+
+def is_keyword_line(line: str) -> str | None:
+    lowered = line.lower()
+    for label in KEYWORD_LABELS:
+        if label.lower() in lowered:
+            return label
+    return None
+
+
+def find_author_line(lines: list[str], authors: str) -> int:
+    author_key = normalize(authors)
+    if author_key:
+        for idx, line in enumerate(lines):
+            if author_key in normalize(line):
+                return idx
+    surname_tokens = [normalize(part.split()[-1]) for part in authors.split(",") if part.strip()]
+    for idx, line in enumerate(lines):
+        normalized_line = normalize(line)
+        if any(token and token in normalized_line for token in surname_tokens):
+            return idx
+    return -1
+
+
+def extract_front_matter_from_pdf(pdf_path: Path, authors: str) -> dict[str, str]:
     reader = PdfReader(str(pdf_path))
     text = "\n".join((reader.pages[i].extract_text() or "") for i in range(min(2, len(reader.pages))))
-    lines = [line.strip() for line in text.splitlines()]
-    labels = {
-        "keywords_ro": ["Cuvinte-cheie:", "Cuvinte cheie:"],
-        "keywords_en": ["Keywords:", "Key words:"],
-        "keywords_fr": ["Mots-clés:", "Mots clés:"],
-        "keywords_de": ["Schlüsselwörter:"],
-    }
-    found = {"keywords_ro": "", "keywords_en": "", "keywords_fr": "", "keywords_de": ""}
-    all_labels = {label for values in labels.values() for label in values}
-    for field, field_labels in labels.items():
-        for idx, line in enumerate(lines):
-            match_label = next((label for label in field_labels if label.lower() in line.lower()), None)
-            if not match_label:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+    keyword_indexes = [idx for idx, line in enumerate(lines) if is_keyword_line(line)]
+    if not keyword_indexes:
+        return {"abstract": "", "keywords": ""}
+
+    first_keyword_idx = keyword_indexes[0]
+    author_idx = find_author_line(lines, authors)
+    if author_idx < 0 or author_idx >= first_keyword_idx:
+        return {"abstract": "", "keywords": ""}
+
+    abstract_parts = []
+    for line in lines[author_idx + 1:first_keyword_idx]:
+        if line in {"*", "**"}:
+            continue
+        abstract_parts.append(line)
+    abstract_value = clean_text(" ".join(abstract_parts))
+
+    keyword_blocks = []
+    idx = first_keyword_idx
+    while idx < len(lines):
+        label = is_keyword_line(lines[idx])
+        if not label:
+            break
+        start = lines[idx].lower().find(label.lower()) + len(label)
+        parts = [lines[idx][start:].strip()]
+        idx += 1
+        if not parts[0].rstrip().endswith("."):
+            while idx < len(lines):
+                if is_keyword_line(lines[idx]):
+                    break
+                parts.append(lines[idx])
+                if lines[idx].rstrip().endswith("."):
+                    idx += 1
+                    break
+                idx += 1
+        keyword_blocks.append(normalize_keywords(" ".join(parts)))
+
+    deduped = []
+    seen = set()
+    for block in keyword_blocks:
+        for part in [item.strip() for item in block.split(",") if item.strip()]:
+            key = normalize(part)
+            if not key or key in seen:
                 continue
-            start = line.lower().find(match_label.lower()) + len(match_label)
-            parts = [line[start:].strip()]
-            if not parts[0].rstrip().endswith("."):
-                for follow in lines[idx + 1 :]:
-                    if any(follow.lower().startswith(label.lower()) for label in all_labels):
-                        break
-                    parts.append(follow)
-                    if follow.rstrip().endswith("."):
-                        break
-            found[field] = normalize_keywords(" ".join(parts))
-            if found[field]:
-                break
-    return found
+            seen.add(key)
+            deduped.append(part)
+
+    return {
+        "abstract": abstract_value,
+        "keywords": ", ".join(deduped),
+    }
 
 
 def parse_manifest(path: Path) -> dict:
@@ -331,7 +394,7 @@ def rebuild_manifest(entries: list[dict]) -> None:
     for idx, entry in enumerate(entries, start=1):
         key = (normalize(entry["title"]), normalize(entry["authors"]))
         old = lookup.get(key, {})
-        extracted_keywords = extract_keywords_from_pdf(REPO / entry["pdf_path"])
+        extracted = extract_front_matter_from_pdf(REPO / entry["pdf_path"], entry["authors"])
         article = {
             "id": str(idx),
             "issue_id": "1",
@@ -339,14 +402,16 @@ def rebuild_manifest(entries: list[dict]) -> None:
             "authors": entry["authors"],
             "affiliations": old.get("affiliations", "") if old else "",
             "emails": old.get("emails", "") if old else "",
-            "abstract_ro": old.get("abstract_ro", "") if old else "",
-            "abstract_en": old.get("abstract_en", "") if old else "",
-            "abstract_de": old.get("abstract_de", "") if old else "",
-            "abstract_fr": old.get("abstract_fr", "") if old else "",
-            "keywords_ro": extracted_keywords["keywords_ro"],
-            "keywords_en": extracted_keywords["keywords_en"],
-            "keywords_de": extracted_keywords["keywords_de"],
-            "keywords_fr": extracted_keywords["keywords_fr"],
+            "abstract": extracted["abstract"],
+            "abstract_ro": "",
+            "abstract_en": "",
+            "abstract_de": "",
+            "abstract_fr": "",
+            "keywords": extracted["keywords"],
+            "keywords_ro": "",
+            "keywords_en": "",
+            "keywords_de": "",
+            "keywords_fr": "",
             "pages_start": entry["pages_start"],
             "pages_end": entry["pages_end"],
             "doi": old.get("doi", "") if old else "",

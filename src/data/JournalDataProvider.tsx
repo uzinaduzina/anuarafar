@@ -36,8 +36,10 @@ const ARTICLE_CSV_COLUMNS = [
   'authors',
   'affiliations',
   'emails',
+  'abstract',
   'abstract_ro',
   'abstract_en',
+  'keywords',
   'keywords_ro',
   'keywords_en',
   'pages_start',
@@ -107,8 +109,10 @@ interface ManifestArticle {
   author?: string;
   affiliations: string;
   emails: string;
+  abstract?: string;
   abstract_ro: string;
   abstract_en: string;
+  keywords?: string;
   keywords_ro: string;
   keywords_en: string;
   pages_start: string | number;
@@ -257,8 +261,10 @@ function mapArticle(ma: ManifestArticle, issueSeries: Record<string, SeriesId>):
     authors: ma.authors || ma.author || '',
     affiliations: ma.affiliations || '',
     emails: ma.emails || '',
+    abstract: ma.abstract || ma.abstract_ro || ma.abstract_en || '',
     abstract_ro: ma.abstract_ro || '',
     abstract_en: ma.abstract_en || '',
+    keywords: ma.keywords || ma.keywords_ro || ma.keywords_en || '',
     keywords_ro: ma.keywords_ro || '',
     keywords_en: ma.keywords_en || '',
     pages_start: String(ma.pages_start || ''),
@@ -378,8 +384,10 @@ function articleToCsvRow(article: Article): Record<(typeof ARTICLE_CSV_COLUMNS)[
     authors: article.authors || '',
     affiliations: article.affiliations || '',
     emails: article.emails || '',
+    abstract: article.abstract || '',
     abstract_ro: article.abstract_ro || '',
     abstract_en: article.abstract_en || '',
+    keywords: article.keywords || '',
     keywords_ro: article.keywords_ro || '',
     keywords_en: article.keywords_en || '',
     pages_start: article.pages_start || '',
@@ -406,13 +414,17 @@ function getPublicSiteUrl(): string {
 }
 
 function singleAbstractValue(article: Article): string {
-  return article.abstract_ro || article.abstract_en || '';
+  return article.abstract || article.abstract_ro || article.abstract_en || '';
+}
+
+function singleKeywordsValue(article: Article): string {
+  return article.keywords || article.keywords_ro || article.keywords_en || '';
 }
 
 function doajRow(article: Article, issue?: Issue): Record<(typeof DOAJ_CSV_COLUMNS)[number], string> {
   const siteUrl = getPublicSiteUrl();
   const abstractValue = singleAbstractValue(article);
-  const keywordsValue = article.keywords_en || article.keywords_ro || '';
+  const keywordsValue = singleKeywordsValue(article);
 
   return {
     journal_title: JOURNAL.name,
@@ -496,7 +508,7 @@ function buildDoajRecordXml(article: Article, issue?: Issue): string {
   const fullTextFormat = article.pdf_path ? 'pdf' : 'html';
   const authors = splitList(article.authors);
   const affiliations = splitList(article.affiliations);
-  const keywords = splitList(article.keywords_en || article.keywords_ro);
+  const keywords = splitList(singleKeywordsValue(article));
   const issn = sanitizeIssn(JOURNAL.issn);
   const eissn = sanitizeIssn(JOURNAL.eissn);
 

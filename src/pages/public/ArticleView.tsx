@@ -92,8 +92,11 @@ export default function ArticleView() {
   }
 
   const issue = issues.find(i => i.id === article.issue_id);
-  const abstractText = (article.abstract_ro || article.abstract_en || '').trim();
-  const keywords = (article.keywords_ro || '').split(',').map(k => k.trim()).filter(Boolean);
+  const abstractText = (article.abstract || article.abstract_ro || article.abstract_en || '').trim();
+  const keywords = (article.keywords || article.keywords_ro || article.keywords_en || '')
+    .split(',')
+    .map(k => k.trim())
+    .filter(Boolean);
   const authors = article.authors.split(',').map(a => a.trim()).filter(a => a && a !== 'N/A');
   const issueArticles = articles
     .filter((entry) => entry.issue_id === article.issue_id)
