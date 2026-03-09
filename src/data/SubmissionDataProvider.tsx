@@ -1,10 +1,9 @@
 import { createContext, useContext, useMemo, useState, type ReactNode, useCallback, useEffect } from 'react';
-import { SUBMISSIONS as INITIAL_SUBMISSIONS } from './articles';
 import type { Submission } from './types';
 import { useAuth } from '@/contexts/AuthContext';
 import { resolveAuthApiBase } from '@/lib/authApi';
 
-const STORAGE_KEY = 'workflow_submissions_v1';
+const STORAGE_KEY = 'workflow_submissions_v2';
 const SUBMISSION_API_BASE = resolveAuthApiBase();
 const REMOTE_SUBMISSIONS_ENABLED = SUBMISSION_API_BASE.length > 0;
 
@@ -99,17 +98,17 @@ function normalizeSubmission(submission: Submission): Submission {
 function readInitialSubmissions(): Submission[] {
   const fromStorage = localStorage.getItem(STORAGE_KEY);
   if (!fromStorage) {
-    return INITIAL_SUBMISSIONS.map(normalizeSubmission);
+    return [];
   }
 
   try {
     const parsed = JSON.parse(fromStorage) as Submission[];
     if (!Array.isArray(parsed)) {
-      return INITIAL_SUBMISSIONS.map(normalizeSubmission);
+      return [];
     }
     return parsed.map(normalizeSubmission);
   } catch {
-    return INITIAL_SUBMISSIONS.map(normalizeSubmission);
+    return [];
   }
 }
 

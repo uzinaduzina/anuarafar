@@ -21,28 +21,6 @@ function todayIsoDate() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-const DEMO_SUBMISSIONS: Submission[] = [
-  {
-    id: 'demo-rev-1',
-    title: 'Practici rituale in zona Muntilor Apuseni: o analiza comparativa',
-    authors: '[Anonim]',
-    email: '',
-    affiliation: '',
-    abstract: 'Studiul propune o analiza comparativa a practicilor rituale din zona Muntilor Apuseni, bazata pe cercetari de teren efectuate intre 2019 si 2024.',
-    keywords_ro: 'ritualuri, etnografie, Apuseni',
-    keywords_en: 'rituals, ethnography, Apuseni',
-    date_submitted: '2026-02-15',
-    status: 'under_review',
-    assigned_reviewer: '',
-    assigned_reviewer_email: '',
-    reviewer_deadline: '2026-04-15',
-    recommendation: '',
-    decision: '',
-    files: [{ id: 'demo-file-1', filename: 'manuscris_blind_001.docx', size: 245000 }],
-    anonymized_files: [],
-  },
-];
-
 type ReviewerDraft = {
   recommendation: string;
   notes: string;
@@ -86,15 +64,13 @@ export default function DashboardReviewer() {
 
   const [formState, setFormState] = useState<Record<string, ReviewerDraft>>({});
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [demoSubmitted, setDemoSubmitted] = useState<Record<string, string>>({});
 
   const realAssigned = useMemo(
     () => getSubmissionsForReviewer(user?.email || ''),
     [getSubmissionsForReviewer, user?.email],
   );
 
-  const assignedSubmissions = realAssigned.length > 0 ? realAssigned : DEMO_SUBMISSIONS;
-  const isDemo = realAssigned.length === 0;
+  const assignedSubmissions = realAssigned;
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -114,7 +90,6 @@ export default function DashboardReviewer() {
   const getFormKey = (submissionId: string, slot: 1 | 2) => `${submissionId}-${slot}`;
 
   const reviewedCount = assignedSubmissions.filter((submission) => {
-    if (isDemo) return Boolean(demoSubmitted[submission.id]);
     const slot = getReviewerSlot(submission);
     return slot === 2 ? Boolean(submission.reviewed_at_2) : Boolean(submission.reviewed_at);
   }).length;
@@ -153,12 +128,6 @@ export default function DashboardReviewer() {
         description: 'Alege una dintre cele 3 concluzii ale formularului.',
         variant: 'destructive',
       });
-      return;
-    }
-
-    if (isDemo) {
-      setDemoSubmitted((prev) => ({ ...prev, [submission.id]: entry.recommendation }));
-      toast({ title: 'Recenzie trimisa', description: 'Formularul a fost inregistrat (demo).' });
       return;
     }
 
@@ -230,20 +199,24 @@ export default function DashboardReviewer() {
       <section className="space-y-3">
         <h2 className="font-serif text-lg font-bold">Manuscrise pentru evaluare</h2>
 
-        {assignedSubmissions.map((submission) => {
-          const reviewerSlot = isDemo ? 1 : getReviewerSlot(submission);
+        {assignedSubmissions.length === 0 ? (
+          <div className="rounded-lg border border-dashed bg-card p-5 text-sm text-muted-foreground">
+            Nu există momentan manuscrise atribuite pentru evaluare.
+          </div>
+        ) : assignedSubmissions.map((submission) => {
+          const reviewerSlot = getReviewerSlot(submission);
           const formKey = getFormKey(submission.id, reviewerSlot);
           const savedAnswers = reviewerSlot === 2 ? submission.review_form_2 : submission.review_form;
           const savedRecommendation = reviewerSlot === 2 ? submission.recommendation_2 : submission.recommendation;
           const savedReviewedAt = reviewerSlot === 2 ? submission.reviewed_at_2 : submission.reviewed_at;
           const savedNotes = reviewerSlot === 2 ? submission.review_notes_2 : submission.review_notes;
           const draft = formState[formKey] || { recommendation: '', notes: '', answers: {} };
-          const recommendation = draft.recommendation || (isDemo ? (demoSubmitted[submission.id] || '') : (savedRecommendation || ''));
+          const recommendation = draft.recommendation || (savedRecommendation || '');
           const notes = draft.notes || savedNotes || '';
           const answers = Object.keys(draft.answers || {}).length > 0 ? draft.answers : (savedAnswers || {});
           const answeredCounts = countReviewAnswers(answers);
           const answeredTotal = answeredCounts.yes + answeredCounts.partial + answeredCounts.no;
-          const isReviewed = isDemo ? Boolean(demoSubmitted[submission.id]) : Boolean(savedReviewedAt);
+          const isReviewed = Boolean(savedReviewedAt);
           const expanded = expandedIds.has(submission.id);
           const reviewFiles = (submission.anonymized_files && submission.anonymized_files.length > 0)
             ? submission.anonymized_files
@@ -330,11 +303,7 @@ export default function DashboardReviewer() {
                             size="sm"
                             className="border-emerald-300 text-emerald-800 hover:bg-emerald-100"
                             onClick={() => {
-                              if (isDemo) {
-                                toast({ title: 'Demo', description: `Fișierul "${file.filename}" nu este disponibil în modul demo.` });
-                              } else {
-                                void handleDownload(submission.id, file.id, file.filename);
-                              }
+                              void handleDownload(submission.id, file.id, file.filename);
                             }}
                           >
                             <Download className="mr-1.5 h-3.5 w-3.5" />
