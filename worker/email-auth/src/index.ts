@@ -217,13 +217,14 @@ interface Env {
   ADMIN_PASSWORD_EMAIL?: string;
   ADMIN_PASSWORD?: string;
   NOTIFY_API_KEY?: string;
+  ANALYTICS_START_AT?: string;
 }
 
 const USERS_KEY = 'auth_users_v1';
 const SUBMISSIONS_KEY = 'submissions_v1';
 const EMAIL_TEMPLATES_KEY = 'email_templates_v1';
 const ARTICLE_OVERRIDES_KEY = 'article_overrides_v1';
-const ANALYTICS_KEY_PREFIX = 'analytics_entity_v1:';
+const ANALYTICS_KEY_PREFIX = 'analytics_entity_v2:';
 const SUBMISSION_FILE_KEY_PREFIX = 'submission_file_v1:';
 const DEFAULT_OTP_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -258,6 +259,7 @@ const ANALYTICS_ENTITY_ID_LIMIT = 280;
 const ANALYTICS_LABEL_LIMIT = 240;
 const ANALYTICS_PATH_LIMIT = 320;
 const ANALYTICS_DIMENSION_KEY_LIMIT = 120;
+const DEFAULT_ANALYTICS_START_AT = '2026-03-09T15:00:00+02:00';
 const REVIEW_CRITERIA_IDS: ReviewCriterionId[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11'];
 const EDITABLE_EMAIL_TEMPLATE_FIELDS: (keyof EditableEmailTemplateFields)[] = [
   'subject',
@@ -1268,6 +1270,12 @@ function analyticsStorageKey(entityType: AnalyticsEntityType, entityId: string):
 
 function analyticsToday(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function analyticsStartAtMs(env: Env): number {
+  const raw = asString(env.ANALYTICS_START_AT).trim() || DEFAULT_ANALYTICS_START_AT;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function shiftAnalyticsDay(day: string, offset: number): string {
@@ -2392,6 +2400,23 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
         : entityId,
   );
   const now = Date.now();
+  const startAt = analyticsStartAtMs(env);
+  if (startAt > 0 && now < startAt) {
+    return jsonResponse(request, env, 200, {
+      ok: true,
+      summary: {
+        entityType: entityTypeRaw,
+        entityId,
+        label,
+        path,
+        lastViewedAt: '',
+        lastDay: 0,
+        lastWeek: 0,
+        lastMonth: 0,
+        total: 0,
+      } satisfies AnalyticsSummaryPayload,
+    });
+  }
   const today = analyticsToday();
   const existing = await readAnalyticsRecord(env, entityTypeRaw, entityId);
   const requestDimensions = buildAnalyticsDimensionsFromRequest(request, body);
