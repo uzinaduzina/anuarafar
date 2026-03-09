@@ -932,6 +932,19 @@ function alignArticleSeriesWithIssues(baseArticles: Article[], nextIssues: Issue
   });
 }
 
+function hasConflictingSlugIdMapping(localIssues: Issue[], canonicalIssues: Issue[]): boolean {
+  const canonicalIdBySlug = new Map<string, string>();
+  canonicalIssues.forEach((issue) => {
+    if (issue.slug) canonicalIdBySlug.set(issue.slug, issue.id);
+  });
+
+  return localIssues.some((issue) => {
+    if (!issue.slug) return false;
+    const canonicalId = canonicalIdBySlug.get(issue.slug);
+    return Boolean(canonicalId && canonicalId !== issue.id);
+  });
+}
+
 export function JournalDataProvider({ children }: { children: ReactNode }) {
   const { authToken } = useAuth();
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -983,7 +996,12 @@ export function JournalDataProvider({ children }: { children: ReactNode }) {
           try {
             const parsedLocalIssues = parseIssuesCsvText(localCsv);
             if (parsedLocalIssues.length > 0) {
-              resolvedIssues = parsedLocalIssues;
+              if (hasConflictingSlugIdMapping(parsedLocalIssues, mappedIssuesFromManifest)) {
+                localStorage.removeItem(ISSUES_CSV_STORAGE_KEY);
+                setHasIssueCsvOverride(false);
+              } else {
+                resolvedIssues = parsedLocalIssues;
+              }
             }
           } catch {
             localStorage.removeItem(ISSUES_CSV_STORAGE_KEY);
