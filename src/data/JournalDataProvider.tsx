@@ -255,10 +255,14 @@ export function useJournalData() {
 }
 
 function mapSeries(s: string): SeriesId {
-  const normalized = String(s || '').toLowerCase();
+  const normalized = String(s || '').trim().toLowerCase();
   if (normalized === 'seria-1' || normalized.includes('seria-1') || normalized.includes('seria i')) return 'seria-1';
   if (normalized === 'seria-2' || normalized.includes('seria-2') || normalized.includes('seria ii')) return 'seria-2';
   return 'seria-3';
+}
+
+function normalizeIssueStatus(value: string): 'published' | 'draft' {
+  return String(value || '').trim().toLowerCase() === 'published' ? 'published' : 'draft';
 }
 
 function seriesLabel(series: SeriesId, raw: string): string {
@@ -283,7 +287,7 @@ function mapIssue(mi: ManifestIssue): Issue {
     number: String(mi.number || ''),
     date_published: String(mi.date_published || ''),
     title: String(mi.title || ''),
-    status: mi.status === 'published' ? 'published' : 'draft',
+    status: normalizeIssueStatus(String(mi.status || '')),
     article_count: Number(mi.article_count) || 0,
     pages: String(mi.pages || ''),
     doi_prefix: String(mi.doi_prefix || ''),
@@ -341,7 +345,7 @@ function issueFromCsvRow(row: Record<string, string>): Issue {
     number: String(row.number || '').trim(),
     date_published: String(row.date_published || '').trim(),
     title: String(row.title || '').trim(),
-    status: row.status === 'published' ? 'published' : 'draft',
+    status: normalizeIssueStatus(row.status || ''),
     article_count: Number(row.article_count || 0) || 0,
     pages: String(row.pages || '').trim(),
     doi_prefix: String(row.doi_prefix || '').trim(),

@@ -113,18 +113,18 @@ export default function DashboardIssues() {
 
   const onExportDoajSeriesCsv = () => {
     const validation = validateDoajBySeries(doajSeries);
-    if (validation.articleCount === 0) {
-      toast({
-        title: 'Nu exista articole pentru selectie',
-        description: `Seria ${doajSeries} nu are articole de exportat.`,
-        variant: 'destructive',
-      });
-      return;
-    }
     if (!validation.ok) {
       toast({
         title: 'Export blocat: erori DOAJ',
         description: `${validation.errors[0]} (${validation.errors.length} erori)`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (validation.articleCount === 0) {
+      toast({
+        title: 'Nu exista articole pentru selectie',
+        description: `Seria ${doajSeries} nu are articole de exportat.`,
         variant: 'destructive',
       });
       return;
@@ -157,18 +157,18 @@ export default function DashboardIssues() {
     }
 
     const validation = validateDoajByIssue(selectedIssueId);
-    if (validation.articleCount === 0) {
-      toast({
-        title: 'Nu exista articole pentru selectie',
-        description: 'Numarul selectat nu are articole de exportat.',
-        variant: 'destructive',
-      });
-      return;
-    }
     if (!validation.ok) {
       toast({
         title: 'Export blocat: erori DOAJ',
         description: `${validation.errors[0]} (${validation.errors.length} erori)`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (validation.articleCount === 0) {
+      toast({
+        title: 'Nu exista articole pentru selectie',
+        description: 'Numarul selectat nu are articole de exportat.',
         variant: 'destructive',
       });
       return;
@@ -193,18 +193,18 @@ export default function DashboardIssues() {
 
   const onExportDoajSeriesXml = () => {
     const validation = validateDoajBySeries(doajSeries);
-    if (validation.articleCount === 0) {
-      toast({
-        title: 'Nu exista articole pentru selectie',
-        description: `Seria ${doajSeries} nu are articole de exportat.`,
-        variant: 'destructive',
-      });
-      return;
-    }
     if (!validation.ok) {
       toast({
         title: 'Export blocat: erori DOAJ',
         description: `${validation.errors[0]} (${validation.errors.length} erori)`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (validation.articleCount === 0) {
+      toast({
+        title: 'Nu exista articole pentru selectie',
+        description: `Seria ${doajSeries} nu are articole de exportat.`,
         variant: 'destructive',
       });
       return;
@@ -237,18 +237,18 @@ export default function DashboardIssues() {
     }
 
     const validation = validateDoajByIssue(selectedIssueId);
-    if (validation.articleCount === 0) {
-      toast({
-        title: 'Nu exista articole pentru selectie',
-        description: 'Numarul selectat nu are articole de exportat.',
-        variant: 'destructive',
-      });
-      return;
-    }
     if (!validation.ok) {
       toast({
         title: 'Export blocat: erori DOAJ',
         description: `${validation.errors[0]} (${validation.errors.length} erori)`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (validation.articleCount === 0) {
+      toast({
+        title: 'Nu exista articole pentru selectie',
+        description: 'Numarul selectat nu are articole de exportat.',
         variant: 'destructive',
       });
       return;
