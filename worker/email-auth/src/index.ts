@@ -1545,7 +1545,7 @@ async function sendEmail(
 }
 
 function getAppName(env: Env): string {
-  return env.APP_NAME || 'IAFAR Journal';
+  return asString(env.APP_NAME).trim() || 'Anuarul Arhivei de Folclor';
 }
 
 function uniqueEmailList(entries: string[]): string[] {
