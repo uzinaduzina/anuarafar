@@ -20,7 +20,9 @@ function downloadText(filename: string, content: string, mime: string) {
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
+  document.body.appendChild(anchor);
   anchor.click();
+  document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
 }
 
@@ -351,9 +353,9 @@ export default function DashboardIssues() {
             <DropdownMenuContent>
               <DropdownMenuLabel>Export articole CSV</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onExportArticlesSeriesCsv('seria-1')}>Seria I (1932–1945)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onExportArticlesSeriesCsv('seria-2')}>Seria II (1980–1998)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onExportArticlesSeriesCsv('seria-3')}>Seria III (2022–)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onExportArticlesSeriesCsv('seria-1')}>Seria I (1932–1945)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onExportArticlesSeriesCsv('seria-2')}>Seria II (1980–1998)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onExportArticlesSeriesCsv('seria-3')}>Seria III (2022–)</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -378,8 +380,8 @@ export default function DashboardIssues() {
                   <option value="seria-2">Seria II (arhivă, exclusă)</option>
                 </select>
               </div>
-              <DropdownMenuItem onClick={onExportDoajSeriesCsv}>CSV serie</DropdownMenuItem>
-              <DropdownMenuItem onClick={onExportDoajSeriesXml}>XML serie</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportDoajSeriesCsv}>CSV serie</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportDoajSeriesXml}>XML serie</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Export DOAJ per număr</DropdownMenuLabel>
               <div className="px-2 py-1.5">
@@ -397,8 +399,8 @@ export default function DashboardIssues() {
                   ))}
                 </select>
               </div>
-              <DropdownMenuItem onClick={onExportDoajIssueCsv}>CSV număr</DropdownMenuItem>
-              <DropdownMenuItem onClick={onExportDoajIssueXml}>XML număr</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportDoajIssueCsv}>CSV număr</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportDoajIssueXml}>XML număr</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
