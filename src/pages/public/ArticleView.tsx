@@ -39,9 +39,9 @@ const seriesKwBg: Record<SeriesId, string> = {
 };
 
 const seriesOutlineButton: Record<SeriesId, string> = {
-  'seria-1': 'border-series-1-border text-series-1-foreground hover:bg-series-1-bg/70',
-  'seria-2': 'border-series-2-border text-series-2-foreground hover:bg-series-2-bg/70',
-  'seria-3': 'border-series-3-border text-series-3-foreground hover:bg-series-3-bg/70',
+  'seria-1': '!border-series-1-border !text-series-1-foreground hover:!bg-series-1-bg/70',
+  'seria-2': '!border-series-2-border !text-series-2-foreground hover:!bg-series-2-bg/70',
+  'seria-3': '!border-series-3-border !text-series-3-foreground hover:!bg-series-3-bg/70',
 };
 
 export default function ArticleView() {

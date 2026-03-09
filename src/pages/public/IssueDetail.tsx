@@ -37,9 +37,9 @@ const seriesLinkColor: Record<SeriesId, string> = {
 };
 
 const seriesSolidButton: Record<SeriesId, string> = {
-  'seria-1': 'bg-series-1 text-white hover:bg-series-1/90',
-  'seria-2': 'bg-series-2 text-white hover:bg-series-2/90',
-  'seria-3': 'bg-series-3 text-series-3-foreground hover:bg-series-3/90',
+  'seria-1': '!bg-series-1 !text-white hover:!bg-series-1/90',
+  'seria-2': '!bg-series-2 !text-white hover:!bg-series-2/90',
+  'seria-3': '!bg-series-3 !text-series-3-foreground hover:!bg-series-3/90',
 };
 
 export default function IssueDetail() {
