@@ -38,6 +38,12 @@ const seriesKwBg: Record<SeriesId, string> = {
   'seria-3': 'bg-series-3-bg border-series-3-border text-series-3-foreground',
 };
 
+const seriesOutlineButton: Record<SeriesId, string> = {
+  'seria-1': 'border-series-1-border text-series-1-foreground hover:bg-series-1-bg/70',
+  'seria-2': 'border-series-2-border text-series-2-foreground hover:bg-series-2-bg/70',
+  'seria-3': 'border-series-3-border text-series-3-foreground hover:bg-series-3-bg/70',
+};
+
 export default function ArticleView() {
   const { id } = useParams();
   const { issues, articles, loading } = useJournalData();
@@ -269,7 +275,7 @@ ER  -`.trim();
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-fit">
+                <Button variant="outline" size="sm" className={`w-fit ${seriesOutlineButton[series]}`}>
                   <Download className="mr-2 h-3.5 w-3.5" />
                   Descarcă referința
                 </Button>
@@ -313,7 +319,7 @@ ER  -`.trim();
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2">
           {previousArticle && (
-            <Button asChild size="sm" variant="outline" className="justify-start">
+            <Button asChild size="sm" variant="outline" className={`justify-start ${seriesOutlineButton[series]}`}>
               <Link to={`/article/${previousArticle.id}`}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Articol anterior
@@ -321,7 +327,7 @@ ER  -`.trim();
             </Button>
           )}
           {nextArticle && (
-            <Button asChild size="sm" variant="outline" className="justify-start">
+            <Button asChild size="sm" variant="outline" className={`justify-start ${seriesOutlineButton[series]}`}>
               <Link to={`/article/${nextArticle.id}`}>
                 <ArrowRight className="mr-2 h-4 w-4" />
                 Articol următor

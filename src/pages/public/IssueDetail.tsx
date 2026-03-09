@@ -36,6 +36,12 @@ const seriesLinkColor: Record<SeriesId, string> = {
   'seria-3': 'text-series-3-foreground',
 };
 
+const seriesSolidButton: Record<SeriesId, string> = {
+  'seria-1': 'bg-series-1 text-white hover:bg-series-1/90',
+  'seria-2': 'bg-series-2 text-white hover:bg-series-2/90',
+  'seria-3': 'bg-series-3 text-series-3-foreground hover:bg-series-3/90',
+};
+
 export default function IssueDetail() {
   const { slug } = useParams();
   const { issues, articles, loading } = useJournalData();
@@ -127,7 +133,7 @@ export default function IssueDetail() {
             <div className="mt-4">
               <div className="flex flex-col gap-2">
                 {issuePdfParts.map((pdfPart) => (
-                  <Button asChild size="lg" className="w-full" key={pdfPart.path}>
+                  <Button asChild size="lg" className={`w-full ${seriesSolidButton[issue.series]}`} key={pdfPart.path}>
                     <a
                       href={resolvePdfUrl(pdfPart.path)}
                       target="_blank"
