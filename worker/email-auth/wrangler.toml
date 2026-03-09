@@ -18,4 +18,4 @@ SESSION_TTL_SECONDS = "2592000"
 SUBMISSION_RECIPIENTS = "anuar@iafar.ro,confafar@gmail.com"
 AUTH_ACCOUNTS_JSON = '[{"username":"admin","name":"Liviu Pop","role":"admin","email":"liviu.o.pop@gmail.com"}]'
 ADMIN_PASSWORD_EMAIL = "liviu.o.pop@gmail.com"
-ANALYTICS_START_AT = "2026-03-09T15:00:00+02:00"
+ANALYTICS_START_AT = "2026-03-09T14:00:00+02:00"

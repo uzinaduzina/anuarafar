@@ -259,7 +259,7 @@ const ANALYTICS_ENTITY_ID_LIMIT = 280;
 const ANALYTICS_LABEL_LIMIT = 240;
 const ANALYTICS_PATH_LIMIT = 320;
 const ANALYTICS_DIMENSION_KEY_LIMIT = 120;
-const DEFAULT_ANALYTICS_START_AT = '2026-03-09T15:00:00+02:00';
+const DEFAULT_ANALYTICS_START_AT = '2026-03-09T14:00:00+02:00';
 const REVIEW_CRITERIA_IDS: ReviewCriterionId[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11'];
 const EDITABLE_EMAIL_TEMPLATE_FIELDS: (keyof EditableEmailTemplateFields)[] = [
   'subject',
