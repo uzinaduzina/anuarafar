@@ -121,18 +121,7 @@ export default function ArticleView() {
   const nextArticle = currentIndex >= 0 && currentIndex < issueArticles.length - 1 ? issueArticles[currentIndex + 1] : null;
 
   const series = issue?.series || article.series;
-  const isCurrentOpenAccessIssue = issue?.series === 'seria-3';
   const citationUrl = `${JOURNAL.url}/article/${article.id}`;
-  const licenseLabel = isCurrentOpenAccessIssue ? JOURNAL.oa_license_name : 'Arhivă istorică';
-  const rightsNotice = isCurrentOpenAccessIssue
-    ? JOURNAL.oa_copyright_notice
-    : JOURNAL.archive_rights_notice;
-  const publishingRightsNotice = isCurrentOpenAccessIssue
-    ? JOURNAL.oa_publishing_rights_notice
-    : 'Pentru seriile anterioare, condițiile detaliate de reutilizare sunt publicate separat la nivel de politică editorială.';
-  const reuseNotice = isCurrentOpenAccessIssue
-    ? JOURNAL.oa_reuse_notice
-    : 'Consultați politica revistei înainte de redistribuire, republicare sau reutilizare extinsă a materialului din arhivă.';
   const citationVolume = issue?.volume ? `vol. ${issue.volume}` : '';
   const citationIssue = issue?.number ? `, nr. ${issue.number}` : '';
   const citationYear = issue?.year ? ` (${issue.year})` : '';
@@ -245,25 +234,6 @@ ER  -`.trim();
         )}
 
         <div className="mb-4 rounded-md border bg-muted/30 p-4">
-          <h2 className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-2">Drepturi de autor și licență</h2>
-          <div className="space-y-1.5 text-sm text-foreground/90">
-            <p>
-              <strong>Licență:</strong>{' '}
-              {isCurrentOpenAccessIssue ? (
-                <a href={JOURNAL.oa_license_url} className="text-primary hover:underline" target="_blank" rel="noreferrer">
-                  {licenseLabel}
-                </a>
-              ) : (
-                licenseLabel
-              )}
-            </p>
-            <p><strong>Copyright:</strong> {rightsNotice}</p>
-            <p><strong>Publicare:</strong> {publishingRightsNotice}</p>
-            <p><strong>Reutilizare:</strong> {reuseNotice}</p>
-          </div>
-        </div>
-
-        <div className="mb-4 rounded-md border bg-muted/30 p-4">
           <h2 className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold mb-2">Cum se citează</h2>
           <p className="text-sm text-foreground/90">{citationText}</p>
         </div>
@@ -280,6 +250,14 @@ ER  -`.trim();
               <div>
                 <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Limba</div>
                 <div className="font-medium">{article.language === 'ro' ? 'Română' : article.language}</div>
+              </div>
+              <div>
+                <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Licență</div>
+                <div className="font-medium">
+                  <a href={JOURNAL.oa_license_url} className="text-primary hover:underline" target="_blank" rel="noreferrer">
+                    CC BY 4.0
+                  </a>
+                </div>
               </div>
               {article.doi && (
                 <div>
