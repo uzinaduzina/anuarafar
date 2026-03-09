@@ -171,6 +171,9 @@ function buildDescription(article) {
 
 function buildMetadata(article, issue, journalName, siteUrl, communities) {
   const creators = splitNames(article.authors).map((name) => ({ name }));
+  if (creators.length === 0) {
+    creators.push({ name: 'Redacția Anuarul Arhivei de Folclor' });
+  }
   const keywords = splitKeywords(article);
   const lang = mapLanguage(article.language);
   const issueDate = String(issue.date_published || '').trim();
