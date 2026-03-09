@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { resolveAuthApiBase } from '@/lib/authApi';
 
 const STORAGE_KEY = 'workflow_submissions_v2';
+const LEGACY_STORAGE_KEY = 'workflow_submissions_v1';
+const REJECTED_CLEANUP_FLAG = 'workflow_submissions_cleanup_rejected_v1';
 const SUBMISSION_API_BASE = resolveAuthApiBase();
 const REMOTE_SUBMISSIONS_ENABLED = SUBMISSION_API_BASE.length > 0;
 
@@ -96,20 +98,39 @@ function normalizeSubmission(submission: Submission): Submission {
 }
 
 function readInitialSubmissions(): Submission[] {
-  const fromStorage = localStorage.getItem(STORAGE_KEY);
-  if (!fromStorage) {
+  const currentRaw = localStorage.getItem(STORAGE_KEY);
+  const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+  const raw = currentRaw ?? legacyRaw;
+  if (!raw) {
     return [];
   }
 
+  let parsed: Submission[] = [];
   try {
-    const parsed = JSON.parse(fromStorage) as Submission[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.map(normalizeSubmission);
+    const candidate = JSON.parse(raw) as Submission[];
+    if (Array.isArray(candidate)) parsed = candidate;
   } catch {
-    return [];
+    parsed = [];
   }
+
+  const cleanupDone = localStorage.getItem(REJECTED_CLEANUP_FLAG) === '1';
+  const cleaned = cleanupDone
+    ? parsed
+    : parsed.filter((submission) => submission?.status !== 'rejected');
+
+  if (!cleanupDone) {
+    localStorage.setItem(REJECTED_CLEANUP_FLAG, '1');
+  }
+
+  if (legacyRaw) {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
+
+  if (legacyRaw || !currentRaw || cleaned.length !== parsed.length) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+  }
+
+  return cleaned.map(normalizeSubmission);
 }
 
 function toIsoDate(value: Date): string {
