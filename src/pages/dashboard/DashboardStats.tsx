@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ElementType } from 'react';
-import { AlertCircle, Download, Eye, FileText, Globe2, Loader2 } from 'lucide-react';
+import { AlertCircle, Download, Eye, FileText, Globe2, Loader2, Search } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -427,7 +427,7 @@ export default function DashboardStats() {
         </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
+      <div className="grid gap-6 xl:grid-cols-4">
         <SummaryPanel
           title="Articole"
           description="Traficul cumulat pe fiecare articol publicat."
@@ -446,10 +446,16 @@ export default function DashboardStats() {
           icon={Download}
           counts={analytics.downloadTotals}
         />
+        <SummaryPanel
+          title="Căutări"
+          description="Termeni căutați în pagina de căutare a arhivei."
+          icon={Search}
+          counts={analytics.searchTotals}
+        />
       </div>
 
       <Tabs defaultValue="articles" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-1 sm:max-w-xl sm:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 sm:max-w-3xl sm:grid-cols-4">
           <TabsTrigger value="articles" className="gap-2">
             <FileText className="h-4 w-4" />
             Articole
@@ -461,6 +467,10 @@ export default function DashboardStats() {
           <TabsTrigger value="downloads" className="gap-2">
             <Download className="h-4 w-4" />
             Descărcări
+          </TabsTrigger>
+          <TabsTrigger value="searches" className="gap-2">
+            <Search className="h-4 w-4" />
+            Căutări
           </TabsTrigger>
         </TabsList>
 
@@ -497,6 +507,18 @@ export default function DashboardStats() {
             breakdown={analytics.downloadBreakdown}
             activityLabel="descărcări"
             lastSeenLabel="Ultima descărcare"
+          />
+        </TabsContent>
+
+        <TabsContent value="searches">
+          <AnalyticsTab
+            title="Căutări în arhivă"
+            description="Termenii introduși în pagina publică de căutare."
+            items={analytics.searches}
+            timeline={analytics.searchTimeline}
+            breakdown={analytics.searchBreakdown}
+            activityLabel="căutări"
+            lastSeenLabel="Ultima căutare"
           />
         </TabsContent>
       </Tabs>

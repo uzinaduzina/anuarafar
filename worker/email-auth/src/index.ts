@@ -111,7 +111,7 @@ type StoredArticleOverrideMap = Record<string, StoredArticleOverride>;
 
 type SubmissionStatus = 'submitted' | 'anonymization' | 'under_review' | 'decision_pending' | 'accepted' | 'rejected' | 'revision_requested';
 type ReviewAnswer = 'yes' | 'partial' | 'no';
-type AnalyticsEntityType = 'article' | 'page' | 'download';
+type AnalyticsEntityType = 'article' | 'page' | 'download' | 'search';
 type ReviewCriterionId =
   | 'q1'
   | 'q2'
@@ -1110,7 +1110,7 @@ function generateSecurePassword(length = 14): string {
 }
 
 function isAnalyticsEntityType(value: string): value is AnalyticsEntityType {
-  return value === 'article' || value === 'page' || value === 'download';
+  return value === 'article' || value === 'page' || value === 'download' || value === 'search';
 }
 
 function normalizeAnalyticsEntityId(entityType: AnalyticsEntityType, raw: string): string {
@@ -2390,13 +2390,18 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
     return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
   }
 
-  const path = sanitizeAnalyticsPath(asString(body.path), entityTypeRaw === 'page' ? entityId : '');
+  const path = sanitizeAnalyticsPath(
+    asString(body.path),
+    entityTypeRaw === 'page' ? entityId : entityTypeRaw === 'search' ? '/search' : '',
+  );
   const label = sanitizeAnalyticsLabel(
     asString(body.label),
     entityTypeRaw === 'article'
       ? `Articol ${entityId}`
       : entityTypeRaw === 'download'
         ? `Descărcare articol ${entityId}`
+        : entityTypeRaw === 'search'
+          ? `Căutare: ${entityId}`
         : entityId,
   );
   const now = Date.now();
@@ -2470,7 +2475,7 @@ async function handleGetAnalyticsSummary(request: Request, env: Env): Promise<Re
         entityType: entityTypeRaw,
         entityId,
         label: entityId,
-        path: entityTypeRaw === 'page' ? entityId : '',
+        path: entityTypeRaw === 'page' ? entityId : entityTypeRaw === 'search' ? '/search' : '',
         lastViewedAt: '',
         lastDay: 0,
         lastWeek: 0,
@@ -2491,27 +2496,34 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
   const articleRecords = records.filter((record) => record.entityType === 'article');
   const pageRecords = records.filter((record) => record.entityType === 'page');
   const downloadRecords = records.filter((record) => record.entityType === 'download');
+  const searchRecords = records.filter((record) => record.entityType === 'search');
   const articles = sortAnalyticsSummaries(articleRecords.map((record) => summarizeAnalyticsRecord(record)));
   const pages = sortAnalyticsSummaries(pageRecords.map((record) => summarizeAnalyticsRecord(record)));
   const downloads = sortAnalyticsSummaries(downloadRecords.map((record) => summarizeAnalyticsRecord(record)));
+  const searches = sortAnalyticsSummaries(searchRecords.map((record) => summarizeAnalyticsRecord(record)));
   const articleBreakdown = sumAnalyticsDimensionMaps(articleRecords);
   const pageBreakdown = sumAnalyticsDimensionMaps(pageRecords);
   const downloadBreakdown = sumAnalyticsDimensionMaps(downloadRecords);
+  const searchBreakdown = sumAnalyticsDimensionMaps(searchRecords);
 
   return jsonResponse(request, env, 200, {
     ok: true,
     articles,
     pages,
     downloads,
+    searches,
     articleTotals: sumAnalyticsSummaries(articles),
     pageTotals: sumAnalyticsSummaries(pages),
     downloadTotals: sumAnalyticsSummaries(downloads),
+    searchTotals: sumAnalyticsSummaries(searches),
     articleTimeline: analyticsTimeline(articleRecords),
     pageTimeline: analyticsTimeline(pageRecords),
     downloadTimeline: analyticsTimeline(downloadRecords),
+    searchTimeline: analyticsTimeline(searchRecords),
     articleBreakdown,
     pageBreakdown,
     downloadBreakdown,
+    searchBreakdown,
   });
 }
 

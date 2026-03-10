@@ -2,7 +2,7 @@ import { resolveAuthApiBase } from '@/lib/authApi';
 
 const ANALYTICS_API_BASE = resolveAuthApiBase();
 
-export type AnalyticsEntityType = 'article' | 'page' | 'download';
+export type AnalyticsEntityType = 'article' | 'page' | 'download' | 'search';
 
 export interface AnalyticsCounts {
   lastDay: number;
@@ -40,15 +40,19 @@ export interface AnalyticsDashboardData {
   articles: AnalyticsSummary[];
   pages: AnalyticsSummary[];
   downloads: AnalyticsSummary[];
+  searches: AnalyticsSummary[];
   articleTotals: AnalyticsCounts;
   pageTotals: AnalyticsCounts;
   downloadTotals: AnalyticsCounts;
+  searchTotals: AnalyticsCounts;
   articleTimeline: AnalyticsTimelinePoint[];
   pageTimeline: AnalyticsTimelinePoint[];
   downloadTimeline: AnalyticsTimelinePoint[];
+  searchTimeline: AnalyticsTimelinePoint[];
   articleBreakdown: AnalyticsBreakdownGroup;
   pageBreakdown: AnalyticsBreakdownGroup;
   downloadBreakdown: AnalyticsBreakdownGroup;
+  searchBreakdown: AnalyticsBreakdownGroup;
 }
 
 interface AnalyticsApiResponse {
@@ -58,15 +62,19 @@ interface AnalyticsApiResponse {
   articles?: unknown;
   pages?: unknown;
   downloads?: unknown;
+  searches?: unknown;
   articleTotals?: unknown;
   pageTotals?: unknown;
   downloadTotals?: unknown;
+  searchTotals?: unknown;
   articleTimeline?: unknown;
   pageTimeline?: unknown;
   downloadTimeline?: unknown;
+  searchTimeline?: unknown;
   articleBreakdown?: unknown;
   pageBreakdown?: unknown;
   downloadBreakdown?: unknown;
+  searchBreakdown?: unknown;
 }
 
 interface TrackAnalyticsViewInput {
@@ -97,7 +105,7 @@ function parseSummary(value: unknown): AnalyticsSummary | null {
   if (!isRecord(value)) return null;
   const entityType = typeof value.entityType === 'string' ? value.entityType : '';
   const entityId = typeof value.entityId === 'string' ? value.entityId : '';
-  if ((entityType !== 'article' && entityType !== 'page' && entityType !== 'download') || !entityId) return null;
+  if ((entityType !== 'article' && entityType !== 'page' && entityType !== 'download' && entityType !== 'search') || !entityId) return null;
   return {
     entityType,
     entityId,
@@ -288,14 +296,18 @@ export async function fetchAdminAnalyticsDashboard(token: string): Promise<Analy
     articles: parseSummaryList(payload.articles),
     pages: parseSummaryList(payload.pages),
     downloads: parseSummaryList(payload.downloads),
+    searches: parseSummaryList(payload.searches),
     articleTotals: parseCounts(payload.articleTotals),
     pageTotals: parseCounts(payload.pageTotals),
     downloadTotals: parseCounts(payload.downloadTotals),
+    searchTotals: parseCounts(payload.searchTotals),
     articleTimeline: parseTimeline(payload.articleTimeline),
     pageTimeline: parseTimeline(payload.pageTimeline),
     downloadTimeline: parseTimeline(payload.downloadTimeline),
+    searchTimeline: parseTimeline(payload.searchTimeline),
     articleBreakdown: parseBreakdownGroup(payload.articleBreakdown),
     pageBreakdown: parseBreakdownGroup(payload.pageBreakdown),
     downloadBreakdown: parseBreakdownGroup(payload.downloadBreakdown),
+    searchBreakdown: parseBreakdownGroup(payload.searchBreakdown),
   };
 }

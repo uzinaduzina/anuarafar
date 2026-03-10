@@ -3,6 +3,7 @@ import { Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { Article, Issue } from '@/data/types';
+import { trackAnalyticsView } from '@/lib/analytics';
 
 function normalizeForSearch(value: string) {
   return String(value || '')
@@ -10,6 +11,10 @@ function normalizeForSearch(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+}
+
+function normalizeSearchKeywordForAnalytics(value: string) {
+  return normalizeForSearch(value).slice(0, 280);
 }
 
 function articleSearchHaystack(article: Article, issue?: Issue) {
@@ -94,7 +99,17 @@ export default function SearchPage() {
           className="flex flex-col gap-3 sm:flex-row"
           onSubmit={(event) => {
             event.preventDefault();
-            setSearchTerm(searchInput.trim());
+            const query = searchInput.trim();
+            setSearchTerm(query);
+            const analyticsId = normalizeSearchKeywordForAnalytics(query);
+            if (analyticsId) {
+              void trackAnalyticsView({
+                entityType: 'search',
+                entityId: analyticsId,
+                label: query,
+                path: '/search',
+              });
+            }
           }}
         >
           <input

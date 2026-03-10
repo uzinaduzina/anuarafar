@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useJournalData } from '@/data/JournalDataProvider';
 import { Article, Issue, SERIES_CONFIG, SeriesId } from '@/data/types';
 import { IssueCard } from '@/components/IssueCard';
+import { trackAnalyticsView } from '@/lib/analytics';
 
 const SERIES_ORDER: SeriesId[] = ['seria-3', 'seria-2', 'seria-1'];
 
@@ -13,6 +14,10 @@ function normalizeForSearch(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+}
+
+function normalizeSearchKeywordForAnalytics(value: string) {
+  return normalizeForSearch(value).slice(0, 280);
 }
 
 function articleSearchHaystack(article: Article, issue?: Issue) {
@@ -103,7 +108,17 @@ export default function ArchivePage() {
           className="flex flex-col gap-3 sm:flex-row"
           onSubmit={(event) => {
             event.preventDefault();
-            setSearchTerm(searchInput.trim());
+            const query = searchInput.trim();
+            setSearchTerm(query);
+            const analyticsId = normalizeSearchKeywordForAnalytics(query);
+            if (analyticsId) {
+              void trackAnalyticsView({
+                entityType: 'search',
+                entityId: analyticsId,
+                label: query,
+                path: '/archive',
+              });
+            }
           }}
         >
           <input
