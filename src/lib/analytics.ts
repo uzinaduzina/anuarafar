@@ -186,6 +186,7 @@ async function parseApiResponse(response: Response): Promise<AnalyticsApiRespons
 export function labelForPublicPath(pathname: string): string {
   if (pathname === '/') return 'Acasă';
   if (pathname === '/archive') return 'Arhivă';
+  if (pathname === '/search') return 'Căutare';
   if (pathname === '/submit') return 'Trimite manuscris';
   if (pathname === '/about') return 'Despre revistă';
   if (pathname === '/politici' || pathname === '/doaj') return 'Politici editoriale';

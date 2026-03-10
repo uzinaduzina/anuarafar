@@ -11,6 +11,7 @@ import PublicLayout from './layouts/PublicLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import Home from './pages/public/Home';
 import ArchivePage from './pages/public/ArchivePage';
+import SearchPage from './pages/public/SearchPage';
 import IssueDetail from './pages/public/IssueDetail';
 import ArticleView from './pages/public/ArticleView';
 import About from './pages/public/About';
@@ -52,6 +53,7 @@ const App = () => (
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<Home />} />
                   <Route path="/archive" element={<ArchivePage />} />
+                  <Route path="/search" element={<SearchPage />} />
                   <Route path="/archive/:slug" element={<IssueDetail />} />
                   <Route path="/article/:id" element={<ArticleView />} />
                   <Route path="/about" element={<About />} />

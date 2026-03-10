@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard, Menu } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard, Menu, Search } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
@@ -13,6 +13,7 @@ import PwaInstallButton from '@/components/PwaInstallButton';
 const NAV_ITEMS = [
   { label: 'Acasă', path: '/', icon: BookOpen },
   { label: 'Arhivă', path: '/archive', icon: Archive },
+  { label: 'Căutare', path: '/search', icon: Search },
   { label: 'Trimite manuscris', path: '/submit', icon: Send },
 ];
 
