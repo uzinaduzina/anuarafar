@@ -6,6 +6,7 @@ import { resolveAuthApiBase } from '@/lib/authApi';
 const STORAGE_KEY = 'workflow_submissions_v2';
 const LEGACY_STORAGE_KEY = 'workflow_submissions_v1';
 const REJECTED_CLEANUP_FLAG = 'workflow_submissions_cleanup_rejected_v1';
+const FORCE_RESET_FLAG = 'workflow_submissions_force_reset_v1';
 const SUBMISSION_API_BASE = resolveAuthApiBase();
 const REMOTE_SUBMISSIONS_ENABLED = SUBMISSION_API_BASE.length > 0;
 
@@ -98,6 +99,15 @@ function normalizeSubmission(submission: Submission): Submission {
 }
 
 function readInitialSubmissions(): Submission[] {
+  const forceResetDone = localStorage.getItem(FORCE_RESET_FLAG) === '1';
+  if (!forceResetDone) {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    localStorage.removeItem(REJECTED_CLEANUP_FLAG);
+    localStorage.setItem(FORCE_RESET_FLAG, '1');
+    return [];
+  }
+
   const currentRaw = localStorage.getItem(STORAGE_KEY);
   const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
   const raw = currentRaw ?? legacyRaw;
