@@ -1490,25 +1490,108 @@ function mergeAnalyticsPayloads(
   cloudflarePayload: CloudflareMappedAnalyticsPayload,
   localPayload: ReturnType<typeof buildStoredAnalyticsPayload>,
 ) {
+  const articles = mergeAnalyticsSummaryCollections(cloudflarePayload.articles, localPayload.articles);
+  const pages = mergeAnalyticsSummaryCollections(cloudflarePayload.pages, localPayload.pages);
+  const downloads = mergeAnalyticsSummaryCollections(cloudflarePayload.downloads, localPayload.downloads);
+  const searches = mergeAnalyticsSummaryCollections(cloudflarePayload.searches, localPayload.searches);
+
   return {
     ok: true,
-    articles: cloudflarePayload.articles,
-    pages: cloudflarePayload.pages,
-    downloads: localPayload.downloads,
-    searches: localPayload.searches,
-    articleTotals: cloudflarePayload.articleTotals,
-    pageTotals: cloudflarePayload.pageTotals,
-    downloadTotals: localPayload.downloadTotals,
-    searchTotals: localPayload.searchTotals,
-    articleTimeline: cloudflarePayload.articleTimeline,
-    pageTimeline: cloudflarePayload.pageTimeline,
-    downloadTimeline: localPayload.downloadTimeline,
-    searchTimeline: localPayload.searchTimeline,
-    articleBreakdown: cloudflarePayload.articleBreakdown,
-    pageBreakdown: cloudflarePayload.pageBreakdown,
-    downloadBreakdown: localPayload.downloadBreakdown,
-    searchBreakdown: localPayload.searchBreakdown,
+    articles,
+    pages,
+    downloads,
+    searches,
+    articleTotals: sumAnalyticsSummaries(articles),
+    pageTotals: sumAnalyticsSummaries(pages),
+    downloadTotals: sumAnalyticsSummaries(downloads),
+    searchTotals: sumAnalyticsSummaries(searches),
+    articleTimeline: mergeAnalyticsTimelineSeries(cloudflarePayload.articleTimeline, localPayload.articleTimeline),
+    pageTimeline: mergeAnalyticsTimelineSeries(cloudflarePayload.pageTimeline, localPayload.pageTimeline),
+    downloadTimeline: mergeAnalyticsTimelineSeries(cloudflarePayload.downloadTimeline, localPayload.downloadTimeline),
+    searchTimeline: mergeAnalyticsTimelineSeries(cloudflarePayload.searchTimeline, localPayload.searchTimeline),
+    articleBreakdown: mergeAnalyticsDimensionMaps(cloudflarePayload.articleBreakdown, localPayload.articleBreakdown),
+    pageBreakdown: mergeAnalyticsDimensionMaps(cloudflarePayload.pageBreakdown, localPayload.pageBreakdown),
+    downloadBreakdown: mergeAnalyticsDimensionMaps(cloudflarePayload.downloadBreakdown, localPayload.downloadBreakdown),
+    searchBreakdown: mergeAnalyticsDimensionMaps(cloudflarePayload.searchBreakdown, localPayload.searchBreakdown),
   };
+}
+
+function mergeAnalyticsCounts(
+  left: AnalyticsSummaryCounts,
+  right: AnalyticsSummaryCounts,
+): AnalyticsSummaryCounts {
+  return {
+    lastDay: left.lastDay + right.lastDay,
+    lastWeek: left.lastWeek + right.lastWeek,
+    lastMonth: left.lastMonth + right.lastMonth,
+    total: left.total + right.total,
+  };
+}
+
+function mergeAnalyticsSummaryPayloads(
+  left: AnalyticsSummaryPayload,
+  right: AnalyticsSummaryPayload,
+): AnalyticsSummaryPayload {
+  const leftViewedAt = Date.parse(left.lastViewedAt || '');
+  const rightViewedAt = Date.parse(right.lastViewedAt || '');
+  const lastViewedAt = Number.isFinite(leftViewedAt) && Number.isFinite(rightViewedAt)
+    ? (leftViewedAt >= rightViewedAt ? left.lastViewedAt : right.lastViewedAt)
+    : (right.lastViewedAt || left.lastViewedAt);
+
+  return {
+    entityType: left.entityType,
+    entityId: left.entityId,
+    label: right.label || left.label,
+    path: left.path || right.path,
+    lastViewedAt,
+    ...mergeAnalyticsCounts(left, right),
+  };
+}
+
+function mergeAnalyticsSummaryCollections(
+  left: AnalyticsSummaryPayload[],
+  right: AnalyticsSummaryPayload[],
+): AnalyticsSummaryPayload[] {
+  const merged = new Map<string, AnalyticsSummaryPayload>();
+
+  for (const item of left) {
+    merged.set(`${item.entityType}:${item.entityId}`, item);
+  }
+
+  for (const item of right) {
+    const key = `${item.entityType}:${item.entityId}`;
+    const existing = merged.get(key);
+    merged.set(key, existing ? mergeAnalyticsSummaryPayloads(existing, item) : item);
+  }
+
+  return sortAnalyticsSummaries(Array.from(merged.values()));
+}
+
+function mergeAnalyticsTimelineSeries(
+  left: { date: string; views: number }[],
+  right: { date: string; views: number }[],
+) {
+  const merged = new Map<string, number>();
+  for (const point of left) {
+    merged.set(point.date, (merged.get(point.date) || 0) + point.views);
+  }
+  for (const point of right) {
+    merged.set(point.date, (merged.get(point.date) || 0) + point.views);
+  }
+
+  return Array.from(merged.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, views]) => ({ date, views }));
+}
+
+function mergeAnalyticsDimensionMaps(
+  left: AnalyticsDimensionMaps,
+  right: AnalyticsDimensionMaps,
+): AnalyticsDimensionMaps {
+  const merged = emptyAnalyticsDimensions();
+  mergeAnalyticsDimensions(merged, left);
+  mergeAnalyticsDimensions(merged, right);
+  return merged;
 }
 
 type CloudflareRumGroup = {
@@ -2962,20 +3045,25 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
   }
   const today = analyticsToday();
   if (isCloudflareAnalyticsProviderSelected(env) && (entityTypeRaw === 'page' || entityTypeRaw === 'article')) {
+    const stored = await readAnalyticsRecord(env, entityTypeRaw, entityId);
+    const storedSummary = stored ? summarizeAnalyticsRecord(stored, today) : null;
+
     if (hasCloudflareAnalyticsCredentials(env)) {
       try {
-        const summary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
-        return jsonResponse(request, env, 200, { ok: true, summary });
+        const cloudflareSummary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
+        return jsonResponse(request, env, 200, {
+          ok: true,
+          summary: storedSummary ? mergeAnalyticsSummaryPayloads(cloudflareSummary, storedSummary) : cloudflareSummary,
+        });
       } catch (error) {
         console.error('Cloudflare analytics track bypass failed', error);
       }
     }
 
-    const stored = await readAnalyticsRecord(env, entityTypeRaw, entityId);
     return jsonResponse(request, env, 200, {
       ok: true,
-      summary: stored
-        ? summarizeAnalyticsRecord(stored, today)
+      summary: storedSummary
+        ? storedSummary
         : {
             entityType: entityTypeRaw,
             entityId,
@@ -3038,17 +3126,21 @@ async function handleGetAnalyticsSummary(request: Request, env: Env): Promise<Re
   const stored = await readAnalyticsRecord(env, entityTypeRaw, entityId);
 
   if (isCloudflareAnalyticsProviderSelected(env) && (entityTypeRaw === 'page' || entityTypeRaw === 'article')) {
+    const storedSummary = stored ? summarizeAnalyticsRecord(stored) : null;
     if (hasCloudflareAnalyticsCredentials(env)) {
       try {
-        const summary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
-        return jsonResponse(request, env, 200, { ok: true, summary });
+        const cloudflareSummary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
+        return jsonResponse(request, env, 200, {
+          ok: true,
+          summary: storedSummary ? mergeAnalyticsSummaryPayloads(cloudflareSummary, storedSummary) : cloudflareSummary,
+        });
       } catch (error) {
         console.error('Cloudflare analytics summary failed', error);
       }
     }
 
-    if (stored && stored.total > 0) {
-      return jsonResponse(request, env, 200, { ok: true, summary: summarizeAnalyticsRecord(stored) });
+    if (storedSummary && storedSummary.total > 0) {
+      return jsonResponse(request, env, 200, { ok: true, summary: storedSummary });
     }
   }
 
