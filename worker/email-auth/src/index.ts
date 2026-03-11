@@ -1447,6 +1447,37 @@ async function listAnalyticsRecords(env: Env): Promise<StoredAnalyticsRecord[]> 
   return records.filter((entry): entry is StoredAnalyticsRecord => Boolean(entry));
 }
 
+function buildStoredAnalyticsPayload(records: StoredAnalyticsRecord[]) {
+  const articleRecords = records.filter((record) => record.entityType === 'article');
+  const pageRecords = records.filter((record) => record.entityType === 'page');
+  const downloadRecords = records.filter((record) => record.entityType === 'download');
+  const searchRecords = records.filter((record) => record.entityType === 'search');
+  const articles = sortAnalyticsSummaries(articleRecords.map((record) => summarizeAnalyticsRecord(record)));
+  const pages = sortAnalyticsSummaries(pageRecords.map((record) => summarizeAnalyticsRecord(record)));
+  const downloads = sortAnalyticsSummaries(downloadRecords.map((record) => summarizeAnalyticsRecord(record)));
+  const searches = sortAnalyticsSummaries(searchRecords.map((record) => summarizeAnalyticsRecord(record)));
+
+  return {
+    ok: true,
+    articles,
+    pages,
+    downloads,
+    searches,
+    articleTotals: sumAnalyticsSummaries(articles),
+    pageTotals: sumAnalyticsSummaries(pages),
+    downloadTotals: sumAnalyticsSummaries(downloads),
+    searchTotals: sumAnalyticsSummaries(searches),
+    articleTimeline: analyticsTimeline(articleRecords),
+    pageTimeline: analyticsTimeline(pageRecords),
+    downloadTimeline: analyticsTimeline(downloadRecords),
+    searchTimeline: analyticsTimeline(searchRecords),
+    articleBreakdown: sumAnalyticsDimensionMaps(articleRecords),
+    pageBreakdown: sumAnalyticsDimensionMaps(pageRecords),
+    downloadBreakdown: sumAnalyticsDimensionMaps(downloadRecords),
+    searchBreakdown: sumAnalyticsDimensionMaps(searchRecords),
+  };
+}
+
 type CloudflareRumGroup = {
   dimensions?: Record<string, unknown>;
   sum?: Record<string, unknown>;
@@ -2839,10 +2870,6 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
     return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
   }
 
-  if (isCloudflareAnalyticsProviderSelected(env)) {
-    return jsonResponse(request, env, 200, { ok: false, error: 'Analytics gestionat de Cloudflare.' });
-  }
-
   const path = sanitizeAnalyticsPath(
     asString(body.path),
     entityTypeRaw === 'page' ? entityId : entityTypeRaw === 'search' ? '/search' : '',
@@ -2922,21 +2949,18 @@ async function handleGetAnalyticsSummary(request: Request, env: Env): Promise<Re
   }
 
   if (isCloudflareAnalyticsProviderSelected(env)) {
-    if (!hasCloudflareAnalyticsCredentials(env)) {
-      return jsonResponse(request, env, 502, {
-        ok: false,
-        error: 'Cloudflare Web Analytics este activat, dar lipsește configurația API (CF_API_TOKEN / site tag).',
-      });
+    const stored = await readAnalyticsRecord(env, entityTypeRaw, entityId);
+    if (stored && stored.total > 0) {
+      return jsonResponse(request, env, 200, { ok: true, summary: summarizeAnalyticsRecord(stored) });
     }
-    try {
-      const summary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
-      return jsonResponse(request, env, 200, { ok: true, summary });
-    } catch (error) {
-      console.error('Cloudflare analytics summary failed', error);
-      return jsonResponse(request, env, 502, {
-        ok: false,
-        error: 'Nu am putut încărca sumarul din Cloudflare Web Analytics.',
-      });
+
+    if (hasCloudflareAnalyticsCredentials(env)) {
+      try {
+        const summary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
+        return jsonResponse(request, env, 200, { ok: true, summary });
+      } catch (error) {
+        console.error('Cloudflare analytics summary failed', error);
+      }
     }
   }
 
@@ -2964,6 +2988,11 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
   }
 
+  const records = await listAnalyticsRecords(env);
+  if (records.length > 0) {
+    return jsonResponse(request, env, 200, buildStoredAnalyticsPayload(records));
+  }
+
   if (isCloudflareAnalyticsProviderSelected(env)) {
     if (!hasCloudflareAnalyticsCredentials(env)) {
       return jsonResponse(request, env, 502, {
@@ -2983,39 +3012,7 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     }
   }
 
-  const records = await listAnalyticsRecords(env);
-  const articleRecords = records.filter((record) => record.entityType === 'article');
-  const pageRecords = records.filter((record) => record.entityType === 'page');
-  const downloadRecords = records.filter((record) => record.entityType === 'download');
-  const searchRecords = records.filter((record) => record.entityType === 'search');
-  const articles = sortAnalyticsSummaries(articleRecords.map((record) => summarizeAnalyticsRecord(record)));
-  const pages = sortAnalyticsSummaries(pageRecords.map((record) => summarizeAnalyticsRecord(record)));
-  const downloads = sortAnalyticsSummaries(downloadRecords.map((record) => summarizeAnalyticsRecord(record)));
-  const searches = sortAnalyticsSummaries(searchRecords.map((record) => summarizeAnalyticsRecord(record)));
-  const articleBreakdown = sumAnalyticsDimensionMaps(articleRecords);
-  const pageBreakdown = sumAnalyticsDimensionMaps(pageRecords);
-  const downloadBreakdown = sumAnalyticsDimensionMaps(downloadRecords);
-  const searchBreakdown = sumAnalyticsDimensionMaps(searchRecords);
-
-  return jsonResponse(request, env, 200, {
-    ok: true,
-    articles,
-    pages,
-    downloads,
-    searches,
-    articleTotals: sumAnalyticsSummaries(articles),
-    pageTotals: sumAnalyticsSummaries(pages),
-    downloadTotals: sumAnalyticsSummaries(downloads),
-    searchTotals: sumAnalyticsSummaries(searches),
-    articleTimeline: analyticsTimeline(articleRecords),
-    pageTimeline: analyticsTimeline(pageRecords),
-    downloadTimeline: analyticsTimeline(downloadRecords),
-    searchTimeline: analyticsTimeline(searchRecords),
-    articleBreakdown,
-    pageBreakdown,
-    downloadBreakdown,
-    searchBreakdown,
-  });
+  return jsonResponse(request, env, 200, buildStoredAnalyticsPayload(records));
 }
 
 async function handleNotifyRole(request: Request, env: Env): Promise<Response> {
