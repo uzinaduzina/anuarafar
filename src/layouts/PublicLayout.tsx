@@ -4,11 +4,10 @@ import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { labelForPublicPath } from '@/lib/analytics';
-import { useTrackAnalyticsView } from '@/hooks/useTrackAnalyticsView';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import PwaInstallButton from '@/components/PwaInstallButton';
+import CloudflareWebAnalytics from '@/components/CloudflareWebAnalytics';
 
 const NAV_ITEMS = [
   { label: 'Acasă', path: '/', icon: BookOpen },
@@ -31,16 +30,6 @@ export default function PublicLayout() {
   const [despreOpen, setDespreOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const despreRef = useRef<HTMLDivElement>(null);
-  const isTrackedByPageComponent = location.pathname.startsWith('/article/')
-    || /^\/archive\/[^/]+$/.test(location.pathname);
-
-  useTrackAnalyticsView({
-    entityType: 'page',
-    entityId: location.pathname,
-    label: labelForPublicPath(location.pathname),
-    path: location.pathname,
-    enabled: !isTrackedByPageComponent,
-  });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -62,6 +51,7 @@ export default function PublicLayout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <CloudflareWebAnalytics />
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="container flex h-16 items-center justify-between gap-4">

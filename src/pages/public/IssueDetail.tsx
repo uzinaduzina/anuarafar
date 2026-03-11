@@ -8,7 +8,6 @@ import { SeriesBadge } from '@/components/SeriesBadge';
 import { JOURNAL } from '@/data/journal';
 import { SeriesId, Article, SERIES_CONFIG } from '@/data/types';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
-import { trackAnalyticsView } from '@/lib/analytics';
 import { resolvePdfUrl } from '@/lib/pdfUrl';
 import { parseIssuePdfParts } from '@/lib/issuePdfParts';
 
@@ -48,17 +47,6 @@ export default function IssueDetail() {
   const { isEditor, isAdmin } = useAuth();
   const [editArticle, setEditArticle] = useState<Article | null>(null);
   const issue = issues.find(i => i.slug === slug);
-
-  useEffect(() => {
-    if (!issue) return;
-
-    void trackAnalyticsView({
-      entityType: 'page',
-      entityId: `/archive/${issue.slug}`,
-      label: `Cuprins număr · ${issue.title}`,
-      path: `/archive/${issue.slug}`,
-    });
-  }, [issue?.slug, issue?.title]);
 
   if (loading) {
     return (

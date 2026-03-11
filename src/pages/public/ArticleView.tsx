@@ -9,7 +9,7 @@ import { JOURNAL } from '@/data/journal';
 import { Button } from '@/components/ui/button';
 import PdfViewer from '@/components/PdfViewer';
 import ArticleEditDrawer from '@/components/ArticleEditDrawer';
-import { fetchAnalyticsSummary, trackAnalyticsView, type AnalyticsSummary } from '@/lib/analytics';
+import { fetchAnalyticsSummary, type AnalyticsSummary } from '@/lib/analytics';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -64,21 +64,7 @@ export default function ArticleView() {
     }
 
     const load = async () => {
-      const [tracked] = await Promise.all([
-        trackAnalyticsView({
-          entityType: 'article',
-          entityId: article.id,
-          label: article.title,
-          path: `/article/${article.id}`,
-        }),
-        trackAnalyticsView({
-          entityType: 'page',
-          entityId: `/article/${article.id}`,
-          label: `Pagină articol · ${article.title}`,
-          path: `/article/${article.id}`,
-        }),
-      ]);
-      const summary = tracked ?? await fetchAnalyticsSummary('article', article.id);
+      const summary = await fetchAnalyticsSummary('article', article.id);
       if (!cancelled) {
         setArticleAnalytics(summary);
       }

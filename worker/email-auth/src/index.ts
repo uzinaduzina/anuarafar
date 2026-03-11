@@ -1478,6 +1478,39 @@ function buildStoredAnalyticsPayload(records: StoredAnalyticsRecord[]) {
   };
 }
 
+function filterAnalyticsRecordsByTypes(
+  records: StoredAnalyticsRecord[],
+  entityTypes: AnalyticsEntityType[],
+): StoredAnalyticsRecord[] {
+  const allowed = new Set<AnalyticsEntityType>(entityTypes);
+  return records.filter((record) => allowed.has(record.entityType));
+}
+
+function mergeAnalyticsPayloads(
+  cloudflarePayload: CloudflareMappedAnalyticsPayload,
+  localPayload: ReturnType<typeof buildStoredAnalyticsPayload>,
+) {
+  return {
+    ok: true,
+    articles: cloudflarePayload.articles,
+    pages: cloudflarePayload.pages,
+    downloads: localPayload.downloads,
+    searches: localPayload.searches,
+    articleTotals: cloudflarePayload.articleTotals,
+    pageTotals: cloudflarePayload.pageTotals,
+    downloadTotals: localPayload.downloadTotals,
+    searchTotals: localPayload.searchTotals,
+    articleTimeline: cloudflarePayload.articleTimeline,
+    pageTimeline: cloudflarePayload.pageTimeline,
+    downloadTimeline: localPayload.downloadTimeline,
+    searchTimeline: localPayload.searchTimeline,
+    articleBreakdown: cloudflarePayload.articleBreakdown,
+    pageBreakdown: cloudflarePayload.pageBreakdown,
+    downloadBreakdown: localPayload.downloadBreakdown,
+    searchBreakdown: localPayload.searchBreakdown,
+  };
+}
+
 type CloudflareRumGroup = {
   dimensions?: Record<string, unknown>;
   sum?: Record<string, unknown>;
@@ -1678,11 +1711,36 @@ function normalizeCloudflarePath(value: string): string {
   return trimmed.startsWith('/') ? trimmed : `/${trimmed.replace(/^\/+/, '')}`;
 }
 
+function analyticsRangeStartIso(
+  now: number,
+  durationMs: number,
+  analyticsStartMs: number,
+): string {
+  return new Date(Math.max(now - durationMs, analyticsStartMs)).toISOString();
+}
+
+function isPublicAnalyticsPath(path: string): boolean {
+  const normalized = normalizeCloudflarePath(path).toLowerCase();
+  if (normalized === '/') return true;
+  if (
+    normalized === '/archive'
+    || normalized === '/search'
+    || normalized === '/submit'
+    || normalized === '/about'
+    || normalized === '/politici'
+    || normalized === '/doaj'
+    || normalized === '/scientific-board'
+    || normalized === '/editorial-board'
+    || normalized === '/tehnoredactare'
+  ) {
+    return true;
+  }
+  return normalized.startsWith('/archive/') || normalized.startsWith('/article/');
+}
+
 function cloudflareCategoryForPath(path: string): AnalyticsEntityType {
   const normalized = normalizeCloudflarePath(path).toLowerCase();
   if (normalized.startsWith('/article/')) return 'article';
-  if (normalized.endsWith('.pdf')) return 'download';
-  if (normalized.startsWith('/search')) return 'search';
   return 'page';
 }
 
@@ -1757,9 +1815,9 @@ async function buildCloudflareMappedAnalytics(env: Env): Promise<CloudflareMappe
   const nowIso = new Date(now).toISOString();
   const analyticsStartMs = Math.max(0, analyticsStartAtMs(env));
   const totalStartIso = new Date(analyticsStartMs > 0 ? analyticsStartMs : now - (90 * 24 * 60 * 60 * 1000)).toISOString();
-  const lastDayIso = new Date(now - (24 * 60 * 60 * 1000)).toISOString();
-  const lastWeekIso = new Date(now - (7 * 24 * 60 * 60 * 1000)).toISOString();
-  const lastMonthIso = new Date(now - (30 * 24 * 60 * 60 * 1000)).toISOString();
+  const lastDayIso = analyticsRangeStartIso(now, 24 * 60 * 60 * 1000, analyticsStartMs);
+  const lastWeekIso = analyticsRangeStartIso(now, 7 * 24 * 60 * 60 * 1000, analyticsStartMs);
+  const lastMonthIso = analyticsRangeStartIso(now, 30 * 24 * 60 * 60 * 1000, analyticsStartMs);
   const dimensionQueries = [
     'requestPath deviceType operatingSystem countryName refererHost',
     'requestPath deviceType operatingSystem countryName referrerHost',
@@ -1783,6 +1841,7 @@ async function buildCloudflareMappedAnalytics(env: Env): Promise<CloudflareMappe
   const fillRangeMap = (target: Map<string, number>, rows: CloudflareRumGroup[]) => {
     for (const row of rows) {
       const path = normalizeCloudflarePath(cloudflareDimensionValue(row, ['path', 'requestPath', 'clientRequestPath'], '/'));
+      if (!isPublicAnalyticsPath(path)) continue;
       const views = cloudflareViews(row);
       if (views <= 0) continue;
       target.set(path, (target.get(path) || 0) + views);
@@ -1819,6 +1878,7 @@ async function buildCloudflareMappedAnalytics(env: Env): Promise<CloudflareMappe
 
   for (const row of monthRows) {
     const path = normalizeCloudflarePath(cloudflareDimensionValue(row, ['path', 'requestPath', 'clientRequestPath'], '/'));
+    if (!isPublicAnalyticsPath(path)) continue;
     const views = cloudflareViews(row);
     if (views <= 0) continue;
     const category = cloudflareCategoryForPath(path);
@@ -1889,9 +1949,9 @@ async function buildCloudflareEntitySummary(
   const nowIso = new Date(now).toISOString();
   const analyticsStartMs = Math.max(0, analyticsStartAtMs(env));
   const totalStartIso = new Date(analyticsStartMs > 0 ? analyticsStartMs : now - (90 * 24 * 60 * 60 * 1000)).toISOString();
-  const lastDayIso = new Date(now - (24 * 60 * 60 * 1000)).toISOString();
-  const lastWeekIso = new Date(now - (7 * 24 * 60 * 60 * 1000)).toISOString();
-  const lastMonthIso = new Date(now - (30 * 24 * 60 * 60 * 1000)).toISOString();
+  const lastDayIso = analyticsRangeStartIso(now, 24 * 60 * 60 * 1000, analyticsStartMs);
+  const lastWeekIso = analyticsRangeStartIso(now, 7 * 24 * 60 * 60 * 1000, analyticsStartMs);
+  const lastMonthIso = analyticsRangeStartIso(now, 30 * 24 * 60 * 60 * 1000, analyticsStartMs);
   const dimensions = ['requestPath'];
   const [dayRows, weekRows, monthRows, totalRows] = await Promise.all([
     queryCloudflareRumGroups(env, siteTag, lastDayIso, nowIso, dimensions),
@@ -2901,6 +2961,35 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
     });
   }
   const today = analyticsToday();
+  if (isCloudflareAnalyticsProviderSelected(env) && (entityTypeRaw === 'page' || entityTypeRaw === 'article')) {
+    if (hasCloudflareAnalyticsCredentials(env)) {
+      try {
+        const summary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
+        return jsonResponse(request, env, 200, { ok: true, summary });
+      } catch (error) {
+        console.error('Cloudflare analytics track bypass failed', error);
+      }
+    }
+
+    const stored = await readAnalyticsRecord(env, entityTypeRaw, entityId);
+    return jsonResponse(request, env, 200, {
+      ok: true,
+      summary: stored
+        ? summarizeAnalyticsRecord(stored, today)
+        : {
+            entityType: entityTypeRaw,
+            entityId,
+            label,
+            path,
+            lastViewedAt: '',
+            lastDay: 0,
+            lastWeek: 0,
+            lastMonth: 0,
+            total: 0,
+          } satisfies AnalyticsSummaryPayload,
+    });
+  }
+
   const existing = await readAnalyticsRecord(env, entityTypeRaw, entityId);
   const requestDimensions = buildAnalyticsDimensionsFromRequest(request, body);
   const next: StoredAnalyticsRecord = existing || {
@@ -2946,12 +3035,9 @@ async function handleGetAnalyticsSummary(request: Request, env: Env): Promise<Re
     return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
   }
 
-  if (isCloudflareAnalyticsProviderSelected(env)) {
-    const stored = await readAnalyticsRecord(env, entityTypeRaw, entityId);
-    if (stored && stored.total > 0) {
-      return jsonResponse(request, env, 200, { ok: true, summary: summarizeAnalyticsRecord(stored) });
-    }
+  const stored = await readAnalyticsRecord(env, entityTypeRaw, entityId);
 
+  if (isCloudflareAnalyticsProviderSelected(env) && (entityTypeRaw === 'page' || entityTypeRaw === 'article')) {
     if (hasCloudflareAnalyticsCredentials(env)) {
       try {
         const summary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
@@ -2960,11 +3046,14 @@ async function handleGetAnalyticsSummary(request: Request, env: Env): Promise<Re
         console.error('Cloudflare analytics summary failed', error);
       }
     }
+
+    if (stored && stored.total > 0) {
+      return jsonResponse(request, env, 200, { ok: true, summary: summarizeAnalyticsRecord(stored) });
+    }
   }
 
-  const record = await readAnalyticsRecord(env, entityTypeRaw, entityId);
-  const summary = record
-    ? summarizeAnalyticsRecord(record)
+  const summary = stored
+    ? summarizeAnalyticsRecord(stored)
     : {
         entityType: entityTypeRaw,
         entityId,
@@ -2987,7 +3076,7 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
   }
 
   const records = await listAnalyticsRecords(env);
-  if (records.length > 0) {
+  if (records.length > 0 && !isCloudflareAnalyticsProviderSelected(env)) {
     return jsonResponse(request, env, 200, buildStoredAnalyticsPayload(records));
   }
 
@@ -3000,9 +3089,13 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     }
     try {
       const mapped = await buildCloudflareMappedAnalytics(env);
-      return jsonResponse(request, env, 200, mapped);
+      const localPayload = buildStoredAnalyticsPayload(filterAnalyticsRecordsByTypes(records, ['download', 'search']));
+      return jsonResponse(request, env, 200, mergeAnalyticsPayloads(mapped, localPayload));
     } catch (error) {
       console.error('Cloudflare analytics mapping failed', error);
+      if (records.length > 0) {
+        return jsonResponse(request, env, 200, buildStoredAnalyticsPayload(records));
+      }
       return jsonResponse(request, env, 502, {
         ok: false,
         error: 'Nu am putut încărca statisticile din Cloudflare Web Analytics.',
