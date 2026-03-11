@@ -1,7 +1,7 @@
 import { resolveAuthApiBase } from '@/lib/authApi';
 
 const ANALYTICS_API_BASE = resolveAuthApiBase();
-const ANALYTICS_THROTTLE_STORAGE_KEY = 'aaf_analytics_throttle_v1';
+const ANALYTICS_THROTTLE_STORAGE_KEY = 'aaf_analytics_throttle_v2';
 const ANALYTICS_THROTTLE_MAX_ENTRIES = 2000;
 const ANALYTICS_THROTTLE_TTL_MS = 1000 * 60 * 60 * 24 * 45;
 const ANALYTICS_THROTTLE_BY_ENTITY: Record<AnalyticsEntityType, number> = {
