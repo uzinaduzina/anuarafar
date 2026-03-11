@@ -94,7 +94,7 @@ function SummaryPanel({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
             { label: 'Ultima zi', value: counts.lastDay },
             { label: 'Ultima săptămână', value: counts.lastWeek },
@@ -418,6 +418,13 @@ export default function DashboardStats() {
     );
   }
 
+  const overallViewTotals: AnalyticsCounts = {
+    lastDay: analytics.articleTotals.lastDay + analytics.pageTotals.lastDay,
+    lastWeek: analytics.articleTotals.lastWeek + analytics.pageTotals.lastWeek,
+    lastMonth: analytics.articleTotals.lastMonth + analytics.pageTotals.lastMonth,
+    total: analytics.articleTotals.total + analytics.pageTotals.total,
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-2">
@@ -427,7 +434,13 @@ export default function DashboardStats() {
         </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2">
+        <SummaryPanel
+          title="Total vizualizări"
+          description="Articole + pagini publice (fără descărcări și fără căutări)."
+          icon={Eye}
+          counts={overallViewTotals}
+        />
         <SummaryPanel
           title="Articole"
           description="Traficul cumulat pe fiecare articol publicat."
