@@ -3181,7 +3181,7 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     }
     try {
       const mapped = await buildCloudflareMappedAnalytics(env);
-      const localPayload = buildStoredAnalyticsPayload(filterAnalyticsRecordsByTypes(records, ['download', 'search']));
+      const localPayload = buildStoredAnalyticsPayload(records);
       return jsonResponse(request, env, 200, mergeAnalyticsPayloads(mapped, localPayload));
     } catch (error) {
       console.error('Cloudflare analytics mapping failed', error);
