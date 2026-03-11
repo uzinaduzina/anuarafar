@@ -1,6 +1,18 @@
 import { resolveAuthApiBase } from '@/lib/authApi';
 
 const ANALYTICS_API_BASE = resolveAuthApiBase();
+const ANALYTICS_THROTTLE_STORAGE_KEY = 'aaf_analytics_throttle_v1';
+const ANALYTICS_THROTTLE_MAX_ENTRIES = 2000;
+const ANALYTICS_THROTTLE_TTL_MS = 1000 * 60 * 60 * 24 * 45;
+const ANALYTICS_THROTTLE_BY_ENTITY: Record<AnalyticsEntityType, number> = {
+  article: 1000 * 60 * 30,
+  page: 1000 * 60 * 20,
+  download: 1000 * 60 * 2,
+  search: 1000 * 60 * 10,
+};
+
+let analyticsThrottleLoaded = false;
+let analyticsThrottleMap = new Map<string, number>();
 
 export type AnalyticsEntityType = 'article' | 'page' | 'download' | 'search';
 
@@ -82,6 +94,85 @@ interface TrackAnalyticsViewInput {
   entityId: string;
   label: string;
   path: string;
+}
+
+function normalizeThrottleEntityId(entityId: string): string {
+  return entityId.trim().toLowerCase();
+}
+
+function analyticsThrottleKey(entityType: AnalyticsEntityType, entityId: string): string {
+  return `${entityType}:${normalizeThrottleEntityId(entityId)}`;
+}
+
+function loadAnalyticsThrottleMap() {
+  if (analyticsThrottleLoaded) return;
+  analyticsThrottleLoaded = true;
+
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(ANALYTICS_THROTTLE_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') return;
+
+    const now = Date.now();
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!key) continue;
+      const timestamp = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(timestamp) || timestamp <= 0) continue;
+      if (now - timestamp > ANALYTICS_THROTTLE_TTL_MS) continue;
+      analyticsThrottleMap.set(key, timestamp);
+    }
+  } catch {
+    analyticsThrottleMap = new Map<string, number>();
+  }
+}
+
+function persistAnalyticsThrottleMap() {
+  if (typeof window === 'undefined') return;
+
+  const entries = [...analyticsThrottleMap.entries()].sort((a, b) => b[1] - a[1]);
+  if (entries.length > ANALYTICS_THROTTLE_MAX_ENTRIES) {
+    entries.splice(ANALYTICS_THROTTLE_MAX_ENTRIES);
+    analyticsThrottleMap = new Map(entries);
+  }
+
+  const payload: Record<string, number> = {};
+  for (const [key, value] of analyticsThrottleMap.entries()) {
+    payload[key] = value;
+  }
+
+  try {
+    window.localStorage.setItem(ANALYTICS_THROTTLE_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage quota and privacy mode errors
+  }
+}
+
+function shouldSendAnalyticsEvent(entityType: AnalyticsEntityType, entityId: string): boolean {
+  const normalizedId = normalizeThrottleEntityId(entityId);
+  if (!normalizedId) return false;
+
+  const throttleMs = ANALYTICS_THROTTLE_BY_ENTITY[entityType];
+  if (!Number.isFinite(throttleMs) || throttleMs <= 0) return true;
+
+  loadAnalyticsThrottleMap();
+  const now = Date.now();
+  const key = analyticsThrottleKey(entityType, normalizedId);
+  const lastSentAt = analyticsThrottleMap.get(key) || 0;
+
+  if (lastSentAt > 0 && now - lastSentAt < throttleMs) {
+    return false;
+  }
+
+  const cutoff = now - ANALYTICS_THROTTLE_TTL_MS;
+  for (const [entryKey, timestamp] of analyticsThrottleMap.entries()) {
+    if (timestamp < cutoff) analyticsThrottleMap.delete(entryKey);
+  }
+
+  analyticsThrottleMap.set(key, now);
+  persistAnalyticsThrottleMap();
+  return true;
 }
 
 function emptyCounts(): AnalyticsCounts {
@@ -233,6 +324,7 @@ function buildClientAnalyticsMetadata() {
 
 export async function trackAnalyticsView(input: TrackAnalyticsViewInput): Promise<AnalyticsSummary | null> {
   if (!ANALYTICS_API_BASE || !input.entityId.trim()) return null;
+  if (!shouldSendAnalyticsEvent(input.entityType, input.entityId)) return null;
 
   try {
     const metadata = buildClientAnalyticsMetadata();
