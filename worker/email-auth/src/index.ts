@@ -1552,42 +1552,40 @@ function getGraphqlErrorMessage(payload: unknown): string {
 }
 
 async function resolveCloudflareSiteTag(env: Env): Promise<string | null> {
-  const explicitSiteTag = asString(env.CF_WEB_ANALYTICS_SITE_TAG).trim();
-  if (explicitSiteTag) return explicitSiteTag;
-
   const accountId = asString(env.CF_ACCOUNT_ID).trim();
   const preferredHost = normalizeHostName(asString(env.CF_WEB_ANALYTICS_HOST).trim());
-  if (!accountId || !preferredHost) return null;
+  if (accountId && preferredHost) {
+    const response = await fetch(`${CLOUDFLARE_API_BASE}/accounts/${accountId}/rum/site_info/list`, {
+      method: 'GET',
+      headers: cloudflareAuthHeaders(env),
+    });
 
-  const response = await fetch(`${CLOUDFLARE_API_BASE}/accounts/${accountId}/rum/site_info/list`, {
-    method: 'GET',
-    headers: cloudflareAuthHeaders(env),
-  });
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Cloudflare site_info/list failed (${response.status}): ${errorBody.slice(0, 240)}`);
+    }
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Cloudflare site_info/list failed (${response.status}): ${errorBody.slice(0, 240)}`);
+    const payload = await response.json() as { result?: unknown };
+    const result = Array.isArray(payload?.result) ? payload.result : [];
+    const match = result.find((entry) => {
+      const record = entry as { host?: unknown };
+      const host = normalizeHostName(asString(record.host));
+      return host === preferredHost;
+    }) as { site_tag?: unknown } | undefined;
+
+    if (match) {
+      const siteTag = asString(match.site_tag).trim();
+      if (siteTag) return siteTag;
+    }
+
+    if (result.length > 0) {
+      const firstSiteTag = asString((result[0] as { site_tag?: unknown }).site_tag).trim();
+      if (firstSiteTag) return firstSiteTag;
+    }
   }
 
-  const payload = await response.json() as { result?: unknown };
-  const result = Array.isArray(payload?.result) ? payload.result : [];
-  const match = result.find((entry) => {
-    const record = entry as { host?: unknown };
-    const host = normalizeHostName(asString(record.host));
-    return host === preferredHost;
-  }) as { site_tag?: unknown } | undefined;
-
-  if (match) {
-    const siteTag = asString(match.site_tag).trim();
-    if (siteTag) return siteTag;
-  }
-
-  if (result.length > 0) {
-    const firstSiteTag = asString((result[0] as { site_tag?: unknown }).site_tag).trim();
-    if (firstSiteTag) return firstSiteTag;
-  }
-
-  return null;
+  const explicitSiteTag = asString(env.CF_WEB_ANALYTICS_SITE_TAG).trim();
+  return explicitSiteTag || null;
 }
 
 async function queryCloudflareRumGroups(
