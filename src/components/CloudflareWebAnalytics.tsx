@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 
 const ANALYTICS_SCRIPT_SRC = 'https://static.cloudflareinsights.com/beacon.min.js';
+const DEFAULT_CF_WEB_ANALYTICS_TOKEN = '99cd5b393ca24649a0abb90ff100ae21';
 
 function getAnalyticsToken(): string {
-  return String(import.meta.env.VITE_CF_WEB_ANALYTICS_TOKEN || '').trim();
+  return String(import.meta.env.VITE_CF_WEB_ANALYTICS_TOKEN || DEFAULT_CF_WEB_ANALYTICS_TOKEN).trim();
 }
 
 export default function CloudflareWebAnalytics() {
