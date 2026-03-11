@@ -218,6 +218,11 @@ interface Env {
   ADMIN_PASSWORD?: string;
   NOTIFY_API_KEY?: string;
   ANALYTICS_START_AT?: string;
+  ANALYTICS_PROVIDER?: string;
+  CF_ACCOUNT_ID?: string;
+  CF_API_TOKEN?: string;
+  CF_WEB_ANALYTICS_SITE_TAG?: string;
+  CF_WEB_ANALYTICS_HOST?: string;
 }
 
 const USERS_KEY = 'auth_users_v1';
@@ -260,6 +265,7 @@ const ANALYTICS_LABEL_LIMIT = 240;
 const ANALYTICS_PATH_LIMIT = 320;
 const ANALYTICS_DIMENSION_KEY_LIMIT = 120;
 const DEFAULT_ANALYTICS_START_AT = '2026-03-09T14:00:00+02:00';
+const CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4';
 const REVIEW_CRITERIA_IDS: ReviewCriterionId[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10', 'q11'];
 const EDITABLE_EMAIL_TEMPLATE_FIELDS: (keyof EditableEmailTemplateFields)[] = [
   'subject',
@@ -1441,6 +1447,445 @@ async function listAnalyticsRecords(env: Env): Promise<StoredAnalyticsRecord[]> 
   return records.filter((entry): entry is StoredAnalyticsRecord => Boolean(entry));
 }
 
+type CloudflareRumGroup = {
+  dimensions?: Record<string, unknown>;
+  sum?: Record<string, unknown>;
+};
+
+type CloudflareMappedAnalyticsPayload = {
+  ok: true;
+  articles: AnalyticsSummaryPayload[];
+  pages: AnalyticsSummaryPayload[];
+  downloads: AnalyticsSummaryPayload[];
+  searches: AnalyticsSummaryPayload[];
+  articleTotals: AnalyticsSummaryCounts;
+  pageTotals: AnalyticsSummaryCounts;
+  downloadTotals: AnalyticsSummaryCounts;
+  searchTotals: AnalyticsSummaryCounts;
+  articleTimeline: { date: string; views: number }[];
+  pageTimeline: { date: string; views: number }[];
+  downloadTimeline: { date: string; views: number }[];
+  searchTimeline: { date: string; views: number }[];
+  articleBreakdown: AnalyticsDimensionMaps;
+  pageBreakdown: AnalyticsDimensionMaps;
+  downloadBreakdown: AnalyticsDimensionMaps;
+  searchBreakdown: AnalyticsDimensionMaps;
+};
+
+function isCloudflareAnalyticsEnabled(env: Env): boolean {
+  const provider = asString(env.ANALYTICS_PROVIDER).trim().toLowerCase();
+  if (provider === 'internal' || provider === 'kv') return false;
+  if (provider !== '' && provider !== 'cloudflare') return false;
+
+  const accountId = asString(env.CF_ACCOUNT_ID).trim();
+  const apiToken = asString(env.CF_API_TOKEN).trim();
+  const siteTag = asString(env.CF_WEB_ANALYTICS_SITE_TAG).trim();
+  const host = asString(env.CF_WEB_ANALYTICS_HOST).trim();
+
+  return Boolean(accountId && apiToken && (siteTag || host));
+}
+
+function cloudflareAuthHeaders(env: Env): HeadersInit {
+  return {
+    Authorization: `Bearer ${asString(env.CF_API_TOKEN).trim()}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+function parseGraphqlGroups(payload: unknown): CloudflareRumGroup[] | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const data = (payload as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') return null;
+  const viewer = (data as { viewer?: unknown }).viewer;
+  if (!viewer || typeof viewer !== 'object') return null;
+  const accounts = (viewer as { accounts?: unknown }).accounts;
+  if (!Array.isArray(accounts) || accounts.length === 0) return null;
+  const first = accounts[0] as { rumPageloadEventsAdaptiveGroups?: unknown };
+  if (!first || !Array.isArray(first.rumPageloadEventsAdaptiveGroups)) return null;
+  return first.rumPageloadEventsAdaptiveGroups as CloudflareRumGroup[];
+}
+
+function getGraphqlErrorMessage(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return '';
+  const errors = (payload as { errors?: unknown }).errors;
+  if (!Array.isArray(errors) || errors.length === 0) return '';
+  const first = errors[0];
+  if (!first || typeof first !== 'object') return 'GraphQL error';
+  const message = asString((first as { message?: unknown }).message).trim();
+  return message || 'GraphQL error';
+}
+
+async function resolveCloudflareSiteTag(env: Env): Promise<string | null> {
+  const explicitSiteTag = asString(env.CF_WEB_ANALYTICS_SITE_TAG).trim();
+  if (explicitSiteTag) return explicitSiteTag;
+
+  const accountId = asString(env.CF_ACCOUNT_ID).trim();
+  const preferredHost = normalizeHostName(asString(env.CF_WEB_ANALYTICS_HOST).trim());
+  if (!accountId || !preferredHost) return null;
+
+  const response = await fetch(`${CLOUDFLARE_API_BASE}/accounts/${accountId}/rum/site_info/list`, {
+    method: 'GET',
+    headers: cloudflareAuthHeaders(env),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Cloudflare site_info/list failed (${response.status}): ${errorBody.slice(0, 240)}`);
+  }
+
+  const payload = await response.json() as { result?: unknown };
+  const result = Array.isArray(payload?.result) ? payload.result : [];
+  const match = result.find((entry) => {
+    const record = entry as { host?: unknown };
+    const host = normalizeHostName(asString(record.host));
+    return host === preferredHost;
+  }) as { site_tag?: unknown } | undefined;
+
+  if (match) {
+    const siteTag = asString(match.site_tag).trim();
+    if (siteTag) return siteTag;
+  }
+
+  if (result.length > 0) {
+    const firstSiteTag = asString((result[0] as { site_tag?: unknown }).site_tag).trim();
+    if (firstSiteTag) return firstSiteTag;
+  }
+
+  return null;
+}
+
+async function queryCloudflareRumGroups(
+  env: Env,
+  siteTag: string,
+  startIso: string,
+  endIso: string,
+  dimensionsList: string[],
+): Promise<CloudflareRumGroup[]> {
+  const accountId = asString(env.CF_ACCOUNT_ID).trim();
+  const filters = [
+    `filter: { datetime_geq: ${JSON.stringify(startIso)}, datetime_leq: ${JSON.stringify(endIso)}, siteTag: ${JSON.stringify(siteTag)} }`,
+    `filter: { datetime_geq: ${JSON.stringify(startIso)}, datetime_leq: ${JSON.stringify(endIso)}, siteTag_in: [${JSON.stringify(siteTag)}] }`,
+  ];
+
+  const errors: string[] = [];
+
+  for (const dimensions of dimensionsList) {
+    for (const filterClause of filters) {
+      const query = `query {
+  viewer {
+    accounts(filter: { accountTag: ${JSON.stringify(accountId)} }) {
+      rumPageloadEventsAdaptiveGroups(
+        limit: 5000
+        ${filterClause}
+        orderBy: [sum_pageViews_DESC]
+      ) {
+        dimensions { ${dimensions} }
+        sum { pageViews visits }
+      }
+    }
+  }
+}`;
+
+      const response = await fetch(`${CLOUDFLARE_API_BASE}/graphql`, {
+        method: 'POST',
+        headers: cloudflareAuthHeaders(env),
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        errors.push(`HTTP ${response.status}: ${body.slice(0, 220)}`);
+        continue;
+      }
+
+      const payload = await response.json();
+      const groups = parseGraphqlGroups(payload);
+      if (groups) return groups;
+
+      const errorMessage = getGraphqlErrorMessage(payload);
+      if (errorMessage) errors.push(errorMessage);
+    }
+  }
+
+  throw new Error(`Cloudflare GraphQL query failed: ${errors.join(' | ') || 'unknown error'}`);
+}
+
+function cloudflareDimensionValue(
+  row: CloudflareRumGroup,
+  keys: string[],
+  fallback = '',
+): string {
+  const dimensions = row.dimensions;
+  if (!dimensions || typeof dimensions !== 'object') return fallback;
+
+  for (const key of keys) {
+    const value = asString((dimensions as Record<string, unknown>)[key]).trim();
+    if (value) return value;
+  }
+
+  return fallback;
+}
+
+function cloudflareViews(row: CloudflareRumGroup): number {
+  const sum = row.sum;
+  if (!sum || typeof sum !== 'object') return 0;
+
+  const asRecord = sum as Record<string, unknown>;
+  const candidates = ['pageViews', 'pageviews', 'visits'];
+  for (const key of candidates) {
+    const value = Number(asRecord[key]);
+    if (Number.isFinite(value) && value > 0) return Math.round(value);
+  }
+  return 0;
+}
+
+function normalizeCloudflarePath(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '/';
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed.replace(/^\/+/, '')}`;
+}
+
+function cloudflareCategoryForPath(path: string): AnalyticsEntityType {
+  const normalized = normalizeCloudflarePath(path).toLowerCase();
+  if (normalized.startsWith('/article/')) return 'article';
+  if (normalized.endsWith('.pdf')) return 'download';
+  if (normalized.startsWith('/search')) return 'search';
+  return 'page';
+}
+
+function cloudflareEntityIdForPath(entityType: AnalyticsEntityType, path: string): string {
+  const normalized = normalizeCloudflarePath(path);
+  if (entityType === 'article') {
+    const articleId = normalized.split('/')[2] || normalized;
+    return decodeURIComponent(articleId).trim() || normalized;
+  }
+  if (entityType === 'search') return 'search';
+  return normalized;
+}
+
+function cloudflareLabelForPath(entityType: AnalyticsEntityType, path: string): string {
+  const normalized = normalizeCloudflarePath(path);
+  if (entityType === 'article') {
+    const entityId = cloudflareEntityIdForPath(entityType, normalized);
+    return `Articol ${entityId}`;
+  }
+  if (entityType === 'download') {
+    const file = normalized.split('/').filter(Boolean).pop() || normalized;
+    return `Descărcare ${decodeURIComponent(file)}`;
+  }
+  if (entityType === 'search') return 'Căutare în arhivă';
+  if (normalized === '/') return 'Acasă';
+  if (normalized === '/archive') return 'Arhivă';
+  if (normalized === '/search') return 'Căutare';
+  if (normalized === '/submit') return 'Trimite manuscris';
+  return decodeURIComponent(normalized.replace(/^\/+/, '').replace(/[-_]+/g, ' '));
+}
+
+function emptyCloudflareTimeline(): { date: string; views: number }[] {
+  return analyticsDateWindow(30).map((date) => ({ date, views: 0 }));
+}
+
+function mergeCloudflareDimensions(
+  aggregate: AnalyticsDimensionMaps,
+  row: CloudflareRumGroup,
+  siteHost: string,
+  views: number,
+) {
+  const deviceType = cloudflareDimensionValue(row, ['deviceType', 'device_type'], 'Necunoscut');
+  const operatingSystem = cloudflareDimensionValue(
+    row,
+    ['operatingSystem', 'os', 'operating_system'],
+    'Necunoscut',
+  );
+  const country = cloudflareDimensionValue(
+    row,
+    ['countryName', 'country', 'countryCode', 'clientCountryName'],
+    'Necunoscută',
+  );
+  const referrerHost = cloudflareDimensionValue(
+    row,
+    ['refererHost', 'referrerHost', 'referer_path', 'referrerPath'],
+    '',
+  );
+
+  incrementAnalyticsDimension(aggregate.devices, deviceType, views);
+  incrementAnalyticsDimension(aggregate.operatingSystems, operatingSystem, views);
+  incrementAnalyticsDimension(aggregate.countries, country, views);
+  incrementAnalyticsDimension(aggregate.referrers, normalizeReferrerSource(referrerHost, siteHost), views);
+}
+
+async function buildCloudflareMappedAnalytics(env: Env): Promise<CloudflareMappedAnalyticsPayload> {
+  const siteTag = await resolveCloudflareSiteTag(env);
+  if (!siteTag) {
+    throw new Error('Nu am putut identifica site_tag pentru Cloudflare Web Analytics.');
+  }
+
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const analyticsStartMs = Math.max(0, analyticsStartAtMs(env));
+  const totalStartIso = new Date(analyticsStartMs > 0 ? analyticsStartMs : now - (90 * 24 * 60 * 60 * 1000)).toISOString();
+  const lastDayIso = new Date(now - (24 * 60 * 60 * 1000)).toISOString();
+  const lastWeekIso = new Date(now - (7 * 24 * 60 * 60 * 1000)).toISOString();
+  const lastMonthIso = new Date(now - (30 * 24 * 60 * 60 * 1000)).toISOString();
+  const dimensionQueries = [
+    'path deviceType operatingSystem countryName refererHost',
+    'path deviceType operatingSystem countryName referrerHost',
+    'path',
+  ];
+
+  const [dayRows, weekRows, monthRows, totalRows] = await Promise.all([
+    queryCloudflareRumGroups(env, siteTag, lastDayIso, nowIso, dimensionQueries),
+    queryCloudflareRumGroups(env, siteTag, lastWeekIso, nowIso, dimensionQueries),
+    queryCloudflareRumGroups(env, siteTag, lastMonthIso, nowIso, dimensionQueries),
+    queryCloudflareRumGroups(env, siteTag, totalStartIso, nowIso, dimensionQueries),
+  ]);
+
+  const rangeMaps = {
+    day: new Map<string, number>(),
+    week: new Map<string, number>(),
+    month: new Map<string, number>(),
+    total: new Map<string, number>(),
+  };
+
+  const fillRangeMap = (target: Map<string, number>, rows: CloudflareRumGroup[]) => {
+    for (const row of rows) {
+      const path = normalizeCloudflarePath(cloudflareDimensionValue(row, ['path', 'requestPath', 'clientRequestPath'], '/'));
+      const views = cloudflareViews(row);
+      if (views <= 0) continue;
+      target.set(path, (target.get(path) || 0) + views);
+    }
+  };
+
+  fillRangeMap(rangeMaps.day, dayRows);
+  fillRangeMap(rangeMaps.week, weekRows);
+  fillRangeMap(rangeMaps.month, monthRows);
+  fillRangeMap(rangeMaps.total, totalRows);
+
+  const keys = new Set<string>([
+    ...rangeMaps.day.keys(),
+    ...rangeMaps.week.keys(),
+    ...rangeMaps.month.keys(),
+    ...rangeMaps.total.keys(),
+  ]);
+
+  const byType: Record<AnalyticsEntityType, AnalyticsSummaryPayload[]> = {
+    article: [],
+    page: [],
+    download: [],
+    search: [],
+  };
+
+  const breakdownByType: Record<AnalyticsEntityType, AnalyticsDimensionMaps> = {
+    article: emptyAnalyticsDimensions(),
+    page: emptyAnalyticsDimensions(),
+    download: emptyAnalyticsDimensions(),
+    search: emptyAnalyticsDimensions(),
+  };
+
+  const siteHost = asString(env.CF_WEB_ANALYTICS_HOST).trim();
+
+  for (const row of monthRows) {
+    const path = normalizeCloudflarePath(cloudflareDimensionValue(row, ['path', 'requestPath', 'clientRequestPath'], '/'));
+    const views = cloudflareViews(row);
+    if (views <= 0) continue;
+    const category = cloudflareCategoryForPath(path);
+    mergeCloudflareDimensions(breakdownByType[category], row, siteHost, views);
+  }
+
+  for (const path of keys) {
+    const entityType = cloudflareCategoryForPath(path);
+    const entityId = cloudflareEntityIdForPath(entityType, path);
+    const summary: AnalyticsSummaryPayload = {
+      entityType,
+      entityId,
+      label: sanitizeAnalyticsLabel(cloudflareLabelForPath(entityType, path), entityId),
+      path: sanitizeAnalyticsPath(path),
+      lastViewedAt: '',
+      lastDay: rangeMaps.day.get(path) || 0,
+      lastWeek: rangeMaps.week.get(path) || 0,
+      lastMonth: rangeMaps.month.get(path) || 0,
+      total: rangeMaps.total.get(path) || 0,
+    };
+    byType[entityType].push(summary);
+  }
+
+  const articles = sortAnalyticsSummaries(byType.article);
+  const pages = sortAnalyticsSummaries(byType.page);
+  const downloads = sortAnalyticsSummaries(byType.download);
+  const searches = sortAnalyticsSummaries(byType.search);
+
+  return {
+    ok: true,
+    articles,
+    pages,
+    downloads,
+    searches,
+    articleTotals: sumAnalyticsSummaries(articles),
+    pageTotals: sumAnalyticsSummaries(pages),
+    downloadTotals: sumAnalyticsSummaries(downloads),
+    searchTotals: sumAnalyticsSummaries(searches),
+    articleTimeline: emptyCloudflareTimeline(),
+    pageTimeline: emptyCloudflareTimeline(),
+    downloadTimeline: emptyCloudflareTimeline(),
+    searchTimeline: emptyCloudflareTimeline(),
+    articleBreakdown: breakdownByType.article,
+    pageBreakdown: breakdownByType.page,
+    downloadBreakdown: breakdownByType.download,
+    searchBreakdown: breakdownByType.search,
+  };
+}
+
+function cloudflarePathForEntity(entityType: AnalyticsEntityType, entityId: string): string {
+  if (entityType === 'article') return normalizeCloudflarePath(`/article/${entityId}`);
+  if (entityType === 'search') return '/search';
+  return normalizeCloudflarePath(entityId);
+}
+
+async function buildCloudflareEntitySummary(
+  env: Env,
+  entityType: AnalyticsEntityType,
+  entityId: string,
+): Promise<AnalyticsSummaryPayload> {
+  const siteTag = await resolveCloudflareSiteTag(env);
+  if (!siteTag) {
+    throw new Error('Nu am putut identifica site_tag pentru Cloudflare Web Analytics.');
+  }
+
+  const targetPath = cloudflarePathForEntity(entityType, entityId);
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const analyticsStartMs = Math.max(0, analyticsStartAtMs(env));
+  const totalStartIso = new Date(analyticsStartMs > 0 ? analyticsStartMs : now - (90 * 24 * 60 * 60 * 1000)).toISOString();
+  const lastDayIso = new Date(now - (24 * 60 * 60 * 1000)).toISOString();
+  const lastWeekIso = new Date(now - (7 * 24 * 60 * 60 * 1000)).toISOString();
+  const lastMonthIso = new Date(now - (30 * 24 * 60 * 60 * 1000)).toISOString();
+  const dimensions = ['path', 'requestPath', 'clientRequestPath'];
+  const [dayRows, weekRows, monthRows, totalRows] = await Promise.all([
+    queryCloudflareRumGroups(env, siteTag, lastDayIso, nowIso, dimensions),
+    queryCloudflareRumGroups(env, siteTag, lastWeekIso, nowIso, dimensions),
+    queryCloudflareRumGroups(env, siteTag, lastMonthIso, nowIso, dimensions),
+    queryCloudflareRumGroups(env, siteTag, totalStartIso, nowIso, dimensions),
+  ]);
+
+  const sumForTargetPath = (rows: CloudflareRumGroup[]) => rows.reduce((total, row) => {
+    const path = normalizeCloudflarePath(cloudflareDimensionValue(row, ['path', 'requestPath', 'clientRequestPath'], '/'));
+    if (path !== targetPath) return total;
+    return total + cloudflareViews(row);
+  }, 0);
+
+  return {
+    entityType,
+    entityId,
+    label: sanitizeAnalyticsLabel(cloudflareLabelForPath(entityType, targetPath), entityId),
+    path: sanitizeAnalyticsPath(targetPath),
+    lastViewedAt: '',
+    lastDay: sumForTargetPath(dayRows),
+    lastWeek: sumForTargetPath(weekRows),
+    lastMonth: sumForTargetPath(monthRows),
+    total: sumForTargetPath(totalRows),
+  };
+}
+
 function isRequestOriginAllowed(request: Request, env: Env): boolean {
   const origin = request.headers.get('Origin');
   if (!origin) return true;
@@ -2390,6 +2835,10 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
     return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
   }
 
+  if (isCloudflareAnalyticsEnabled(env)) {
+    return jsonResponse(request, env, 200, { ok: false, error: 'Analytics gestionat de Cloudflare.' });
+  }
+
   const path = sanitizeAnalyticsPath(
     asString(body.path),
     entityTypeRaw === 'page' ? entityId : entityTypeRaw === 'search' ? '/search' : '',
@@ -2468,6 +2917,19 @@ async function handleGetAnalyticsSummary(request: Request, env: Env): Promise<Re
     return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
   }
 
+  if (isCloudflareAnalyticsEnabled(env)) {
+    try {
+      const summary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
+      return jsonResponse(request, env, 200, { ok: true, summary });
+    } catch (error) {
+      console.error('Cloudflare analytics summary failed', error);
+      return jsonResponse(request, env, 502, {
+        ok: false,
+        error: 'Nu am putut încărca sumarul din Cloudflare Web Analytics.',
+      });
+    }
+  }
+
   const record = await readAnalyticsRecord(env, entityTypeRaw, entityId);
   const summary = record
     ? summarizeAnalyticsRecord(record)
@@ -2490,6 +2952,19 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
   const isAllowed = await isAdminAuthorized(request, env);
   if (!isAllowed) {
     return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
+  }
+
+  if (isCloudflareAnalyticsEnabled(env)) {
+    try {
+      const mapped = await buildCloudflareMappedAnalytics(env);
+      return jsonResponse(request, env, 200, mapped);
+    } catch (error) {
+      console.error('Cloudflare analytics mapping failed', error);
+      return jsonResponse(request, env, 502, {
+        ok: false,
+        error: 'Nu am putut încărca statisticile din Cloudflare Web Analytics.',
+      });
+    }
   }
 
   const records = await listAnalyticsRecords(env);

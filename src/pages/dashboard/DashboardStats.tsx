@@ -187,11 +187,19 @@ function AnalyticsTab({
   activityLabel?: string;
   lastSeenLabel?: string;
 }) {
+  const [visibleItemsCount, setVisibleItemsCount] = useState(20);
+
+  useEffect(() => {
+    setVisibleItemsCount(20);
+  }, [items]);
+
   const topItems = useMemo(() => items.slice(0, 8).map((item) => ({
     label: compactLabel(item.label),
     views: item.lastMonth,
     total: item.total,
   })), [items]);
+  const visibleItems = useMemo(() => items.slice(0, visibleItemsCount), [items, visibleItemsCount]);
+  const hasMoreItems = visibleItemsCount < items.length;
 
   return (
     <div className="space-y-6">
@@ -269,7 +277,7 @@ function AnalyticsTab({
           ) : (
             <>
               <div className="space-y-3 md:hidden">
-                {items.map((item) => (
+                {visibleItems.map((item) => (
                   <div key={`${item.entityType}:${item.entityId}`} className="rounded-lg border bg-muted/20 p-4">
                     <div className="font-medium break-words">{item.label}</div>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -297,8 +305,8 @@ function AnalyticsTab({
                       <TableHead className="text-right">{lastSeenLabel}</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
-                    {items.map((item) => (
+                      <TableBody>
+                    {visibleItems.map((item) => (
                       <TableRow key={`${item.entityType}:${item.entityId}`}>
                         <TableCell>
                           <div className="font-medium">{item.label}</div>
@@ -313,6 +321,18 @@ function AnalyticsTab({
                   </TableBody>
                 </Table>
               </div>
+
+              {hasMoreItems && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleItemsCount((previous) => previous + 20)}
+                    className="rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+                  >
+                    Încarcă încă 20
+                  </button>
+                </div>
+              )}
             </>
           )}
         </CardContent>
