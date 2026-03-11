@@ -1472,17 +1472,22 @@ type CloudflareMappedAnalyticsPayload = {
   searchBreakdown: AnalyticsDimensionMaps;
 };
 
-function isCloudflareAnalyticsEnabled(env: Env): boolean {
+function isCloudflareAnalyticsProviderSelected(env: Env): boolean {
   const provider = asString(env.ANALYTICS_PROVIDER).trim().toLowerCase();
-  if (provider === 'internal' || provider === 'kv') return false;
-  if (provider !== '' && provider !== 'cloudflare') return false;
+  return provider === 'cloudflare';
+}
 
+function hasCloudflareAnalyticsCredentials(env: Env): boolean {
   const accountId = asString(env.CF_ACCOUNT_ID).trim();
   const apiToken = asString(env.CF_API_TOKEN).trim();
   const siteTag = asString(env.CF_WEB_ANALYTICS_SITE_TAG).trim();
   const host = asString(env.CF_WEB_ANALYTICS_HOST).trim();
 
   return Boolean(accountId && apiToken && (siteTag || host));
+}
+
+function isCloudflareAnalyticsEnabled(env: Env): boolean {
+  return isCloudflareAnalyticsProviderSelected(env) && hasCloudflareAnalyticsCredentials(env);
 }
 
 function cloudflareAuthHeaders(env: Env): HeadersInit {
@@ -2835,7 +2840,7 @@ async function handleTrackAnalyticsView(request: Request, env: Env): Promise<Res
     return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
   }
 
-  if (isCloudflareAnalyticsEnabled(env)) {
+  if (isCloudflareAnalyticsProviderSelected(env)) {
     return jsonResponse(request, env, 200, { ok: false, error: 'Analytics gestionat de Cloudflare.' });
   }
 
@@ -2917,7 +2922,13 @@ async function handleGetAnalyticsSummary(request: Request, env: Env): Promise<Re
     return jsonResponse(request, env, 400, { ok: false, error: 'Identificator analytics invalid.' });
   }
 
-  if (isCloudflareAnalyticsEnabled(env)) {
+  if (isCloudflareAnalyticsProviderSelected(env)) {
+    if (!hasCloudflareAnalyticsCredentials(env)) {
+      return jsonResponse(request, env, 502, {
+        ok: false,
+        error: 'Cloudflare Web Analytics este activat, dar lipsește configurația API (CF_API_TOKEN / site tag).',
+      });
+    }
     try {
       const summary = await buildCloudflareEntitySummary(env, entityTypeRaw, entityId);
       return jsonResponse(request, env, 200, { ok: true, summary });
@@ -2954,7 +2965,13 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
   }
 
-  if (isCloudflareAnalyticsEnabled(env)) {
+  if (isCloudflareAnalyticsProviderSelected(env)) {
+    if (!hasCloudflareAnalyticsCredentials(env)) {
+      return jsonResponse(request, env, 502, {
+        ok: false,
+        error: 'Cloudflare Web Analytics este activat, dar lipsește configurația API (CF_API_TOKEN / site tag).',
+      });
+    }
     try {
       const mapped = await buildCloudflareMappedAnalytics(env);
       return jsonResponse(request, env, 200, mapped);
