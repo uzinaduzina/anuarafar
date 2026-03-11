@@ -1582,10 +1582,9 @@ async function queryCloudflareRumGroups(
       rumPageloadEventsAdaptiveGroups(
         limit: 5000
         ${filterClause}
-        orderBy: [sum_pageViews_DESC]
       ) {
         dimensions { ${dimensions} }
-        sum { pageViews visits }
+        sum { visits }
       }
     }
   }
@@ -1733,9 +1732,9 @@ async function buildCloudflareMappedAnalytics(env: Env): Promise<CloudflareMappe
   const lastWeekIso = new Date(now - (7 * 24 * 60 * 60 * 1000)).toISOString();
   const lastMonthIso = new Date(now - (30 * 24 * 60 * 60 * 1000)).toISOString();
   const dimensionQueries = [
-    'path deviceType operatingSystem countryName refererHost',
-    'path deviceType operatingSystem countryName referrerHost',
-    'path',
+    'requestPath deviceType operatingSystem countryName refererHost',
+    'requestPath deviceType operatingSystem countryName referrerHost',
+    'requestPath',
   ];
 
   const [dayRows, weekRows, monthRows, totalRows] = await Promise.all([
@@ -1864,7 +1863,7 @@ async function buildCloudflareEntitySummary(
   const lastDayIso = new Date(now - (24 * 60 * 60 * 1000)).toISOString();
   const lastWeekIso = new Date(now - (7 * 24 * 60 * 60 * 1000)).toISOString();
   const lastMonthIso = new Date(now - (30 * 24 * 60 * 60 * 1000)).toISOString();
-  const dimensions = ['path', 'requestPath', 'clientRequestPath'];
+  const dimensions = ['requestPath'];
   const [dayRows, weekRows, monthRows, totalRows] = await Promise.all([
     queryCloudflareRumGroups(env, siteTag, lastDayIso, nowIso, dimensions),
     queryCloudflareRumGroups(env, siteTag, lastWeekIso, nowIso, dimensions),
