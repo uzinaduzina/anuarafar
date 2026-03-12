@@ -230,6 +230,7 @@ const SUBMISSIONS_KEY = 'submissions_v1';
 const EMAIL_TEMPLATES_KEY = 'email_templates_v1';
 const ARTICLE_OVERRIDES_KEY = 'article_overrides_v1';
 const ANALYTICS_KEY_PREFIX = 'analytics_entity_v2:';
+const ANALYTICS_SNAPSHOT_PREFIX = 'analytics_snapshot_v1:';
 const SUBMISSION_FILE_KEY_PREFIX = 'submission_file_v1:';
 const DEFAULT_OTP_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -1618,6 +1619,35 @@ type CloudflareMappedAnalyticsPayload = {
   downloadBreakdown: AnalyticsDimensionMaps;
   searchBreakdown: AnalyticsDimensionMaps;
 };
+
+type AnalyticsDashboardPayload = CloudflareMappedAnalyticsPayload;
+
+type AnalyticsSnapshot = {
+  day: string;
+  archivedAt: string;
+  payload: AnalyticsDashboardPayload;
+};
+
+function analyticsSnapshotKey(day: string): string {
+  return `${ANALYTICS_SNAPSHOT_PREFIX}${day}`;
+}
+
+async function archiveAnalyticsSnapshotOncePerDay(
+  env: Env,
+  payload: AnalyticsDashboardPayload,
+): Promise<void> {
+  const day = analyticsToday();
+  const key = analyticsSnapshotKey(day);
+  const existing = await env.AUTH_KV.get(key);
+  if (existing) return;
+
+  const snapshot: AnalyticsSnapshot = {
+    day,
+    archivedAt: new Date().toISOString(),
+    payload,
+  };
+  await env.AUTH_KV.put(key, JSON.stringify(snapshot));
+}
 
 function isCloudflareAnalyticsProviderSelected(env: Env): boolean {
   const provider = asString(env.ANALYTICS_PROVIDER).trim().toLowerCase();
@@ -3169,7 +3199,13 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
 
   const records = await listAnalyticsRecords(env);
   if (records.length > 0 && !isCloudflareAnalyticsProviderSelected(env)) {
-    return jsonResponse(request, env, 200, buildStoredAnalyticsPayload(records));
+    const payload = buildStoredAnalyticsPayload(records);
+    try {
+      await archiveAnalyticsSnapshotOncePerDay(env, payload);
+    } catch (error) {
+      console.error('Analytics snapshot archive failed', error);
+    }
+    return jsonResponse(request, env, 200, payload);
   }
 
   if (isCloudflareAnalyticsProviderSelected(env)) {
@@ -3182,11 +3218,23 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     try {
       const mapped = await buildCloudflareMappedAnalytics(env);
       const localPayload = buildStoredAnalyticsPayload(records);
-      return jsonResponse(request, env, 200, mergeAnalyticsPayloads(mapped, localPayload));
+      const payload = mergeAnalyticsPayloads(mapped, localPayload);
+      try {
+        await archiveAnalyticsSnapshotOncePerDay(env, payload);
+      } catch (error) {
+        console.error('Analytics snapshot archive failed', error);
+      }
+      return jsonResponse(request, env, 200, payload);
     } catch (error) {
       console.error('Cloudflare analytics mapping failed', error);
       if (records.length > 0) {
-        return jsonResponse(request, env, 200, buildStoredAnalyticsPayload(records));
+        const payload = buildStoredAnalyticsPayload(records);
+        try {
+          await archiveAnalyticsSnapshotOncePerDay(env, payload);
+        } catch (archiveError) {
+          console.error('Analytics snapshot archive failed', archiveError);
+        }
+        return jsonResponse(request, env, 200, payload);
       }
       return jsonResponse(request, env, 502, {
         ok: false,
