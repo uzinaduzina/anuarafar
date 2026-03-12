@@ -1324,6 +1324,7 @@ function sumAnalyticsWindow(buckets: Record<string, number>, days: number, endDa
 
 function summarizeAnalyticsRecord(record: StoredAnalyticsRecord, endDay = analyticsToday()): AnalyticsSummaryPayload {
   const buckets = pruneAnalyticsBuckets(record.buckets, endDay);
+  const retainedTotal = Object.values(buckets).reduce((sum, count) => sum + (Number(count) || 0), 0);
   return {
     entityType: record.entityType,
     entityId: record.entityId,
@@ -1333,7 +1334,11 @@ function summarizeAnalyticsRecord(record: StoredAnalyticsRecord, endDay = analyt
     lastDay: sumAnalyticsWindow(buckets, 1, endDay),
     lastWeek: sumAnalyticsWindow(buckets, 7, endDay),
     lastMonth: sumAnalyticsWindow(buckets, 30, endDay),
-    total: Math.max(0, Math.round(record.total || 0)),
+    total: Math.max(
+      0,
+      retainedTotal,
+      Math.round(Number(record.total) || 0),
+    ),
   };
 }
 
