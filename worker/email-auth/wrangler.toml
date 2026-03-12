@@ -3,6 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2026-03-05"
 workers_dev = true
 
+[triggers]
+crons = ["*/30 * * * *"]
+
 [[kv_namespaces]]
 binding = "AUTH_KV"
 id = "a23b7b1d45044297b05b1c1384dfd72b"

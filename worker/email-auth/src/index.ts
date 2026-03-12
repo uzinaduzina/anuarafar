@@ -235,6 +235,9 @@ const SUBMISSION_FILE_KEY_PREFIX = 'submission_file_v1:';
 const DEFAULT_OTP_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DEFAULT_SUBMISSION_RECIPIENTS = ['anuar@iafar.ro', 'confafar@gmail.com'];
+const ANALYTICS_ARCHIVE_TIME_ZONE = 'Europe/Bucharest';
+const ANALYTICS_ARCHIVE_HOUR = '22';
+const ANALYTICS_ARCHIVE_MINUTE = '30';
 const EDITABLE_ARTICLE_FIELDS: EditableArticleField[] = [
   'title',
   'authors',
@@ -1647,6 +1650,56 @@ async function archiveAnalyticsSnapshotOncePerDay(
     payload,
   };
   await env.AUTH_KV.put(key, JSON.stringify(snapshot));
+}
+
+function shouldRunAnalyticsArchiveAt(date: Date): boolean {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: ANALYTICS_ARCHIVE_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const hour = parts.find((part) => part.type === 'hour')?.value || '';
+  const minute = parts.find((part) => part.type === 'minute')?.value || '';
+  return hour === ANALYTICS_ARCHIVE_HOUR && minute === ANALYTICS_ARCHIVE_MINUTE;
+}
+
+async function buildAnalyticsDashboardPayload(env: Env): Promise<AnalyticsDashboardPayload> {
+  const records = await listAnalyticsRecords(env);
+
+  if (records.length > 0 && !isCloudflareAnalyticsProviderSelected(env)) {
+    return buildStoredAnalyticsPayload(records);
+  }
+
+  if (isCloudflareAnalyticsProviderSelected(env)) {
+    if (!hasCloudflareAnalyticsCredentials(env)) {
+      throw new Error('Cloudflare Web Analytics este activat, dar lipsește configurația API (CF_API_TOKEN / site tag).');
+    }
+
+    try {
+      const mapped = await buildCloudflareMappedAnalytics(env);
+      const localPayload = buildStoredAnalyticsPayload(records);
+      return mergeAnalyticsPayloads(mapped, localPayload);
+    } catch (error) {
+      console.error('Cloudflare analytics mapping failed', error);
+      if (records.length > 0) {
+        return buildStoredAnalyticsPayload(records);
+      }
+      throw new Error('Nu am putut încărca statisticile din Cloudflare Web Analytics.');
+    }
+  }
+
+  return buildStoredAnalyticsPayload(records);
+}
+
+async function handleScheduledAnalyticsArchive(env: Env): Promise<void> {
+  if (!shouldRunAnalyticsArchiveAt(new Date())) {
+    return;
+  }
+
+  const payload = await buildAnalyticsDashboardPayload(env);
+  await archiveAnalyticsSnapshotOncePerDay(env, payload);
 }
 
 function isCloudflareAnalyticsProviderSelected(env: Env): boolean {
@@ -3197,53 +3250,20 @@ async function handleListAnalytics(request: Request, env: Env): Promise<Response
     return jsonResponse(request, env, 401, { ok: false, error: 'Neautorizat.' });
   }
 
-  const records = await listAnalyticsRecords(env);
-  if (records.length > 0 && !isCloudflareAnalyticsProviderSelected(env)) {
-    const payload = buildStoredAnalyticsPayload(records);
+  try {
+    const payload = await buildAnalyticsDashboardPayload(env);
     try {
       await archiveAnalyticsSnapshotOncePerDay(env, payload);
     } catch (error) {
       console.error('Analytics snapshot archive failed', error);
     }
     return jsonResponse(request, env, 200, payload);
+  } catch (error) {
+    return jsonResponse(request, env, 502, {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Nu am putut încărca statisticile.',
+    });
   }
-
-  if (isCloudflareAnalyticsProviderSelected(env)) {
-    if (!hasCloudflareAnalyticsCredentials(env)) {
-      return jsonResponse(request, env, 502, {
-        ok: false,
-        error: 'Cloudflare Web Analytics este activat, dar lipsește configurația API (CF_API_TOKEN / site tag).',
-      });
-    }
-    try {
-      const mapped = await buildCloudflareMappedAnalytics(env);
-      const localPayload = buildStoredAnalyticsPayload(records);
-      const payload = mergeAnalyticsPayloads(mapped, localPayload);
-      try {
-        await archiveAnalyticsSnapshotOncePerDay(env, payload);
-      } catch (error) {
-        console.error('Analytics snapshot archive failed', error);
-      }
-      return jsonResponse(request, env, 200, payload);
-    } catch (error) {
-      console.error('Cloudflare analytics mapping failed', error);
-      if (records.length > 0) {
-        const payload = buildStoredAnalyticsPayload(records);
-        try {
-          await archiveAnalyticsSnapshotOncePerDay(env, payload);
-        } catch (archiveError) {
-          console.error('Analytics snapshot archive failed', archiveError);
-        }
-        return jsonResponse(request, env, 200, payload);
-      }
-      return jsonResponse(request, env, 502, {
-        ok: false,
-        error: 'Nu am putut încărca statisticile din Cloudflare Web Analytics.',
-      });
-    }
-  }
-
-  return jsonResponse(request, env, 200, buildStoredAnalyticsPayload(records));
 }
 
 async function handleNotifyRole(request: Request, env: Env): Promise<Response> {
@@ -4146,6 +4166,13 @@ export default {
       const message = error instanceof Error ? error.message : String(error);
       console.error('Unhandled worker error', message);
       return jsonResponse(request, env, 500, { ok: false, error: 'Worker runtime error', detail: message });
+    }
+  },
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    try {
+      await handleScheduledAnalyticsArchive(env);
+    } catch (error) {
+      console.error('Scheduled analytics archive failed', error instanceof Error ? error.message : String(error));
     }
   },
 };
