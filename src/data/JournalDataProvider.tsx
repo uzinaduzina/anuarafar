@@ -608,6 +608,49 @@ function doajExclusionReason(article: Article, issue?: Issue): string | null {
   return null;
 }
 
+function doajMetadataErrors(article: Article, issue?: Issue): string[] {
+  const errors: string[] = [];
+  const articleLabel = article.id || article.title || 'articol-neidentificat';
+  const publicationDate = (issue?.date_published || '').trim();
+  const fullTextUrl = articleLandingUrl(article);
+
+  if (!article.title.trim()) {
+    errors.push(`Articolul ${articleLabel} nu are titlu.`);
+  }
+
+  if (!article.authors.trim()) {
+    errors.push(`Articolul ${articleLabel} nu are autori.`);
+  }
+
+  if (!article.affiliations.trim()) {
+    errors.push(`Articolul ${articleLabel} nu are afiliere instituțională.`);
+  }
+
+  if (!hasAnyAbstract(article)) {
+    errors.push(`Articolul ${articleLabel} nu are abstract DOAJ-eligibil.`);
+  }
+
+  if (!hasAnyKeywords(article)) {
+    errors.push(`Articolul ${articleLabel} nu are keywords DOAJ-eligibile.`);
+  }
+
+  if (!article.pages_start.trim() || !article.pages_end.trim()) {
+    errors.push(`Articolul ${articleLabel} nu are interval de paginare complet.`);
+  }
+
+  if (!publicationDate) {
+    errors.push(`Articolul ${articleLabel} nu are publicationDate (date_published in issue).`);
+  } else if (!isValidDoajPublicationDate(publicationDate)) {
+    errors.push(`Articolul ${articleLabel} are publicationDate neconform (${publicationDate}).`);
+  }
+
+  if (!/^https?:\/\//i.test(fullTextUrl)) {
+    errors.push(`Articolul ${articleLabel} are fullTextUrl invalid (${fullTextUrl}).`);
+  }
+
+  return errors;
+}
+
 function doajExportScope(
   sourceArticles: Article[],
   issuesById: Record<string, Issue>,
@@ -619,11 +662,19 @@ function doajExportScope(
   const excluded: Array<{ article: Article; reason: string }> = [];
 
   sourceArticles.forEach((article) => {
-    const reason = doajExclusionReason(article, issuesById[article.issue_id]);
-    if (reason) {
-      excluded.push({ article, reason });
+    const issue = issuesById[article.issue_id];
+    const policyReason = doajExclusionReason(article, issue);
+    if (policyReason) {
+      excluded.push({ article, reason: policyReason });
       return;
     }
+
+    const metadataErrors = doajMetadataErrors(article, issue);
+    if (metadataErrors.length > 0) {
+      excluded.push({ article, reason: metadataErrors[0] });
+      return;
+    }
+
     eligible.push(article);
   });
 
@@ -793,7 +844,7 @@ function validateDoajRecords(articles: Article[], issuesById: Record<string, Iss
   }
 
   if (articles.length > 0 && eligible.length === 0 && excluded.length > 0) {
-    errors.push(excluded[0].reason);
+    errors.push(`Niciun articol eligibil pentru export. Exemplu: ${excluded[0].reason}`);
   }
 
   if (excluded.length > 0) {
@@ -804,41 +855,9 @@ function validateDoajRecords(articles: Article[], issuesById: Record<string, Iss
   const seenFullTextUrl = new Map<string, string>();
 
   for (const article of eligible) {
-    const issue = issuesById[article.issue_id];
     const articleLabel = article.id || article.title || 'articol-neidentificat';
-    const publicationDate = (issue?.date_published || '').trim();
     const fullTextUrl = articleLandingUrl(article);
     const doi = (article.doi || '').trim().toLowerCase();
-
-    if (!article.title.trim()) {
-      errors.push(`Articolul ${articleLabel} nu are titlu.`);
-    }
-
-    if (!article.authors.trim()) {
-      errors.push(`Articolul ${articleLabel} nu are autori.`);
-    }
-
-    if (!article.affiliations.trim()) {
-      errors.push(`Articolul ${articleLabel} nu are afiliere instituțională.`);
-    }
-
-    if (!hasAnyAbstract(article)) {
-      errors.push(`Articolul ${articleLabel} nu are abstract DOAJ-eligibil.`);
-    }
-
-    if (!hasAnyKeywords(article)) {
-      errors.push(`Articolul ${articleLabel} nu are keywords DOAJ-eligibile.`);
-    }
-
-    if (!article.pages_start.trim() || !article.pages_end.trim()) {
-      errors.push(`Articolul ${articleLabel} nu are interval de paginare complet.`);
-    }
-
-    if (!publicationDate) {
-      errors.push(`Articolul ${articleLabel} nu are publicationDate (date_published in issue).`);
-    } else if (!isValidDoajPublicationDate(publicationDate)) {
-      warnings.push(`Articolul ${articleLabel} are publicationDate neconform (${publicationDate}).`);
-    }
 
     if (!/^https?:\/\//i.test(fullTextUrl)) {
       errors.push(`Articolul ${articleLabel} are fullTextUrl invalid (${fullTextUrl}).`);
