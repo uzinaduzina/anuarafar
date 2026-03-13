@@ -299,6 +299,11 @@ function mapIssue(mi: ManifestIssue): Issue {
 }
 
 function mapArticle(ma: ManifestArticle, issueSeries: Record<string, SeriesId>): Article {
+  const reviewRaw = ma.is_review;
+  const isReview = typeof reviewRaw === 'boolean'
+    ? reviewRaw
+    : ['1', 'true', 'yes', 'da'].includes(String(reviewRaw || '').trim().toLowerCase());
+
   return {
     id: ma.id,
     issue_id: ma.issue_id,
@@ -325,7 +330,7 @@ function mapArticle(ma: ManifestArticle, issueSeries: Record<string, SeriesId>):
     series: issueSeries[ma.issue_id] || mapSeries(ma.series || ''),
     pdf_path: ma.pdf_path || '',
     md_path: ma.md_path || '',
-    is_review: Boolean(ma.is_review),
+    is_review: isReview,
   };
 }
 
