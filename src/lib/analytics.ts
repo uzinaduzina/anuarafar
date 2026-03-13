@@ -371,8 +371,12 @@ export async function fetchAdminAnalyticsDashboard(token: string): Promise<Analy
     throw new Error('Serviciul analytics nu este configurat.');
   }
 
-  const response = await fetch(`${ANALYTICS_API_BASE}/admin/analytics`, {
+  const url = new URL(`${ANALYTICS_API_BASE}/admin/analytics`);
+  url.searchParams.set('_ts', String(Date.now()));
+
+  const response = await fetch(url.toString(), {
     method: 'GET',
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,

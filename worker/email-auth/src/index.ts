@@ -1038,12 +1038,14 @@ function buildCorsHeaders(request: Request, env: Env): Headers {
 function jsonResponse(request: Request, env: Env, status: number, body: unknown) {
   const headers = buildCorsHeaders(request, env);
   headers.set('Content-Type', 'application/json; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
   return new Response(JSON.stringify(body), { status, headers });
 }
 
 function textResponse(request: Request, env: Env, status: number, body: string) {
   const headers = buildCorsHeaders(request, env);
   headers.set('Content-Type', 'text/plain; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
   return new Response(body, { status, headers });
 }
 
@@ -1947,6 +1949,71 @@ function emptyCloudflareTimeline(): { date: string; views: number }[] {
   return analyticsDateWindow(30).map((date) => ({ date, views: 0 }));
 }
 
+function analyticsDayBoundsUtc(day: string, analyticsStartMs: number, nowMs: number) {
+  const startMs = Date.parse(`${day}T00:00:00.000Z`);
+  const nextDayMs = Date.parse(`${shiftAnalyticsDay(day, 1)}T00:00:00.000Z`);
+  const effectiveStartMs = Math.max(startMs, analyticsStartMs);
+  const effectiveEndMs = Math.min(nextDayMs, nowMs);
+
+  if (!Number.isFinite(effectiveStartMs) || !Number.isFinite(effectiveEndMs) || effectiveEndMs <= effectiveStartMs) {
+    return null;
+  }
+
+  return {
+    startIso: new Date(effectiveStartMs).toISOString(),
+    endIso: new Date(effectiveEndMs).toISOString(),
+  };
+}
+
+async function buildCloudflarePublicTimelines(
+  env: Env,
+  siteTag: string,
+  analyticsStartMs: number,
+  nowMs: number,
+) {
+  const dates = analyticsDateWindow(30);
+  const queries = dates.map(async (date) => {
+    const bounds = analyticsDayBoundsUtc(date, analyticsStartMs, nowMs);
+    if (!bounds) {
+      return {
+        date,
+        articleViews: 0,
+        pageViews: 0,
+      };
+    }
+
+    const rows = await queryCloudflareRumGroups(env, siteTag, bounds.startIso, bounds.endIso, ['requestPath']);
+    let articleViews = 0;
+    let pageViews = 0;
+
+    for (const row of rows) {
+      const path = normalizeCloudflarePath(cloudflareDimensionValue(row, ['path', 'requestPath', 'clientRequestPath'], '/'));
+      if (!isPublicAnalyticsPath(path)) continue;
+      const views = cloudflareViews(row);
+      if (views <= 0) continue;
+
+      if (cloudflareCategoryForPath(path) === 'article') {
+        articleViews += views;
+      } else {
+        pageViews += views;
+      }
+    }
+
+    return {
+      date,
+      articleViews,
+      pageViews,
+    };
+  });
+
+  const results = await Promise.all(queries);
+
+  return {
+    articleTimeline: results.map((entry) => ({ date: entry.date, views: entry.articleViews })),
+    pageTimeline: results.map((entry) => ({ date: entry.date, views: entry.pageViews })),
+  };
+}
+
 function mergeCloudflareDimensions(
   aggregate: AnalyticsDimensionMaps,
   row: CloudflareRumGroup,
@@ -2001,6 +2068,7 @@ async function buildCloudflareMappedAnalytics(env: Env): Promise<CloudflareMappe
     queryCloudflareRumGroups(env, siteTag, lastMonthIso, nowIso, dimensionQueries),
     queryCloudflareRumGroups(env, siteTag, totalStartIso, nowIso, dimensionQueries),
   ]);
+  const { articleTimeline, pageTimeline } = await buildCloudflarePublicTimelines(env, siteTag, analyticsStartMs, now);
 
   const rangeMaps = {
     day: new Map<string, number>(),
@@ -2088,8 +2156,8 @@ async function buildCloudflareMappedAnalytics(env: Env): Promise<CloudflareMappe
     pageTotals: sumAnalyticsSummaries(pages),
     downloadTotals: sumAnalyticsSummaries(downloads),
     searchTotals: sumAnalyticsSummaries(searches),
-    articleTimeline: emptyCloudflareTimeline(),
-    pageTimeline: emptyCloudflareTimeline(),
+    articleTimeline,
+    pageTimeline,
     downloadTimeline: emptyCloudflareTimeline(),
     searchTimeline: emptyCloudflareTimeline(),
     articleBreakdown: breakdownByType.article,
