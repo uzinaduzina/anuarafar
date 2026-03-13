@@ -79,7 +79,7 @@ export default function ArticleView() {
 
   if (loading) {
     return (
-      <div className="container py-16 flex justify-center">
+      <div className="container py-8 md:py-12 max-w-4xl min-h-[calc(100vh-18rem)] flex justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -87,7 +87,7 @@ export default function ArticleView() {
 
   if (!article) {
     return (
-      <div className="container py-16 text-center">
+      <div className="container py-8 md:py-12 max-w-4xl min-h-[calc(100vh-18rem)] text-center">
         <h1 className="font-serif text-2xl font-bold mb-4">Articol negăsit</h1>
         <Link to="/archive" className="text-primary hover:underline">← Înapoi la arhivă</Link>
       </div>
@@ -175,7 +175,7 @@ ER  -`.trim();
   };
 
   return (
-    <div className="container py-8 md:py-12 max-w-4xl">
+    <div className="container py-8 md:py-12 max-w-4xl min-h-[calc(100vh-18rem)]">
       {issue && (
         <Link
           to={`/archive/${issue.slug}`}

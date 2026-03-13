@@ -179,23 +179,29 @@ export default function PdfViewer({
 
   if (loading) {
     return (
-      <div className="rounded-lg border bg-card shadow-sm p-12 flex flex-col items-center justify-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Se încarcă PDF-ul...</p>
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden" ref={containerRef}>
+        <div className="h-[52px] border-b bg-secondary/50" />
+        <div className="min-h-[70vh] md:min-h-[85vh] flex flex-col items-center justify-center gap-3 p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Se încarcă PDF-ul...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border bg-card shadow-sm p-8 flex flex-col items-center justify-center gap-3 text-center">
-        <AlertTriangle className="h-8 w-8 text-destructive" />
-        <p className="text-sm text-muted-foreground">{error}</p>
-        <Button asChild variant="outline" size="sm">
-          <a href={pdfUrl} target="_blank" rel="noreferrer" onClick={trackDownload}>
-            <Download className="mr-2 h-4 w-4" /> Deschide direct
-          </a>
-        </Button>
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden" ref={containerRef}>
+        <div className="h-[52px] border-b bg-secondary/50" />
+        <div className="min-h-[70vh] md:min-h-[85vh] flex flex-col items-center justify-center gap-3 p-8 text-center">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button asChild variant="outline" size="sm">
+            <a href={pdfUrl} target="_blank" rel="noreferrer" onClick={trackDownload}>
+              <Download className="mr-2 h-4 w-4" /> Deschide direct
+            </a>
+          </Button>
+        </div>
       </div>
     );
   }
