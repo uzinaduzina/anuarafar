@@ -6,7 +6,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { generateTemplate } from '@/lib/generateTemplate';
 import { resolveAuthApiBase } from '@/lib/authApi';
 
 function GuidelineSection({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
@@ -21,14 +20,20 @@ function GuidelineSection({ icon: Icon, title, children }: { icon: React.Element
   );
 }
 
-function Guidelines() {
+function Guidelines({
+  onTemplateDownload,
+  isGeneratingTemplate,
+}: {
+  onTemplateDownload: () => void;
+  isGeneratingTemplate: boolean;
+}) {
   return (
     <div className="space-y-6">
       <div className="rounded-lg border bg-card p-6 shadow-sm">
         <h2 className="font-serif text-xl font-bold mb-1">Indicații de redactare</h2>
         <p className="text-xs text-muted-foreground mb-2">Anuarul Arhivei de Folclor a Academiei Române</p>
-        <Button variant="outline" size="sm" className="gap-2 mt-2" onClick={() => generateTemplate()}>
-          <FileDown className="h-4 w-4" /> Descarcă template (Word)
+        <Button variant="outline" size="sm" className="gap-2 mt-2" onClick={onTemplateDownload} disabled={isGeneratingTemplate}>
+          <FileDown className="h-4 w-4" /> {isGeneratingTemplate ? 'Se generează...' : 'Descarcă template (Word)'}
         </Button>
       </div>
 
@@ -190,9 +195,11 @@ const INITIAL_FORM: SubmissionFormState = {
 };
 
 export default function SubmitPage() {
+  const [activeTab, setActiveTab] = useState<'guidelines' | 'submit'>('submit');
   const [submitted, setSubmitted] = useState(false);
   const [submissionId, setSubmissionId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [form, setForm] = useState<SubmissionFormState>(INITIAL_FORM);
   const { toast } = useToast();
@@ -204,6 +211,22 @@ export default function SubmitPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files ? Array.from(event.target.files) : [];
     setFiles(selected);
+  };
+
+  const handleTemplateDownload = async () => {
+    setIsGeneratingTemplate(true);
+    try {
+      const { generateTemplate } = await import('@/lib/generateTemplate');
+      await generateTemplate();
+    } catch {
+      toast({
+        title: 'Template indisponibil',
+        description: 'Nu am putut genera template-ul Word acum. Încearcă din nou.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingTemplate(false);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -302,14 +325,14 @@ export default function SubmitPage() {
         Completați formularul de mai jos sau consultați indicațiile de redactare.
       </p>
 
-      <Tabs defaultValue="guidelines" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'guidelines' | 'submit')} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="guidelines">Indicații de redactare</TabsTrigger>
           <TabsTrigger value="submit">Trimite manuscris</TabsTrigger>
         </TabsList>
 
         <TabsContent value="guidelines">
-          <Guidelines />
+          <Guidelines onTemplateDownload={() => void handleTemplateDownload()} isGeneratingTemplate={isGeneratingTemplate} />
         </TabsContent>
 
         <TabsContent value="submit">
