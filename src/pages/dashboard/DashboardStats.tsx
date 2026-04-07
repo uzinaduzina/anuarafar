@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 const chartConfig = {
   views: {
-    label: 'Vizualizări',
+    label: 'Valoare',
     color: 'hsl(var(--primary))',
   },
 };
@@ -450,26 +450,29 @@ export default function DashboardStats() {
       <div className="flex flex-col gap-2">
         <h1 className="font-serif text-2xl font-bold">Statistici de trafic</h1>
         <p className="text-sm text-muted-foreground">
-          Vizualizări agregate pe articole, pe toate paginile publice fără login și descărcări PDF pentru articole.
+          Trafic agregat pe articole, pe toate paginile publice fără login, pe descărcări PDF și pe căutările din arhivă.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Pentru articole și pagini publice, valorile din Cloudflare reprezintă vizite. Căutările sunt interogări trimise și pot depăși numărul de vizite.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <SummaryPanel
-          title="Total vizualizări"
-          description="Articole + pagini publice (fără descărcări și fără căutări)."
+          title="Total trafic public"
+          description="Vizite Cloudflare pe articole și pagini publice, fără descărcări și fără căutări."
           icon={Eye}
           counts={overallViewTotals}
         />
         <SummaryPanel
           title="Articole"
-          description="Traficul cumulat pe fiecare articol publicat."
+          description="Vizite Cloudflare cumulate pe fiecare articol publicat."
           icon={FileText}
           counts={analytics.articleTotals}
         />
         <SummaryPanel
           title="Pagini publice"
-          description="Homepage, arhivă, cuprinsuri de număr și orice pagină publică disponibilă fără login."
+          description="Vizite Cloudflare pe homepage, arhivă, cuprinsuri de număr și restul paginilor publice fără login."
           icon={Globe2}
           counts={analytics.pageTotals}
         />
@@ -481,7 +484,7 @@ export default function DashboardStats() {
         />
         <SummaryPanel
           title="Căutări"
-          description="Termeni căutați în pagina de căutare a arhivei."
+          description="Interogări trimise din funcția de căutare a arhivei."
           icon={Search}
           counts={analytics.searchTotals}
         />
@@ -510,24 +513,24 @@ export default function DashboardStats() {
         <TabsContent value="articles">
           <AnalyticsTab
             title="Articole"
-            description="Evoluția zilnică a vizualizărilor pe articole."
+            description="Evoluția zilnică a vizitelor Cloudflare pe articole."
             items={analytics.articles}
             timeline={analytics.articleTimeline}
             breakdown={analytics.articleBreakdown}
-            activityLabel="vizualizări"
-            lastSeenLabel="Ultima vizualizare"
+            activityLabel="vizite"
+            lastSeenLabel="Ultima vizită"
           />
         </TabsContent>
 
         <TabsContent value="public-pages">
           <AnalyticsTab
             title="Pagini publice"
-            description="Evoluția zilnică a vizualizărilor pe homepage, arhivă, cuprinsurile numerelor și restul paginilor publice."
+            description="Evoluția zilnică a vizitelor Cloudflare pe homepage, arhivă, cuprinsurile numerelor și restul paginilor publice."
             items={analytics.pages}
             timeline={analytics.pageTimeline}
             breakdown={analytics.pageBreakdown}
-            activityLabel="vizualizări"
-            lastSeenLabel="Ultima vizualizare"
+            activityLabel="vizite"
+            lastSeenLabel="Ultima vizită"
           />
         </TabsContent>
 
@@ -546,7 +549,7 @@ export default function DashboardStats() {
         <TabsContent value="searches">
           <AnalyticsTab
             title="Căutări în arhivă"
-            description="Termenii introduși în pagina publică de căutare."
+            description="Termenii introduși în funcția publică de căutare, inclusiv căutarea din Arhivă."
             items={analytics.searches}
             timeline={analytics.searchTimeline}
             breakdown={analytics.searchBreakdown}

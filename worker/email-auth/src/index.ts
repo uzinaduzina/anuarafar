@@ -1460,7 +1460,10 @@ async function listAnalyticsRecords(env: Env): Promise<StoredAnalyticsRecord[]> 
 
 function buildStoredAnalyticsPayload(records: StoredAnalyticsRecord[]) {
   const articleRecords = records.filter((record) => record.entityType === 'article');
-  const pageRecords = records.filter((record) => record.entityType === 'page');
+  const pageRecords = records.filter((record) => (
+    record.entityType === 'page'
+      && isPublicAnalyticsPath(record.path || record.entityId)
+  ));
   const downloadRecords = records.filter((record) => record.entityType === 'download');
   const searchRecords = records.filter((record) => record.entityType === 'search');
   const articles = sortAnalyticsSummaries(articleRecords.map((record) => summarizeAnalyticsRecord(record)));
