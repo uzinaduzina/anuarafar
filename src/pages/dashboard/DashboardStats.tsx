@@ -483,8 +483,8 @@ export default function DashboardStats() {
           counts={analytics.downloadTotals}
         />
         <SummaryPanel
-          title="Căutări"
-          description="Interogări trimise din funcția de căutare a arhivei."
+          title="Interogări de căutare"
+          description="Termeni trimiși din funcția de căutare a arhivei; nu reprezintă vizite sau utilizatori unici."
           icon={Search}
           counts={analytics.searchTotals}
         />
@@ -548,8 +548,8 @@ export default function DashboardStats() {
 
         <TabsContent value="searches">
           <AnalyticsTab
-            title="Căutări în arhivă"
-            description="Termenii introduși în funcția publică de căutare, inclusiv căutarea din Arhivă."
+            title="Interogări în arhivă"
+            description="Termenii trimiși din căutarea publică, inclusiv căutarea din Arhivă. O singură vizită poate genera mai multe interogări."
             items={analytics.searches}
             timeline={analytics.searchTimeline}
             breakdown={analytics.searchBreakdown}
