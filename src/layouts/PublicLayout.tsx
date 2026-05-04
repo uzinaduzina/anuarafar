@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard, Menu, Search } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard, Menu, Search, Languages } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
@@ -22,7 +22,45 @@ const DESPRE_ITEMS = [
   { label: 'Colegiu de redacție', path: '/editorial-board', icon: Users },
   { label: 'Tehnoredactare', path: '/tehnoredactare', icon: Pen },
   { label: 'Politici editoriale', path: '/politici', icon: FileCheck2 },
+  { label: 'English information', path: '/en/about', icon: Languages },
 ];
+
+const ENGLISH_ROUTE_TO_ROMANIAN: Record<string, string> = {
+  '/en': '/about',
+  '/en/about': '/about',
+  '/en/journal-information': '/about',
+  '/en/editorial-policy': '/politici',
+  '/en/peer-review': '/politici',
+  '/en/open-access': '/politici',
+  '/en/editorial-board': '/editorial-board',
+  '/en/scientific-board': '/scientific-board',
+  '/en/contact': '/about',
+};
+
+function languageSwitchForPath(pathname: string) {
+  if (pathname.startsWith('/en')) {
+    return {
+      label: 'RO',
+      path: ENGLISH_ROUTE_TO_ROMANIAN[pathname] || '/about',
+      ariaLabel: 'Vezi versiunea în română',
+    };
+  }
+
+  if (pathname === '/politici' || pathname === '/doaj') {
+    return { label: 'EN', path: '/en/editorial-policy', ariaLabel: 'View English version' };
+  }
+  if (pathname === '/scientific-board') {
+    return { label: 'EN', path: '/en/scientific-board', ariaLabel: 'View English version' };
+  }
+  if (pathname === '/editorial-board') {
+    return { label: 'EN', path: '/en/editorial-board', ariaLabel: 'View English version' };
+  }
+  if (pathname === '/about') {
+    return { label: 'EN', path: '/en/about', ariaLabel: 'View English version' };
+  }
+
+  return { label: 'EN', path: '/en/about', ariaLabel: 'View English journal information' };
+}
 
 export default function PublicLayout() {
   const location = useLocation();
@@ -47,7 +85,8 @@ export default function PublicLayout() {
 
   const isDespreActive = DESPRE_ITEMS.some(
     item => location.pathname === item.path || location.pathname.startsWith(item.path + '/')
-  );
+  ) || location.pathname.startsWith('/en');
+  const languageSwitch = languageSwitchForPath(location.pathname);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -140,6 +179,15 @@ export default function PublicLayout() {
               </Link>
             )}
 
+            <Link
+              to={languageSwitch.path}
+              aria-label={languageSwitch.ariaLabel}
+              className="ml-1 flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <Languages className="h-3.5 w-3.5" />
+              {languageSwitch.label}
+            </Link>
+
             <PwaInstallButton
               variant="ghost"
               size="sm"
@@ -216,6 +264,18 @@ export default function PublicLayout() {
                     <span>{item.label}</span>
                   </Link>
                 ))}
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[0.68rem] uppercase tracking-[0.12em] font-semibold text-muted-foreground">Language</div>
+                <Link
+                  to={languageSwitch.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-md border px-3 py-3 text-sm font-medium transition-colors hover:bg-accent text-foreground"
+                >
+                  <Languages className="h-4 w-4" />
+                  <span>{languageSwitch.label === 'EN' ? 'English information' : 'Versiunea în română'}</span>
+                </Link>
               </div>
             </div>
 

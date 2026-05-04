@@ -9,12 +9,22 @@ const siteUrl = (process.env.VITE_PUBLIC_SITE_URL || 'https://anuar.iafar.ro').r
 const staticRoutes = [
   '/',
   '/archive',
+  '/search',
   '/about',
   '/politici',
   '/editorial-board',
   '/scientific-board',
   '/tehnoredactare',
   '/submit',
+  '/en',
+  '/en/about',
+  '/en/journal-information',
+  '/en/editorial-policy',
+  '/en/peer-review',
+  '/en/open-access',
+  '/en/editorial-board',
+  '/en/scientific-board',
+  '/en/contact',
 ];
 
 function parseManifest(text) {

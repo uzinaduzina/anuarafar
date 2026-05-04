@@ -16,6 +16,7 @@ import IssueDetail from './pages/public/IssueDetail';
 import ArticleView from './pages/public/ArticleView';
 import About from './pages/public/About';
 import DoajPolicy from './pages/public/DoajPolicy';
+import EnglishJournalInfo from './pages/public/EnglishJournalInfo';
 import EditorialBoard from './pages/public/EditorialBoard';
 import ScientificBoard from './pages/public/ScientificBoard';
 import TehnoredactarePage from './pages/public/TehnoredactarePage';
@@ -63,6 +64,15 @@ const App = () => (
                   <Route path="/editorial-board" element={<EditorialBoard />} />
                   <Route path="/tehnoredactare" element={<TehnoredactarePage />} />
                   <Route path="/submit" element={<SubmitPage />} />
+                  <Route path="/en" element={<EnglishJournalInfo section="about" />} />
+                  <Route path="/en/about" element={<EnglishJournalInfo section="about" />} />
+                  <Route path="/en/journal-information" element={<EnglishJournalInfo section="journal-information" />} />
+                  <Route path="/en/editorial-policy" element={<EnglishJournalInfo section="editorial-policy" />} />
+                  <Route path="/en/peer-review" element={<EnglishJournalInfo section="peer-review" />} />
+                  <Route path="/en/open-access" element={<EnglishJournalInfo section="open-access" />} />
+                  <Route path="/en/editorial-board" element={<EnglishJournalInfo section="editorial-board" />} />
+                  <Route path="/en/scientific-board" element={<EnglishJournalInfo section="scientific-board" />} />
+                  <Route path="/en/contact" element={<EnglishJournalInfo section="contact" />} />
                 </Route>
 
                 <Route path="/login" element={<Login />} />

@@ -7,6 +7,9 @@
     <loc>https://anuar.iafar.ro/archive</loc>
   </url>
   <url>
+    <loc>https://anuar.iafar.ro/search</loc>
+  </url>
+  <url>
     <loc>https://anuar.iafar.ro/about</loc>
   </url>
   <url>
@@ -23,6 +26,33 @@
   </url>
   <url>
     <loc>https://anuar.iafar.ro/submit</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/about</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/journal-information</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/editorial-policy</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/peer-review</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/open-access</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/editorial-board</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/scientific-board</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/contact</loc>
   </url>
   <url>
     <loc>https://anuar.iafar.ro/archive/aaf-seria1-1932-vol-i</loc>
