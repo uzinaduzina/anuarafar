@@ -245,13 +245,6 @@ function OpenAccessSection() {
           the Version of Record, and non-exclusive rights of distribution, indexing, and public communication.
         </p>
 
-        <h3 className="font-semibold pt-2">Self-archiving</h3>
-        <p>
-          Authors may archive and redistribute the published version (Version of Record) in institutional repositories,
-          subject repositories, or personal websites, provided that the CC BY 4.0 licence and original source are
-          acknowledged. Distribution of preprint and postprint versions is permitted without further restriction.
-        </p>
-
         <h3 className="font-semibold pt-2">Historical archive</h3>
         <p>
           The historical issues of the journal published under earlier editorial series (Series I, 1932–1945, and
@@ -349,6 +342,50 @@ function IntegritySection() {
   );
 }
 
+function SelfArchivingSection() {
+  return (
+    <section className={SECTION_CLASS}>
+      <h2 className="font-serif text-xl font-bold mb-3 flex items-center gap-2">
+        <Archive className="h-5 w-5 text-primary" />
+        Self-archiving and repository deposit
+      </h2>
+      <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
+        <p>
+          The journal permits authors to deposit and archive their work in institutional repositories, subject
+          repositories, or personal websites, without embargo and without requesting prior permission from the
+          journal.
+        </p>
+        <p>
+          This policy applies to all articles published in Series III of the journal (from 2022 onwards), under the
+          Creative Commons Attribution 4.0 International licence (CC BY 4.0).
+        </p>
+        <h3 className="font-semibold pt-2">Versions that may be archived</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong>Submitted version (preprint):</strong> authors may archive the manuscript at any time, including
+            before peer review, without restriction.
+          </li>
+          <li>
+            <strong>Accepted version (postprint / Author Accepted Manuscript):</strong> authors may archive the
+            peer-reviewed manuscript without embargo, immediately upon acceptance.
+          </li>
+          <li>
+            <strong>Published version (Version of Record):</strong> authors may archive the final published article,
+            including its formatted PDF, without embargo, immediately upon publication.
+          </li>
+        </ul>
+        <h3 className="font-semibold pt-2">Conditions</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>The CC BY 4.0 licence must be acknowledged.</li>
+          <li>The published version must be cited as the official version of record.</li>
+          <li>A link to the article on the journal website is encouraged.</li>
+        </ul>
+        <p className="font-medium pt-2">There is no embargo period for any version.</p>
+      </div>
+    </section>
+  );
+}
+
 function ArchivingMetadataSection() {
   return (
     <section className={SECTION_CLASS}>
@@ -367,12 +404,6 @@ function ArchivingMetadataSection() {
           entitled libraries). Digital versions of articles are archived in the publisher's editorial infrastructure,
           under the responsibility of the "Arhiva de Folclor a Academiei Române" Institute and the Cluj-Napoca Branch
           of the Romanian Academy.
-        </p>
-        <p>
-          <strong>Self-archiving policy:</strong> authors may archive and redistribute the published version (Version of
-          Record) in institutional repositories, subject repositories or personal websites, provided that the CC BY 4.0
-          licence and original source are acknowledged. Under this licence, distribution of the preprint and postprint
-          is permitted without further restriction.
         </p>
         <p>
           <strong>Data sharing:</strong> where the nature of the research permits, authors are encouraged to indicate
@@ -491,6 +522,7 @@ function OverviewPage() {
         <HistorySection />
         <PeerReviewSection />
         <OpenAccessSection />
+        <SelfArchivingSection />
         <AuthorGuidelinesSection />
         <ContactSection />
       </div>
@@ -508,6 +540,7 @@ function FullPoliciesPage() {
       <div className="space-y-6">
         <JournalFacts />
         <OpenAccessSection />
+        <SelfArchivingSection />
         <EditorialQualitySection />
         <IntegritySection />
         <ArchivingMetadataSection />
@@ -571,6 +604,7 @@ export default function EnglishJournalInfo({ section = 'about' }: { section?: En
           <>
             <JournalFacts />
             <OpenAccessSection />
+            <SelfArchivingSection />
           </>
         )}
         {section === 'editorial-board' && <BoardSection type="editorial" />}

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { JOURNAL } from '@/data/journal';
-import { BookOpen, Mail, MapPin, Phone, ExternalLink, History, Scale } from 'lucide-react';
+import { BookOpen, Mail, MapPin, Phone, ExternalLink, History, Scale, Archive } from 'lucide-react';
 
 export default function About() {
   return (
@@ -96,6 +96,46 @@ export default function About() {
               → Politici editoriale & transparență
             </Link>
           </p>
+        </div>
+
+        {/* Self-archiving */}
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <h2 className="font-serif text-xl font-bold mb-3 flex items-center gap-2">
+            <Archive className="h-5 w-5 text-primary" /> Auto-arhivare și depozit în repository-uri
+          </h2>
+          <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
+            <p>
+              Revista permite autorilor să depună și să arhiveze articolele în repository-uri instituționale,
+              repository-uri tematice sau pe pagini personale, fără embargo și fără a solicita permisiunea
+              prealabilă a redacției.
+            </p>
+            <p>
+              Această politică se aplică tuturor articolelor publicate în Seria a III-a (din 2022), sub licența
+              Creative Commons Attribution 4.0 International (CC BY 4.0).
+            </p>
+            <h3 className="font-semibold pt-2">Versiuni care pot fi arhivate</h3>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>
+                <strong>Versiunea trimisă (preprint):</strong> autorii pot arhiva manuscrisul în orice moment,
+                inclusiv înainte de evaluarea colegială, fără restricții.
+              </li>
+              <li>
+                <strong>Versiunea acceptată (postprint / Author Accepted Manuscript):</strong> autorii pot arhiva
+                manuscrisul evaluat colegial fără embargo, imediat după acceptare.
+              </li>
+              <li>
+                <strong>Versiunea publicată (Version of Record):</strong> autorii pot arhiva articolul în forma sa
+                finală publicată, inclusiv PDF-ul formatat, fără embargo, imediat după publicare.
+              </li>
+            </ul>
+            <h3 className="font-semibold pt-2">Condiții</h3>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Licența CC BY 4.0 trebuie menționată.</li>
+              <li>Versiunea publicată trebuie citată drept versiunea oficială de referință.</li>
+              <li>Este încurajat un link către articolul de pe site-ul revistei.</li>
+            </ul>
+            <p className="font-medium pt-2">Nu există perioadă de embargo pentru nicio versiune.</p>
+          </div>
         </div>
 
         {/* Contact */}

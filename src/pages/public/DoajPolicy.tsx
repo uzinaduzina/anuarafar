@@ -1,4 +1,4 @@
-import { FileCheck2, ShieldCheck, Scale, Users, BadgeInfo, Mail } from 'lucide-react';
+import { FileCheck2, ShieldCheck, Scale, Users, BadgeInfo, Mail, Archive } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 
 const SECTION_CLASS = 'rounded-lg border bg-card p-6 shadow-sm';
@@ -133,17 +133,50 @@ export default function DoajPolicy() {
               Academiei Române" și a Filialei Cluj-Napoca a Academiei Române.
             </p>
             <p>
-              <strong>Politică de auto-arhivare:</strong> autorii pot arhiva și redistribui versiunea publicată
-              (Version of Record) în repository-uri instituționale, tematice sau pe pagini personale, cu menționarea
-              licenței CC BY 4.0 și a sursei. Sub această licență, distribuirea preprint-ului și a postprint-ului este
-              permisă fără restricții suplimentare.
-            </p>
-            <p>
               <strong>Partajare de date:</strong> atunci când natura cercetării permite, autorii sunt încurajați să
               indice sursele de date, arhivele și colecțiile folosite. Restricțiile etice sau juridice asupra
               partajării datelor (de exemplu, consimțământ limitat al subiecților, drepturi ale comunităților purtătoare
               de tradiție) trebuie explicate în manuscris.
             </p>
+          </div>
+        </section>
+
+        <section className={SECTION_CLASS}>
+          <h2 className="font-serif text-xl font-bold mb-3 flex items-center gap-2">
+            <Archive className="h-5 w-5 text-primary" /> Auto-arhivare și depozit în repository-uri
+          </h2>
+          <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
+            <p>
+              Revista permite autorilor să depună și să arhiveze articolele în repository-uri instituționale,
+              repository-uri tematice sau pe pagini personale, fără embargo și fără a solicita permisiunea
+              prealabilă a redacției.
+            </p>
+            <p>
+              Această politică se aplică tuturor articolelor publicate în Seria a III-a (din 2022), sub licența
+              Creative Commons Attribution 4.0 International (CC BY 4.0).
+            </p>
+            <h3 className="font-semibold pt-2">Versiuni care pot fi arhivate</h3>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>
+                <strong>Versiunea trimisă (preprint):</strong> autorii pot arhiva manuscrisul în orice moment,
+                inclusiv înainte de evaluarea colegială, fără restricții.
+              </li>
+              <li>
+                <strong>Versiunea acceptată (postprint / Author Accepted Manuscript):</strong> autorii pot arhiva
+                manuscrisul evaluat colegial fără embargo, imediat după acceptare.
+              </li>
+              <li>
+                <strong>Versiunea publicată (Version of Record):</strong> autorii pot arhiva articolul în forma sa
+                finală publicată, inclusiv PDF-ul formatat, fără embargo, imediat după publicare.
+              </li>
+            </ul>
+            <h3 className="font-semibold pt-2">Condiții</h3>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>Licența CC BY 4.0 trebuie menționată.</li>
+              <li>Versiunea publicată trebuie citată drept versiunea oficială de referință.</li>
+              <li>Este încurajat un link către articolul de pe site-ul revistei.</li>
+            </ul>
+            <p className="font-medium pt-2">Nu există perioadă de embargo pentru nicio versiune.</p>
           </div>
         </section>
 
