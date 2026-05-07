@@ -1,5 +1,6 @@
 import { Users } from 'lucide-react';
 import { MemberCard, type BoardMember } from '@/components/MemberCard';
+import { EDITORIAL_BOARD_PROFILES } from '@/data/boardProfiles';
 
 const editorialBoard: BoardMember[] = [
   {
@@ -7,42 +8,42 @@ const editorialBoard: BoardMember[] = [
     title: 'acad.',
     grade: 'Academician AR',
     affiliation: 'Redactor-șef · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=WjMalKgAAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['mihai-barbulescu'],
   },
   {
     name: 'Ileana Benga',
     title: 'dr.',
     grade: 'C.Ș. II',
     affiliation: 'Redactor-șef adjunct · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=B62d_UoAAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['ileana-benga'],
   },
   {
     name: 'Liviu-Ovidiu Pop',
     title: 'dr.',
     grade: 'C.Ș.',
     affiliation: 'Secretar de redacție · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=nq-BVycAAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['liviu-ovidiu-pop'],
   },
   {
     name: 'Theodor Constantiniu',
     title: 'dr.',
     grade: 'C.Ș. III',
     affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=XS-_Mh8AAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['theodor-constantiniu'],
   },
   {
     name: 'Anamaria Lisovschi',
     title: 'dr.',
     grade: 'C.Ș. II',
     affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=khlTb_cAAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['anamaria-lisovschi'],
   },
   {
     name: 'Elena Bărbulescu',
     title: 'dr.',
     grade: 'C.Ș. III',
     affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
-    academia: 'https://apubb.academia.edu/ElenaBarbulescu',
+    ...EDITORIAL_BOARD_PROFILES['elena-barbulescu'],
   },
 ];
 

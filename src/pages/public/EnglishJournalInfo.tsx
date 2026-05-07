@@ -13,6 +13,7 @@ import {
 import { Link } from 'react-router-dom';
 import { JOURNAL } from '@/data/journal';
 import { MemberCard, type BoardMember } from '@/components/MemberCard';
+import { EDITORIAL_BOARD_PROFILES } from '@/data/boardProfiles';
 
 type EnglishSection =
   | 'about'
@@ -33,42 +34,42 @@ const editorialBoard: BoardMember[] = [
     title: 'Acad.',
     grade: 'Member of the Romanian Academy',
     affiliation: 'Editor-in-Chief · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=WjMalKgAAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['mihai-barbulescu'],
   },
   {
     name: 'Ileana Benga',
     title: 'Dr.',
     grade: 'Senior Researcher (Grade II)',
     affiliation: 'Deputy Editor-in-Chief · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=B62d_UoAAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['ileana-benga'],
   },
   {
     name: 'Liviu-Ovidiu Pop',
     title: 'Dr.',
     grade: 'Researcher',
     affiliation: 'Managing Editor · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=nq-BVycAAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['liviu-ovidiu-pop'],
   },
   {
     name: 'Theodor Constantiniu',
     title: 'Dr.',
     grade: 'Researcher (Grade III)',
     affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=XS-_Mh8AAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['theodor-constantiniu'],
   },
   {
     name: 'Anamaria Lisovschi',
     title: 'Dr.',
     grade: 'Senior Researcher (Grade II)',
     affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
-    scholar: 'https://scholar.google.com/citations?user=khlTb_cAAAAJ&hl=en',
+    ...EDITORIAL_BOARD_PROFILES['anamaria-lisovschi'],
   },
   {
     name: 'Elena Barbulescu',
     title: 'Dr.',
     grade: 'Researcher (Grade III)',
     affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
-    academia: 'https://apubb.academia.edu/ElenaBarbulescu',
+    ...EDITORIAL_BOARD_PROFILES['elena-barbulescu'],
   },
 ];
 
