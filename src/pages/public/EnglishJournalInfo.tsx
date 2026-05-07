@@ -447,11 +447,6 @@ function BoardSection({ type }: { type: 'editorial' | 'scientific' }) {
           <MemberCard key={member.name} member={member} />
         ))}
       </div>
-      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-        {type === 'editorial'
-          ? 'Public scholar profiles (Google Scholar, Academia.edu) are linked next to each member where available. ORCID iDs will be added as they are registered.'
-          : 'Public scholar profiles and ORCID iDs will be added next to each member as they are collected. Institutional affiliations are kept up-to-date on this page.'}
-      </p>
     </section>
   );
 }
