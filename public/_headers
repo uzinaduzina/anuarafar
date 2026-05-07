@@ -1,0 +1,23 @@
+/
+  Link: </sitemap.xml>; rel="sitemap"
+  Link: </data/issues_manifest_user.js>; rel="describedby"; type="application/javascript"
+  Link: </.well-known/api-catalog>; rel="api-catalog"
+  Link: </.well-known/oauth-authorization-server>; rel="oauth-authorization-server"
+  Link: </.well-known/oauth-protected-resource>; rel="oauth-protected-resource"
+  Link: </.well-known/agent-skills/index.json>; rel="agent-skills"
+  Link: </.well-known/mcp/server-card.json>; rel="mcp-server-card"
+
+/.well-known/api-catalog
+  Content-Type: application/linkset+json; charset=utf-8
+
+/.well-known/oauth-authorization-server
+  Content-Type: application/json; charset=utf-8
+
+/.well-known/openid-configuration
+  Content-Type: application/json; charset=utf-8
+
+/.well-known/oauth-protected-resource
+  Content-Type: application/json; charset=utf-8
+
+/.well-known/agent-skills/*.md
+  Content-Type: text/markdown; charset=utf-8

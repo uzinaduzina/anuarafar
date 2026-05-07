@@ -16,7 +16,9 @@ import IssueDetail from './pages/public/IssueDetail';
 import ArticleView from './pages/public/ArticleView';
 import About from './pages/public/About';
 import DoajPolicy from './pages/public/DoajPolicy';
+import AccesDeschis from './pages/public/AccesDeschis';
 import EnglishJournalInfo from './pages/public/EnglishJournalInfo';
+import AuthorGuidelinesEn from './pages/public/AuthorGuidelinesEn';
 import EditorialBoard from './pages/public/EditorialBoard';
 import ScientificBoard from './pages/public/ScientificBoard';
 import TehnoredactarePage from './pages/public/TehnoredactarePage';
@@ -34,6 +36,7 @@ import DashboardStats from './pages/dashboard/DashboardStats';
 import DashboardPlaceholder from './pages/dashboard/DashboardPlaceholder';
 import NotFound from './pages/NotFound';
 import { PwaProvider } from './contexts/PwaContext';
+import { WebMcpRegistrar } from './components/WebMcpRegistrar';
 
 const queryClient = new QueryClient();
 const routerBasename = import.meta.env.BASE_URL === '/'
@@ -47,6 +50,7 @@ const App = () => (
         <PwaProvider>
           <JournalDataProvider>
             <SubmissionDataProvider>
+              <WebMcpRegistrar />
               <Toaster />
               <Sonner />
               <BrowserRouter basename={routerBasename}>
@@ -60,6 +64,8 @@ const App = () => (
                   <Route path="/about" element={<About />} />
                   <Route path="/politici" element={<DoajPolicy />} />
                   <Route path="/doaj" element={<DoajPolicy />} />
+                  <Route path="/acces-deschis" element={<AccesDeschis />} />
+                  <Route path="/open-access" element={<AccesDeschis />} />
                   <Route path="/scientific-board" element={<ScientificBoard />} />
                   <Route path="/editorial-board" element={<EditorialBoard />} />
                   <Route path="/tehnoredactare" element={<TehnoredactarePage />} />
@@ -68,10 +74,13 @@ const App = () => (
                   <Route path="/en/about" element={<EnglishJournalInfo section="about" />} />
                   <Route path="/en/journal-information" element={<EnglishJournalInfo section="journal-information" />} />
                   <Route path="/en/editorial-policy" element={<EnglishJournalInfo section="editorial-policy" />} />
+                  <Route path="/en/editorial-policies" element={<EnglishJournalInfo section="editorial-policies" />} />
                   <Route path="/en/peer-review" element={<EnglishJournalInfo section="peer-review" />} />
                   <Route path="/en/open-access" element={<EnglishJournalInfo section="open-access" />} />
                   <Route path="/en/editorial-board" element={<EnglishJournalInfo section="editorial-board" />} />
                   <Route path="/en/scientific-board" element={<EnglishJournalInfo section="scientific-board" />} />
+                  <Route path="/en/author-guidelines" element={<AuthorGuidelinesEn />} />
+                  <Route path="/en/submission-guidelines" element={<AuthorGuidelinesEn />} />
                   <Route path="/en/contact" element={<EnglishJournalInfo section="contact" />} />
                 </Route>
 

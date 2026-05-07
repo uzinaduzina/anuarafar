@@ -1,0 +1,38 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/draft/server-card.json",
+  "serverInfo": {
+    "name": "anuarafar-mcp",
+    "title": "Anuarul Arhivei de Folclor — read-only catalog",
+    "version": "0.1.0",
+    "vendor": "Institutul Arhiva de Folclor a Academiei Romane (IAFAR)",
+    "homepage": "https://anuar.iafar.ro/",
+    "description": "Read-only access to the AAF journal archive: list issues, fetch issue/article metadata, search articles. Editorial workflow endpoints (auth, submissions, reviewer assignments) are not exposed via MCP."
+  },
+  "transport": {
+    "type": "http",
+    "endpoint": "https://api.iafar.ro/mcp"
+  },
+  "capabilities": {
+    "tools": {
+      "listChanged": false
+    }
+  },
+  "tools": [
+    {
+      "name": "listIssues",
+      "description": "List all journal issues. Returns id, slug, year, volume, number, title, series, status."
+    },
+    {
+      "name": "getIssue",
+      "description": "Fetch a single issue by slug, including its article list. Inputs: { slug: string }."
+    },
+    {
+      "name": "getArticle",
+      "description": "Fetch a single article's metadata by id (title, authors, abstract, keywords, pdf_path, doi). Inputs: { id: string }."
+    },
+    {
+      "name": "searchArticles",
+      "description": "Search articles by query against title, authors, abstract, keywords. Inputs: { query: string, limit?: number }."
+    }
+  ]
+}

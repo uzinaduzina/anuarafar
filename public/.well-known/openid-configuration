@@ -1,0 +1,14 @@
+{
+  "issuer": "https://api.iafar.ro",
+  "token_endpoint": "https://api.iafar.ro/auth/login-password",
+  "grant_types_supported": ["password"],
+  "response_types_supported": ["token"],
+  "subject_types_supported": ["public"],
+  "id_token_signing_alg_values_supported": ["none"],
+  "token_endpoint_auth_methods_supported": ["client_secret_post"],
+  "scopes_supported": ["admin", "editor", "reviewer", "author"],
+  "service_documentation": "https://github.com/uzinaduzina/anuarafar/blob/main/worker/email-auth/README.md",
+  "x-iafar-notes": {
+    "deviation": "Not an OpenID Connect provider. This document mirrors /.well-known/oauth-authorization-server for tooling that probes openid-configuration. The token endpoint accepts custom JSON bodies (not OIDC-conformant). No id_token is issued, no userinfo endpoint, no JWKS. See oauth-authorization-server for full details."
+  }
+}

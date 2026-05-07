@@ -1,0 +1,53 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://anuar.iafar.ro/",
+      "describedby": [
+        {
+          "href": "https://anuar.iafar.ro/data/issues_manifest_user.js",
+          "type": "application/javascript",
+          "title": "AAF issues and articles manifest (machine-readable)"
+        }
+      ],
+      "sitemap": [
+        {
+          "href": "https://anuar.iafar.ro/sitemap.xml",
+          "type": "application/xml"
+        }
+      ],
+      "license": [
+        {
+          "href": "https://creativecommons.org/licenses/by/4.0/",
+          "title": "CC BY 4.0 — open-access content license for series III"
+        }
+      ]
+    },
+    {
+      "anchor": "https://api.iafar.ro/",
+      "service-doc": [
+        {
+          "href": "https://github.com/uzinaduzina/anuarafar/blob/main/worker/email-auth/README.md",
+          "type": "text/markdown",
+          "title": "Editorial worker (auth, submissions, notifications) — README"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://api.iafar.ro/health",
+          "type": "application/json",
+          "title": "Worker health check"
+        }
+      ]
+    },
+    {
+      "anchor": "https://api.iafar.ro/mcp",
+      "describedby": [
+        {
+          "href": "https://anuar.iafar.ro/.well-known/mcp/server-card.json",
+          "type": "application/json",
+          "title": "MCP server card (SEP-1649)"
+        }
+      ]
+    }
+  ]
+}

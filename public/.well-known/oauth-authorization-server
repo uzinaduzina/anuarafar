@@ -1,0 +1,17 @@
+{
+  "issuer": "https://api.iafar.ro",
+  "token_endpoint": "https://api.iafar.ro/auth/login-password",
+  "grant_types_supported": ["password"],
+  "response_types_supported": ["token"],
+  "token_endpoint_auth_methods_supported": ["client_secret_post"],
+  "scopes_supported": ["admin", "editor", "reviewer", "author"],
+  "service_documentation": "https://github.com/uzinaduzina/anuarafar/blob/main/worker/email-auth/README.md",
+  "x-iafar-notes": {
+    "deviation": "This server is not a standards-conformant OAuth 2.0 authorization server. It implements a custom JSON-bodied password login at the token_endpoint and an out-of-band email-OTP flow at /auth/request-code + /auth/verify-code. The token_endpoint accepts {identifier, password} as JSON, not application/x-www-form-urlencoded with grant_type=password. Bearer tokens issued are opaque worker-signed JWT-like values, not standard OAuth access tokens.",
+    "otp_endpoints": {
+      "request": "https://api.iafar.ro/auth/request-code",
+      "verify": "https://api.iafar.ro/auth/verify-code"
+    },
+    "intended_clients": "Editorial dashboard at https://anuar.iafar.ro/dashboard. APIs are not for public programmatic use."
+  }
+}

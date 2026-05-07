@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard, Menu, Search, Languages } from 'lucide-react';
+import { BookOpen, Archive, Info, LogIn, Send, Users, ChevronDown, Award, Pen, FileCheck2, LayoutDashboard, Menu, Search, Languages, Scale } from 'lucide-react';
 import { JOURNAL } from '@/data/journal';
 import logo from '@/assets/logo_iafar.png';
 import { useState, useRef, useEffect } from 'react';
@@ -20,8 +20,9 @@ const DESPRE_ITEMS = [
   { label: 'Despre revistă', path: '/about', icon: Info },
   { label: 'Comitet științific', path: '/scientific-board', icon: Award },
   { label: 'Colegiu de redacție', path: '/editorial-board', icon: Users },
-  { label: 'Tehnoredactare', path: '/tehnoredactare', icon: Pen },
+  { label: 'Indicații autori', path: '/tehnoredactare', icon: Pen },
   { label: 'Politici editoriale', path: '/politici', icon: FileCheck2 },
+  { label: 'Acces deschis', path: '/acces-deschis', icon: Scale },
   { label: 'English information', path: '/en/about', icon: Languages },
 ];
 
@@ -30,10 +31,13 @@ const ENGLISH_ROUTE_TO_ROMANIAN: Record<string, string> = {
   '/en/about': '/about',
   '/en/journal-information': '/about',
   '/en/editorial-policy': '/politici',
+  '/en/editorial-policies': '/politici',
   '/en/peer-review': '/politici',
-  '/en/open-access': '/politici',
+  '/en/open-access': '/acces-deschis',
   '/en/editorial-board': '/editorial-board',
   '/en/scientific-board': '/scientific-board',
+  '/en/author-guidelines': '/tehnoredactare',
+  '/en/submission-guidelines': '/tehnoredactare',
   '/en/contact': '/about',
 };
 
@@ -47,7 +51,13 @@ function languageSwitchForPath(pathname: string) {
   }
 
   if (pathname === '/politici' || pathname === '/doaj') {
-    return { label: 'EN', path: '/en/editorial-policy', ariaLabel: 'View English version' };
+    return { label: 'EN', path: '/en/editorial-policies', ariaLabel: 'View English version' };
+  }
+  if (pathname === '/acces-deschis' || pathname === '/open-access') {
+    return { label: 'EN', path: '/en/open-access', ariaLabel: 'View English version' };
+  }
+  if (pathname === '/tehnoredactare') {
+    return { label: 'EN', path: '/en/author-guidelines', ariaLabel: 'View English version' };
   }
   if (pathname === '/scientific-board') {
     return { label: 'EN', path: '/en/scientific-board', ariaLabel: 'View English version' };

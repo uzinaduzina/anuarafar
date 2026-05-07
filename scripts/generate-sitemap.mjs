@@ -12,6 +12,7 @@ const staticRoutes = [
   '/search',
   '/about',
   '/politici',
+  '/acces-deschis',
   '/editorial-board',
   '/scientific-board',
   '/tehnoredactare',
@@ -20,10 +21,12 @@ const staticRoutes = [
   '/en/about',
   '/en/journal-information',
   '/en/editorial-policy',
+  '/en/editorial-policies',
   '/en/peer-review',
   '/en/open-access',
   '/en/editorial-board',
   '/en/scientific-board',
+  '/en/author-guidelines',
   '/en/contact',
 ];
 

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://agentskills.io/schemas/v0.2.0/index.json",
+  "skills": [
+    {
+      "name": "browse-archive",
+      "type": "navigation",
+      "description": "Browse the AAF journal archive by year, volume, or series.",
+      "url": "https://anuar.iafar.ro/.well-known/agent-skills/browse-archive.md",
+      "sha256": "12d210b2fc512fbecabfad719a28a07715b3f957bd391292645de5aa0be09e62"
+    },
+    {
+      "name": "search-articles",
+      "type": "search",
+      "description": "Search articles in the AAF journal by title, author, abstract, or keywords.",
+      "url": "https://anuar.iafar.ro/.well-known/agent-skills/search-articles.md",
+      "sha256": "8a47121ad6409b9dad48d3cc8751971fdaa5ade077a48d29590f0dcc6695bd4a"
+    },
+    {
+      "name": "get-article",
+      "type": "data",
+      "description": "Retrieve metadata, abstract, and PDF location for a single AAF article by id.",
+      "url": "https://anuar.iafar.ro/.well-known/agent-skills/get-article.md",
+      "sha256": "a4fb3908f99cc06a6eff8b16ea31a207c20e2b429cb8ced1dac93db6b799002d"
+    },
+    {
+      "name": "get-issue",
+      "type": "data",
+      "description": "Retrieve metadata and table of contents for a single AAF issue by slug.",
+      "url": "https://anuar.iafar.ro/.well-known/agent-skills/get-issue.md",
+      "sha256": "091493586fd30a79a92a957e725f344e680408db9bcd8a0177a221105c593a00"
+    }
+  ]
+}

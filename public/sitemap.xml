@@ -16,6 +16,9 @@
     <loc>https://anuar.iafar.ro/politici</loc>
   </url>
   <url>
+    <loc>https://anuar.iafar.ro/acces-deschis</loc>
+  </url>
+  <url>
     <loc>https://anuar.iafar.ro/editorial-board</loc>
   </url>
   <url>
@@ -40,6 +43,9 @@
     <loc>https://anuar.iafar.ro/en/editorial-policy</loc>
   </url>
   <url>
+    <loc>https://anuar.iafar.ro/en/editorial-policies</loc>
+  </url>
+  <url>
     <loc>https://anuar.iafar.ro/en/peer-review</loc>
   </url>
   <url>
@@ -50,6 +56,9 @@
   </url>
   <url>
     <loc>https://anuar.iafar.ro/en/scientific-board</loc>
+  </url>
+  <url>
+    <loc>https://anuar.iafar.ro/en/author-guidelines</loc>
   </url>
   <url>
     <loc>https://anuar.iafar.ro/en/contact</loc>

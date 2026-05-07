@@ -1,0 +1,10 @@
+{
+  "resource": "https://api.iafar.ro",
+  "authorization_servers": ["https://api.iafar.ro"],
+  "scopes_supported": ["admin", "editor", "reviewer", "author"],
+  "bearer_methods_supported": ["header"],
+  "resource_documentation": "https://github.com/uzinaduzina/anuarafar/blob/main/worker/email-auth/README.md",
+  "x-iafar-notes": {
+    "deviation": "Bearer tokens accepted by this resource are opaque worker-issued tokens (not standard OAuth access tokens). They are obtained from the same origin's /auth/login-password or /auth/verify-code endpoints, not from a separate OAuth authorization server. See /.well-known/oauth-authorization-server for the full custom flow."
+  }
+}

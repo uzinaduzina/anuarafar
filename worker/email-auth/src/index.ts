@@ -4149,6 +4149,146 @@ async function handleDownloadSubmissionFile(
   return new Response(bytes, { status: 200, headers });
 }
 
+const MCP_SERVER_INFO = {
+  name: 'anuarafar-mcp',
+  title: 'Anuarul Arhivei de Folclor — read-only catalog',
+  version: '0.1.0',
+} as const;
+
+const MCP_PROTOCOL_VERSION = '2025-03-26';
+
+const MCP_TOOL_DESCRIPTORS = [
+  {
+    name: 'listIssues',
+    description: 'List journal issues in the AAF archive. Optional filters by series and status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        series: { type: 'string', enum: ['seria-1', 'seria-2', 'seria-3'] },
+        status: { type: 'string', enum: ['published', 'draft'] },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'getIssue',
+    description: 'Fetch a single issue by slug, including its article list.',
+    inputSchema: {
+      type: 'object',
+      properties: { slug: { type: 'string' } },
+      required: ['slug'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'getArticle',
+    description: 'Fetch a single article by id with full metadata.',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string' } },
+      required: ['id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'searchArticles',
+    description: 'Search articles by query against title, authors, abstract, keywords, and section.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+        limit: { type: 'integer', minimum: 1, maximum: 100 },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+  },
+] as const;
+
+function mcpResponse(request: Request, env: Env, body: unknown, status = 200) {
+  return jsonResponse(request, env, status, body);
+}
+
+function mcpError(request: Request, env: Env, id: unknown, code: number, message: string, status = 200) {
+  return mcpResponse(request, env, {
+    jsonrpc: '2.0',
+    id: id ?? null,
+    error: { code, message },
+  }, status);
+}
+
+async function handleMcp(request: Request, env: Env): Promise<Response> {
+  if (request.method === 'GET') {
+    return jsonResponse(request, env, 200, {
+      ok: true,
+      transport: 'http',
+      protocolVersion: MCP_PROTOCOL_VERSION,
+      serverInfo: MCP_SERVER_INFO,
+      hint: 'POST a JSON-RPC 2.0 body with method "initialize", "tools/list", or "tools/call".',
+      serverCard: 'https://anuar.iafar.ro/.well-known/mcp/server-card.json',
+    });
+  }
+
+  if (request.method !== 'POST') {
+    return mcpError(request, env, null, -32600, 'Use POST with JSON-RPC body', 405);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return mcpError(request, env, null, -32700, 'Parse error: invalid JSON', 400);
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return mcpError(request, env, null, -32600, 'Invalid Request: expected JSON-RPC object', 400);
+  }
+
+  const message = body as { jsonrpc?: string; method?: string; id?: unknown; params?: unknown };
+  const id = message.id ?? null;
+  const method = typeof message.method === 'string' ? message.method : '';
+
+  switch (method) {
+    case 'initialize':
+      return mcpResponse(request, env, {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          protocolVersion: MCP_PROTOCOL_VERSION,
+          serverInfo: MCP_SERVER_INFO,
+          capabilities: { tools: { listChanged: false } },
+        },
+      });
+
+    case 'tools/list':
+      return mcpResponse(request, env, {
+        jsonrpc: '2.0',
+        id,
+        result: { tools: MCP_TOOL_DESCRIPTORS },
+      });
+
+    case 'tools/call':
+      return mcpResponse(request, env, {
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32603,
+          message: 'Tool execution is not yet implemented over the HTTP transport. The same tools are available via WebMCP at https://anuar.iafar.ro (in-page navigator.modelContext), or fetch /data/issues_manifest_user.js directly to query offline.',
+        },
+      });
+
+    case 'ping':
+      return mcpResponse(request, env, { jsonrpc: '2.0', id, result: {} });
+
+    case 'notifications/initialized':
+    case 'notifications/cancelled':
+      return new Response(null, { status: 204, headers: buildCorsHeaders(request, env) });
+
+    default:
+      return mcpError(request, env, id, -32601, `Method not found: ${method || '(missing)'}`);
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
@@ -4160,6 +4300,10 @@ export default {
 
       if (request.method === 'GET' && url.pathname === '/health') {
         return jsonResponse(request, env, 200, { ok: true, status: 'healthy' });
+      }
+
+      if (url.pathname === '/mcp') {
+        return handleMcp(request, env);
       }
 
       if (request.method === 'POST' && url.pathname === '/analytics/view') {

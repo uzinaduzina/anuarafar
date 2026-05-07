@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { JOURNAL } from '@/data/journal';
 import { BookOpen, Mail, MapPin, Phone, ExternalLink, History, Scale } from 'lucide-react';
 
@@ -80,11 +81,20 @@ export default function About() {
           <h2 className="font-serif text-xl font-bold mb-3 flex items-center gap-2">
             <Scale className="h-5 w-5 text-primary" /> Drepturi de autor
           </h2>
-          <p className="text-sm leading-relaxed text-foreground/90">
+          <p className="text-sm leading-relaxed text-foreground/90 mb-2">
             Conținutul științific curent publicat în seria a III-a este pus la dispoziție în regim open access sub
             {' '}<strong>Creative Commons CC BY 4.0</strong>. Autorii își păstrează drepturile de autor, iar
             reutilizarea este permisă cu citarea sursei. Seriile istorice sunt publicate ca arhivă digitală și sunt
             tratate separat până la clarificarea completă a regimului de reutilizare pentru fiecare fascicul scanat.
+          </p>
+          <p className="text-sm">
+            <Link to="/acces-deschis" className="text-primary hover:underline">
+              → Politica completă de acces deschis și copyright
+            </Link>
+            {' · '}
+            <Link to="/politici" className="text-primary hover:underline">
+              → Politici editoriale & transparență
+            </Link>
           </p>
         </div>
 
