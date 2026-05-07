@@ -1,9 +1,11 @@
 export interface BoardMember {
   name: string;
   title?: string;
+  grade?: string;
   affiliation: string;
   orcid?: string;
   scholar?: string;
+  academia?: string;
 }
 
 function getInitials(name: string) {
@@ -21,6 +23,8 @@ function normalizeOrcidUrl(orcid: string) {
 export function MemberCard({ member }: { member: BoardMember }) {
   const orcidUrl = member.orcid ? normalizeOrcidUrl(member.orcid) : '';
   const scholarUrl = member.scholar?.trim() || '';
+  const academiaUrl = member.academia?.trim() || '';
+  const hasLinks = orcidUrl || scholarUrl || academiaUrl;
 
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow">
@@ -32,8 +36,11 @@ export function MemberCard({ member }: { member: BoardMember }) {
           {member.title && <span className="text-muted-foreground">{member.title} </span>}
           {member.name}
         </div>
+        {member.grade && (
+          <div className="text-[0.7rem] uppercase tracking-wide text-muted-foreground/80 mt-0.5">{member.grade}</div>
+        )}
         <div className="text-xs text-muted-foreground mt-0.5">{member.affiliation}</div>
-        {(orcidUrl || scholarUrl) && (
+        {hasLinks && (
           <div className="mt-1.5 flex flex-wrap gap-3 text-xs">
             {orcidUrl && (
               <a
@@ -56,6 +63,17 @@ export function MemberCard({ member }: { member: BoardMember }) {
                 aria-label={`Google Scholar profile of ${member.name}`}
               >
                 Google Scholar
+              </a>
+            )}
+            {academiaUrl && (
+              <a
+                href={academiaUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+                aria-label={`Academia.edu profile of ${member.name}`}
+              >
+                Academia.edu
               </a>
             )}
           </div>

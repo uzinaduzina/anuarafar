@@ -2,12 +2,48 @@ import { Users } from 'lucide-react';
 import { MemberCard, type BoardMember } from '@/components/MemberCard';
 
 const editorialBoard: BoardMember[] = [
-  { name: 'Mihai Bărbulescu', title: 'acad.', affiliation: 'Redactor-șef · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
-  { name: 'Ileana Benga', title: 'dr.', affiliation: 'Redactor-șef adjunct · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
-  { name: 'Liviu-Ovidiu Pop', title: 'dr.', affiliation: 'Secretar de redacție · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
-  { name: 'Theodor Constantiniu', title: 'dr.', affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
-  { name: 'Anamaria Lisovschi', title: 'dr.', affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
-  { name: 'Elena Bărbulescu', title: 'dr.', affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca' },
+  {
+    name: 'Mihai Bărbulescu',
+    title: 'acad.',
+    grade: 'Academician AR',
+    affiliation: 'Redactor-șef · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=WjMalKgAAAAJ&hl=en',
+  },
+  {
+    name: 'Ileana Benga',
+    title: 'dr.',
+    grade: 'C.Ș. II',
+    affiliation: 'Redactor-șef adjunct · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=B62d_UoAAAAJ&hl=en',
+  },
+  {
+    name: 'Liviu-Ovidiu Pop',
+    title: 'dr.',
+    grade: 'C.Ș.',
+    affiliation: 'Secretar de redacție · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=nq-BVycAAAAJ&hl=en',
+  },
+  {
+    name: 'Theodor Constantiniu',
+    title: 'dr.',
+    grade: 'C.Ș. III',
+    affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=XS-_Mh8AAAAJ&hl=en',
+  },
+  {
+    name: 'Anamaria Lisovschi',
+    title: 'dr.',
+    grade: 'C.Ș. II',
+    affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=khlTb_cAAAAJ&hl=en',
+  },
+  {
+    name: 'Elena Bărbulescu',
+    title: 'dr.',
+    grade: 'C.Ș. III',
+    affiliation: 'Membru · Institutul „Arhiva de Folclor a Academiei Române”, Cluj-Napoca',
+    academia: 'https://apubb.academia.edu/ElenaBarbulescu',
+  },
 ];
 
 export default function EditorialBoard() {

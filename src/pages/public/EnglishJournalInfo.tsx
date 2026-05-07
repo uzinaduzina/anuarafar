@@ -28,12 +28,48 @@ type EnglishSection =
 const SECTION_CLASS = 'rounded-lg border bg-card p-6 shadow-sm';
 
 const editorialBoard: BoardMember[] = [
-  { name: 'Mihai Barbulescu', title: 'Acad.', affiliation: 'Editor-in-Chief · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca' },
-  { name: 'Ileana Benga', title: 'Dr.', affiliation: 'Deputy Editor-in-Chief · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca' },
-  { name: 'Liviu-Ovidiu Pop', title: 'Dr.', affiliation: 'Managing Editor · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca' },
-  { name: 'Theodor Constantiniu', title: 'Dr.', affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca' },
-  { name: 'Anamaria Lisovschi', title: 'Dr.', affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca' },
-  { name: 'Elena Barbulescu', title: 'Dr.', affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca' },
+  {
+    name: 'Mihai Barbulescu',
+    title: 'Acad.',
+    grade: 'Member of the Romanian Academy',
+    affiliation: 'Editor-in-Chief · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=WjMalKgAAAAJ&hl=en',
+  },
+  {
+    name: 'Ileana Benga',
+    title: 'Dr.',
+    grade: 'Senior Researcher (Grade II)',
+    affiliation: 'Deputy Editor-in-Chief · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=B62d_UoAAAAJ&hl=en',
+  },
+  {
+    name: 'Liviu-Ovidiu Pop',
+    title: 'Dr.',
+    grade: 'Researcher',
+    affiliation: 'Managing Editor · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=nq-BVycAAAAJ&hl=en',
+  },
+  {
+    name: 'Theodor Constantiniu',
+    title: 'Dr.',
+    grade: 'Researcher (Grade III)',
+    affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=XS-_Mh8AAAAJ&hl=en',
+  },
+  {
+    name: 'Anamaria Lisovschi',
+    title: 'Dr.',
+    grade: 'Senior Researcher (Grade II)',
+    affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
+    scholar: 'https://scholar.google.com/citations?user=khlTb_cAAAAJ&hl=en',
+  },
+  {
+    name: 'Elena Barbulescu',
+    title: 'Dr.',
+    grade: 'Researcher (Grade III)',
+    affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
+    academia: 'https://apubb.academia.edu/ElenaBarbulescu',
+  },
 ];
 
 const scientificBoard: BoardMember[] = [
@@ -412,8 +448,9 @@ function BoardSection({ type }: { type: 'editorial' | 'scientific' }) {
         ))}
       </div>
       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-        ORCID iDs and Google Scholar profile links will be added to each entry once they have been collected from
-        all board members. Editorial assignments and institutional affiliations are kept up-to-date on this page.
+        {type === 'editorial'
+          ? 'Public scholar profiles (Google Scholar, Academia.edu) are linked next to each member where available. ORCID iDs will be added as they are registered.'
+          : 'Public scholar profiles and ORCID iDs will be added next to each member as they are collected. Institutional affiliations are kept up-to-date on this page.'}
       </p>
     </section>
   );
