@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import {
   AlignLeft,
   AlertTriangle,
@@ -51,7 +50,7 @@ export default function AuthorGuidelinesEn() {
         <section className={SECTION_CLASS}>
           <h2 className="font-serif text-xl font-bold mb-2">Submission</h2>
           <p className="text-sm text-foreground/80 leading-relaxed mb-3">
-            Manuscripts are submitted through the editorial platform at <Link to="/submit" className="text-primary hover:underline"><strong>/submit</strong></Link>.
+            Manuscripts are submitted through the editorial platform at <a href="https://anuar.iafar.ro/submit" className="text-primary hover:underline"><strong>https://anuar.iafar.ro/submit</strong></a>.
             The submission form accepts the manuscript file (Word) along with figures and any supporting material.
             Confirmation and editorial correspondence are sent to the corresponding author by email.
           </p>
@@ -271,7 +270,7 @@ export default function AuthorGuidelinesEn() {
           <h2 className="font-serif text-xl font-bold mb-2">Submit your manuscript</h2>
           <p className="text-sm text-foreground/80 leading-relaxed">
             Use the editorial submission form at{' '}
-            <Link to="/submit" className="text-primary hover:underline"><strong>/submit</strong></Link>{' '}
+            <a href="https://anuar.iafar.ro/submit" className="text-primary hover:underline"><strong>https://anuar.iafar.ro/submit</strong></a>{' '}
             to send your manuscript and supporting files. The form is bilingual (Romanian / English). After submission,
             you will receive an email confirmation with a tracking ID; the editorial team typically returns an initial
             review within 2–4 weeks.

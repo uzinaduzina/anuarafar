@@ -504,7 +504,7 @@ function AuthorGuidelinesSection() {
           </Link>
         </p>
         <p>
-          To submit a manuscript directly: <Link to="/submit" className="text-primary hover:underline">/submit</Link>.
+          To submit a manuscript directly: <a href="https://anuar.iafar.ro/submit" className="text-primary hover:underline">https://anuar.iafar.ro/submit</a>.
           Submissions are accepted in Romanian, English, French, German and Italian; abstracts are required in
           Romanian and in one international language of circulation.
         </p>
