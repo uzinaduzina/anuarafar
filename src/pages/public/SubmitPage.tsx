@@ -168,6 +168,45 @@ function Guidelines({
           În afara prescurtărilor acceptate în limbajul științific, precum cele menționate mai sus, <strong>nu se folosesc alte prescurtări</strong> în textul lucrării.
         </p>
       </div>
+
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <h2 className="font-serif text-xl font-bold mb-3">Obligațiile autorilor și declarații</h2>
+        <div className="space-y-3 text-sm leading-relaxed text-foreground/80">
+          <p>
+            Prin trimiterea unui manuscris la <em>Anuarul Arhivei de Folclor</em>, autorii confirmă că:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              Manuscrisul este original și nu a fost publicat în altă parte și nici nu este în curs de evaluare
+              de către o altă revistă.
+            </li>
+            <li>
+              Orice conflicte de interese (financiare, profesionale, personale sau instituționale) sunt declarate
+              explicit în manuscris.
+            </li>
+            <li>
+              Orice utilizare a instrumentelor generative de inteligență artificială în pregătirea manuscrisului
+              este declarată explicit; instrumentele AI nu pot figura ca autori.
+            </li>
+            <li>Toți coautorii au aprobat trimiterea și conținutul manuscrisului.</li>
+            <li>
+              Au fost obținute permisiuni pentru orice material protejat de drepturi de autor terțe (imagini,
+              citate, înregistrări de arhivă) reprodus în manuscris.
+            </li>
+            <li>
+              Cercetările care implică subiecți umani, comunități sau materiale culturale sensibile respectă
+              standardele etice aplicabile și cerințele privind consimțământul informat.
+            </li>
+          </ul>
+          <p>
+            Manuscrisele sunt supuse verificării antiplagiat (
+            <a href="https://textguard.ai/plagiarism" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+              TextGuard.ai
+            </a>
+            ) ca parte a procesului editorial.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

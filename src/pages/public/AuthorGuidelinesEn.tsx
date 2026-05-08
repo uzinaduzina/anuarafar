@@ -229,6 +229,45 @@ export default function AuthorGuidelinesEn() {
         </section>
 
         <section className={SECTION_CLASS}>
+          <h2 className="font-serif text-xl font-bold mb-3">Author obligations and declarations</h2>
+          <div className="space-y-3 text-sm leading-relaxed text-foreground/80">
+            <p>
+              By submitting a manuscript to <em>Anuarul Arhivei de Folclor</em>, authors confirm that:
+            </p>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>
+                The manuscript is original and has not been published elsewhere, nor is it currently under
+                consideration by another journal.
+              </li>
+              <li>
+                Any conflicts of interest (financial, professional, personal, or institutional) are explicitly
+                declared in the manuscript.
+              </li>
+              <li>
+                Any use of generative AI tools in the preparation of the manuscript is explicitly disclosed; AI
+                tools cannot be listed as authors.
+              </li>
+              <li>All co-authors have approved the submission and the manuscript content.</li>
+              <li>
+                Permissions have been obtained for any third-party copyrighted material (images, quotations,
+                archival recordings) reproduced in the manuscript.
+              </li>
+              <li>
+                Research involving human subjects, communities, or sensitive cultural materials complies with
+                applicable ethical standards and informed consent requirements.
+              </li>
+            </ul>
+            <p>
+              Manuscripts are subject to anti-plagiarism screening (
+              <a href="https://textguard.ai/plagiarism" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                TextGuard.ai
+              </a>
+              ) as part of the editorial process.
+            </p>
+          </div>
+        </section>
+
+        <section className={SECTION_CLASS}>
           <h2 className="font-serif text-xl font-bold mb-2">Submit your manuscript</h2>
           <p className="text-sm text-foreground/80 leading-relaxed">
             Use the editorial submission form at{' '}

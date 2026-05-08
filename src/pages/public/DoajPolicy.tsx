@@ -83,11 +83,14 @@ export default function DoajPolicy() {
               analizate înainte de începerea procesului de evaluare.
             </p>
             <p>
-              <strong>Plagiat:</strong> manuscrisele sunt supuse verificării antiplagiat prin eșantionare sistematică
-              aleatorie, ca parte a procesului editorial. Verificări suplimentare sunt efectuate ori de câte ori apar
-              suspiciuni semnalate în timpul peer review-ului sau al evaluării editoriale. Cazurile suspectate de
-              plagiat, autoplagiat, fabricare de date sau publicare duplicată sunt tratate conform recomandărilor COPE
-              și pot duce la respingerea manuscrisului sau la retragerea articolului publicat.
+              <strong>Plagiat:</strong> manuscrisele sunt supuse verificării cu instrumentul antiplagiat{' '}
+              <a href="https://textguard.ai/plagiarism" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                TextGuard.ai (textguard.ai/plagiarism)
+              </a>{' '}prin eșantionare sistematică aleatorie, ca parte a procesului editorial. Verificări suplimentare
+              sunt efectuate ori de câte ori apar suspiciuni semnalate în timpul peer review-ului sau al evaluării
+              editoriale. Cazurile suspectate de plagiat, autoplagiat, fabricare de date sau publicare duplicată sunt
+              tratate conform recomandărilor COPE și pot duce la respingerea manuscrisului sau la retragerea
+              articolului publicat.
             </p>
             <p>
               <strong>Utilizarea instrumentelor AI:</strong> utilizarea instrumentelor generative de către autori
@@ -124,7 +127,7 @@ export default function DoajPolicy() {
             <p><strong>Articole individuale:</strong> fiecare articol din seria a III-a are URL stabil și pagină dedicată pe site-ul revistei.</p>
             <p><strong>Full text:</strong> textul integral al articolelor este disponibil gratuit prin pagina publică a articolului și prin fișier PDF asociat.</p>
             <p><strong>Metadate:</strong> pentru articolele științifice din seria a III-a se generează metadate în formate standardizate (XML, CSV) disponibile prin panoul administrativ al revistei pentru indexare în baze de date externe.</p>
-            <p><strong>Identificatori persistenți:</strong> fiecare articol publicat în seria a III-a primește un DOI prin CrossRef, alături de URL stabil pe pagina articolului de pe site-ul revistei.</p>
+            <p><strong>Identificatori persistenți:</strong> fiecare articol publicat în seria a III-a primește un DOI prin Zenodo (registrar: DataCite), alături de URL stabil pe pagina articolului de pe site-ul revistei.</p>
             <p>
               <strong>Politică de prezervare:</strong> fasciculele tipărite ale revistei sunt depuse conform legislației
               române privind depozitul legal al publicațiilor (Biblioteca Națională a României, Biblioteca Academiei

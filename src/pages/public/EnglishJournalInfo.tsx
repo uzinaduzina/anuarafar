@@ -30,7 +30,7 @@ const SECTION_CLASS = 'rounded-lg border bg-card p-6 shadow-sm';
 
 const editorialBoard: BoardMember[] = [
   {
-    name: 'Mihai Barbulescu',
+    name: 'Mihai Bărbulescu',
     title: 'Acad.',
     grade: 'Member of the Romanian Academy',
     affiliation: 'Editor-in-Chief · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
@@ -65,7 +65,7 @@ const editorialBoard: BoardMember[] = [
     ...EDITORIAL_BOARD_PROFILES['anamaria-lisovschi'],
   },
   {
-    name: 'Elena Barbulescu',
+    name: 'Elena Bărbulescu',
     title: 'Dr.',
     grade: 'Researcher (Grade III)',
     affiliation: 'Editorial Board Member · Institute "Folklore Archive of the Romanian Academy", Cluj-Napoca',
@@ -74,16 +74,16 @@ const editorialBoard: BoardMember[] = [
 ];
 
 const scientificBoard: BoardMember[] = [
-  { name: 'Varvara Buzila', title: 'Dr.', affiliation: 'National Museum of Ethnography and Natural History, Chisinau' },
+  { name: 'Varvara Buzilă', title: 'Dr.', affiliation: 'National Museum of Ethnography and Natural History, Chișinău' },
   { name: 'Ioan Augustin Goia', title: 'Dr.', affiliation: 'Ethnographic Museum of Transylvania, Cluj-Napoca' },
-  { name: 'Sanda Golopentia', title: 'Professor Emerita, Honorary Member of the Romanian Academy', affiliation: 'Brown University, Providence' },
-  { name: 'Sabina Ispas', title: 'Acad.', affiliation: 'Institute of Ethnography and Folklore "Constantin Brailoiu" of the Romanian Academy, Bucharest' },
-  { name: 'Marianne Mesnil', title: 'Professor Honoraire', affiliation: 'Universite Libre de Bruxelles' },
+  { name: 'Sanda Golopenția', title: 'Professor Emerita, Honorary Member of the Romanian Academy', affiliation: 'Brown University, Providence' },
+  { name: 'Sabina Ispas', title: 'Acad.', affiliation: 'Institute of Ethnography and Folklore "Constantin Brăiloiu" of the Romanian Academy, Bucharest' },
+  { name: 'Marianne Mesnil', title: 'Professor Honoraire', affiliation: 'Université Libre de Bruxelles' },
   { name: 'Ilie Moise', title: 'Professor Emeritus', affiliation: '"Lucian Blaga" University of Sibiu' },
-  { name: 'Pavai Istvan', title: 'Prof. Dr.', affiliation: 'HUN-REN BTK Institute for Musicology, Budapest' },
+  { name: 'Pávai István', title: 'Prof. Dr.', affiliation: 'HUN-REN BTK Institute for Musicology, Budapest' },
   { name: 'Lorenzo Renzi', title: 'Professor Emeritus', affiliation: 'University of Padua' },
-  { name: 'Biljana Sikimic', title: 'Dr.', affiliation: 'Institute for Balkan Studies SASA, Belgrade' },
-  { name: 'Ion Talos', title: 'Professor Emeritus', affiliation: 'University of Cologne' },
+  { name: 'Biljana Sikimić', title: 'Dr.', affiliation: 'Institute for Balkan Studies SASA, Belgrade' },
+  { name: 'Ion Taloș', title: 'Professor Emeritus', affiliation: 'University of Cologne' },
 ];
 
 const englishNav = [
@@ -309,11 +309,14 @@ function IntegritySection() {
           before the evaluation process begins.
         </p>
         <p>
-          <strong>Plagiarism:</strong> manuscripts are subject to anti-plagiarism screening through systematic random
-          sampling, as part of the editorial process. Additional screening is performed whenever concerns are raised
-          during peer review or editorial assessment. Suspected cases of plagiarism, self-plagiarism, data fabrication
-          or duplicate publication are handled according to COPE guidelines and may result in rejection of the
-          manuscript or retraction of the published article.
+          <strong>Plagiarism:</strong> manuscripts are subject to screening with the anti-plagiarism tool{' '}
+          <a href="https://textguard.ai/plagiarism" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+            TextGuard.ai (textguard.ai/plagiarism)
+          </a>{' '}
+          through systematic random sampling, as part of the editorial process. Additional screening is performed
+          whenever concerns are raised during peer review or editorial assessment. Suspected cases of plagiarism,
+          self-plagiarism, data fabrication or duplicate publication are handled according to COPE guidelines and may
+          result in rejection of the manuscript or retraction of the published article.
         </p>
         <p>
           <strong>Use of AI tools:</strong> any use of generative AI tools by authors (for writing assistance,
@@ -398,7 +401,7 @@ function ArchivingMetadataSection() {
         <p><strong>Individual articles:</strong> each article in Series III has a stable URL and a dedicated page on the journal website.</p>
         <p><strong>Full text:</strong> the full text of articles is freely available through the public article page and through an associated PDF file.</p>
         <p><strong>Metadata:</strong> standardised metadata (XML, CSV) for the scholarly articles in Series III is generated through the journal's administrative panel and made available for indexing in external databases.</p>
-        <p><strong>Persistent identifiers:</strong> each article published in Series III is assigned a DOI through CrossRef, alongside a stable URL on the article's page on the journal website.</p>
+        <p><strong>Persistent identifiers:</strong> each article published in Series III is assigned a DOI through Zenodo (registrar: DataCite), alongside a stable URL on the article's page on the journal website.</p>
         <p>
           <strong>Preservation policy:</strong> print copies of the journal are deposited under Romanian legal deposit
           legislation (with the National Library of Romania, the Library of the Romanian Academy and other legally
