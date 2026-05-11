@@ -303,27 +303,31 @@ ER  -`.trim();
         </div>
       )}
 
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-2">
-          {previousArticle && (
-            <Button asChild size="sm" variant="outline" className={`justify-start ${seriesOutlineButton[series]}`}>
-              <Link to={`/article/${previousArticle.id}`}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Articol anterior
+      <div className="mb-4 grid w-full gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_auto] lg:items-center">
+        <div className="grid w-full max-w-56 grid-rows-2 gap-2">
+          {previousArticle ? (
+            <Button asChild size="sm" variant="outline" className={`w-full justify-start ${seriesOutlineButton[series]}`}>
+              <Link to={`/article/${previousArticle.id}`} className="min-w-0">
+                <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
+                <span className="truncate">Articol anterior</span>
               </Link>
             </Button>
+          ) : (
+            <div className="h-9" aria-hidden="true" />
           )}
-          {nextArticle && (
-            <Button asChild size="sm" variant="outline" className={`justify-start ${seriesOutlineButton[series]}`}>
-              <Link to={`/article/${nextArticle.id}`}>
-                <ArrowRight className="mr-2 h-4 w-4" />
-                Articol următor
+          {nextArticle ? (
+            <Button asChild size="sm" variant="outline" className={`w-full justify-start ${seriesOutlineButton[series]}`}>
+              <Link to={`/article/${nextArticle.id}`} className="min-w-0">
+                <ArrowRight className="mr-2 h-4 w-4 shrink-0" />
+                <span className="truncate">Articol următor</span>
               </Link>
             </Button>
+          ) : (
+            <div className="h-9" aria-hidden="true" />
           )}
         </div>
 
-        <div className="ml-auto min-w-[220px] rounded-md border bg-card px-3 py-2 shadow-sm">
+        <div className="min-w-[220px] rounded-md border bg-card px-3 py-2 shadow-sm lg:col-start-3 lg:justify-self-end">
           <div className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-2">
             {[
               { label: 'Ultima zi', value: articleAnalytics?.lastDay },

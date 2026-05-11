@@ -211,12 +211,15 @@ export default function PdfViewer({
   return (
     <div className="rounded-lg border bg-card shadow-sm overflow-hidden" ref={containerRef}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between p-3 border-b bg-secondary/50 gap-2 flex-wrap sticky top-0 z-10">
-        <span className="font-serif text-sm font-bold truncate max-w-[200px] md:max-w-none">
+      <div className="grid grid-cols-1 items-center gap-3 border-b bg-secondary/50 p-3 md:grid-cols-[minmax(0,1fr)_auto] sticky top-0 z-10">
+        <span
+          className="block min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-serif text-sm font-bold md:max-w-[56ch]"
+          title={title || 'PDF'}
+        >
           {title || 'PDF'}
         </span>
 
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center justify-start gap-1 md:justify-end">
           <span className="text-xs text-muted-foreground font-mono mr-2">
             {numPages} {numPages === 1 ? 'pagină' : 'pagini'}
           </span>
