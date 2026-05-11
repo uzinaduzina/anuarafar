@@ -117,7 +117,8 @@ export default function ArticleView() {
   const citationVolume = issue?.volume ? `vol. ${issue.volume}` : '';
   const citationIssue = issue?.number ? `, nr. ${issue.number}` : '';
   const citationYear = issue?.year ? ` (${issue.year})` : '';
-  const citationPages = article.pages_start && article.pages_end ? `, pp. ${article.pages_start}–${article.pages_end}` : '';
+  const pageRange = article.pages_start && article.pages_end ? `${article.pages_start}-${article.pages_end}` : '';
+  const citationPages = pageRange ? `, pp. ${pageRange}` : '';
   const citationDoi = article.doi ? ` DOI: ${article.doi}.` : '';
   const citationText = `${authors.join(', ')}, „${article.title},” ${JOURNAL.name}${citationVolume ? `, ${citationVolume}${citationIssue}` : ''}${citationYear}${citationPages}.${citationDoi} ${citationUrl}`.trim();
   const citationYearValue = (issue?.year || '').match(/\d{4}/)?.[0] || '';
@@ -147,7 +148,7 @@ ${article.pages_end ? `EP  - ${article.pages_end}` : ''}
 ${article.doi ? `DO  - ${article.doi}` : ''}
 UR  - ${citationUrl}
 ER  -`.trim();
-  const apaCitation = `${authors.join(', ')}${citationYear ? ` ${citationYear}` : ''}. ${article.title}. ${JOURNAL.name}${citationVolume ? `, ${citationVolume}` : ''}${issue?.number ? `(${issue.number})` : ''}${article.pages_start && article.pages_end ? `, ${article.pages_start}–${article.pages_end}` : ''}.${article.doi ? ` https://doi.org/${article.doi.replace(/^https?:\/\/doi\.org\//i, '')}` : ` ${citationUrl}`}`.trim();
+  const apaCitation = `${authors.join(', ')}${citationYear ? ` ${citationYear}` : ''}. ${article.title}. ${JOURNAL.name}${citationVolume ? `, ${citationVolume}` : ''}${issue?.number ? `(${issue.number})` : ''}${pageRange ? `, ${pageRange}` : ''}.${article.doi ? ` https://doi.org/${article.doi.replace(/^https?:\/\/doi\.org\//i, '')}` : ` ${citationUrl}`}`.trim();
   const mlaCitation = `${authors.join(', ')}. "${article.title}." ${JOURNAL.name}${citationVolume ? `, vol. ${issue?.volume}` : ''}${issue?.number ? `, no. ${issue.number}` : ''}${issue?.year ? `, ${issue.year}` : ''}${article.pages_start && article.pages_end ? `, pp. ${article.pages_start}-${article.pages_end}` : ''}.${article.doi ? ` DOI: ${article.doi}` : ` ${citationUrl}`}`.trim();
   const chicagoCitation = `${authors.join(', ')}. "${article.title}." ${JOURNAL.name}${citationVolume ? ` ${citationVolume}` : ''}${issue?.number ? `, no. ${issue.number}` : ''}${issue?.year ? ` (${issue.year})` : ''}${article.pages_start && article.pages_end ? `: ${article.pages_start}-${article.pages_end}` : ''}.${article.doi ? ` https://doi.org/${article.doi.replace(/^https?:\/\/doi\.org\//i, '')}` : ` ${citationUrl}`}`.trim();
 
@@ -236,7 +237,7 @@ ER  -`.trim();
               {article.pages_start && (
                 <div>
                   <div className="text-[0.65rem] uppercase tracking-[0.08em] text-muted-foreground font-semibold">Pagini</div>
-                  <div className="font-medium">{article.pages_start}–{article.pages_end}</div>
+                  <div className="font-medium">{pageRange || article.pages_start}</div>
                 </div>
               )}
               <div>

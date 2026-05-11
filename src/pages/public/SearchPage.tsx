@@ -162,7 +162,7 @@ export default function SearchPage() {
                     <h3 className="font-serif text-lg font-bold leading-snug">{article.title}</h3>
                     <p className="mt-1 text-sm text-muted-foreground">{article.authors || 'Autor necunoscut'}</p>
                     <div className="mt-2 text-xs text-muted-foreground">
-                      {issue ? `${issue.title} · ${issue.year}` : 'Număr neidentificat'} · pag. {article.pages_start}–{article.pages_end}
+                      {issue ? `${issue.title} · ${issue.year}` : 'Număr neidentificat'} · pag. {article.pages_start}-{article.pages_end}
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Link

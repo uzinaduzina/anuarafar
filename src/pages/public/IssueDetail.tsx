@@ -163,7 +163,7 @@ export default function IssueDetail() {
                       <div key={article.id} className={`flex gap-5 p-4 ${seriesHoverBg[issue.series]} transition-colors group items-start`}>
                         <div className="text-[0.78rem] text-muted-foreground font-mono min-w-[60px] pt-0.5">
                           {article.pages_start && article.pages_end
-                            ? `pp. ${article.pages_start}–${article.pages_end}`
+                            ? `pp. ${article.pages_start}-${article.pages_end}`
                             : ''}
                         </div>
                         <Link to={`/article/${article.id}`} className="flex-1 min-w-0">
