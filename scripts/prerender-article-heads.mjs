@@ -170,13 +170,13 @@ async function main() {
 
     const headHtml = buildCitationHead(article, issue, journal);
     const articleHtml = injectHead(indexHtml, headHtml);
-    const outputDir = path.join(distDir, 'article', id);
+    const outputDir = path.join(distDir, 'article');
     await fs.mkdir(outputDir, { recursive: true });
-    await fs.writeFile(path.join(outputDir, 'index.html'), articleHtml, 'utf8');
+    await fs.writeFile(path.join(outputDir, `${id}.html`), articleHtml, 'utf8');
     count += 1;
   }
 
-  console.log(`Pre-rendered ${count} article HTML pages with Highwire citation metadata.`);
+  console.log(`Pre-rendered ${count} extensionless article HTML pages with Highwire citation metadata.`);
 }
 
 main().catch((error) => {
